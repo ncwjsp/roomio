@@ -1,0 +1,20 @@
+{
+  "name": "server",
+  "module": "server.js",
+  "type": "module",
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "express": "^4.21.1",
+    "nodemon": "^3.1.7"
+  },
+  "scripts": {
+    "start": "node server",
+    "dev": "nodemon server",
+    "test": "echo \"No tests specified\" && exit 0"
+  }
+}
