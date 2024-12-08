@@ -3,15 +3,15 @@ import Link from "next/link";
 import React from "react";
 import { useRouter } from "next/navigation";
 
-const Login = () => {
+const Register = () => {
   const router = useRouter();
 
-  const handleLogin = (e) => {
+  const handleRegister = (e) => {
     e.preventDefault();
-    // Add your login logic here (e.g., API call to authenticate user)
+    // Add your registration logic here (e.g., API call to create a new user)
 
-    // After successful login, navigate to the dashboard page
-    router.push("/dashboard");
+    // After successful registration, navigate to the login page
+    router.push("/login");
   };
 
   return (
@@ -21,8 +21,20 @@ const Login = () => {
           Room<span className="text-black">io</span>
         </h1>
         <h3 className="text-md font-semibold">Apartment Management System</h3>
-        <p className="text-sm text-gray-600 mt-4">Please Login your account</p>
-        <form className="mt-6" onSubmit={handleLogin}>
+        <p className="text-sm text-gray-600 mt-4">Create your account</p>
+        <form className="mt-6" onSubmit={handleRegister}>
+          <div className="flex space-x-4 mb-4">
+            <input
+              type="text"
+              placeholder="Firstname"
+              className="w-1/2 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2"
+            />
+            <input
+              type="text"
+              placeholder="Lastname"
+              className="w-1/2 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2"
+            />
+          </div>
           <input
             type="email"
             placeholder="Email"
@@ -33,27 +45,23 @@ const Login = () => {
             placeholder="Password"
             className="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4 focus:outline-none focus:ring-2"
           />
-          <div className="flex justify-between items-center mb-4">
-            <label className="flex items-center text-sm text-gray-600">
-              <input type="checkbox" className="mr-2" />
-              Remember me
-            </label>
-            <a href="#" className="text-sm hover:underline">
-              Forgot Password?
-            </a>
-          </div>
+          <input
+            type="password"
+            placeholder="Confirm Password"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4 focus:outline-none focus:ring-2"
+          />
           <button
             type="submit"
             className="w-full text-white"
             style={{ backgroundColor: "#898f63", padding: "0.5rem", borderRadius: "0.5rem" }}
           >
-            Log In
+            Register
           </button>
         </form>
         <p className="text-sm text-gray-600 mt-6">
-          New member here?{" "}
-          <Link href="/register" className="hover:underline">
-            Register Now
+          Already have an account?{" "}
+          <Link href="/login" className="hover:underline">
+            Login
           </Link>
         </p>
       </div>
@@ -61,4 +69,4 @@ const Login = () => {
   );
 };
 
-export default Login;
+export default Register;
