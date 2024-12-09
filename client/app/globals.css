@@ -33,3 +33,7 @@ h1 {
 a {
   color: var(--primary);
 }
+
+span {
+  color: var(--primary);
+}
