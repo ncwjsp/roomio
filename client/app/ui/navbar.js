@@ -14,89 +14,44 @@ export default function Navbar() {
     return null; // Do not render Navbar
   }
 
+  // Helper function to check if the link is active
+  const isActive = (route) => pathname === route;
+
   return (
-    <div className="bg-gray-100 h-screen flex flex-col justify-between w-60 fixed">
+    <div className="bg-white h-screen flex flex-col justify-between w-60 fixed shadow">
       <div>
         {/* Brand Section */}
-        <div className="p-6 text-3xl font-bold text-center">
-          <span>Room</span>io
+        <div className="p-6 text-3xl font-bold text-center text-black">
+          <span className="text-[#889F63]">Room</span>io
         </div>
 
         {/* Navigation Links */}
         <nav className="mt-6">
           <ul>
-            <li className="mb-2">
-              <Link
-                href="/dashboard"
-                className="flex justify-center items-center px-6 py-3 text-gray-700 hover:bg-gray-200"
-              >
-                Dashboard
-              </Link>
-            </li>
-            <li className="mb-2">
-              <Link
-                href="/tenants"
-                className="flex justify-center items-center px-6 py-3 text-gray-700 hover:bg-gray-200"
-              >
-                Tenants
-              </Link>
-            </li>
-            <li className="mb-2">
-              <Link
-                href="/utility-usage"
-                className="flex justify-center items-center px-6 py-3 text-gray-700 hover:bg-gray-200"
-              >
-                Utility Usage
-              </Link>
-            </li>
-            <li className="mb-2">
-              <Link
-                href="/billing"
-                className="flex justify-center items-center px-6 py-3 text-gray-700 hover:bg-gray-200"
-              >
-                Billing
-              </Link>
-            </li>
-            <li className="mb-2">
-              <Link
-                href="/cleaning"
-                className="flex justify-center items-center px-6 py-3 text-gray-700 hover:bg-gray-200"
-              >
-                Cleaning
-              </Link>
-            </li>
-            <li className="mb-2">
-              <Link
-                href="/maintenance"
-                className="flex justify-center items-center px-6 py-3 text-gray-700 hover:bg-gray-200"
-              >
-                Maintenance
-              </Link>
-            </li>
-            <li className="mb-2">
-              <Link
-                href="/staffs"
-                className="flex justify-center items-center px-6 py-3 text-gray-700 hover:bg-gray-200"
-              >
-                Staffs
-              </Link>
-            </li>
-            <li className="mb-2">
-              <Link
-                href="/parcels"
-                className="flex justify-center items-center px-6 py-3 text-gray-700 hover:bg-gray-200"
-              >
-                Parcels
-              </Link>
-            </li>
-            <li className="mb-2">
-              <Link
-                href="/inventory"
-                className="flex justify-center items-center px-6 py-3 text-gray-700 hover:bg-gray-200"
-              >
-                Inventory
-              </Link>
-            </li>
+            {[
+              { name: "Dashboard", route: "/dashboard" },
+              { name: "Tenants", route: "/tenants" },
+              { name: "Utility Usage", route: "/utility-usage" },
+              { name: "Billing", route: "/billing" },
+              { name: "Cleaning", route: "/cleaning" },
+              { name: "Maintenance", route: "/maintenance" },
+              { name: "Staffs", route: "/staffs" },
+              { name: "Parcels", route: "/parcels" },
+              { name: "Inventory", route: "/inventory" },
+            ].map((link) => (
+              <li className="mb-2" key={link.route}>
+                <Link
+                  href={link.route}
+                  className={`flex justify-center items-center px-6 py-3 rounded ${
+                    isActive(link.route)
+                      ? "bg-[#889F63] text-white"
+                      : "text-black hover:bg-gray-200"
+                  }`}
+                >
+                  {link.name}
+                </Link>
+              </li>
+            ))}
           </ul>
         </nav>
       </div>
@@ -105,11 +60,15 @@ export default function Navbar() {
       <div className="mb-4">
         <Link
           href="/setting"
-          className="flex justify-center items-center px-6 py-3 text-gray-700 hover:bg-gray-200"
+          className={`flex justify-center items-center px-6 py-3 rounded ${
+            isActive("/setting")
+              ? "bg-[#889F63] text-white"
+              : "text-black hover:bg-gray-200"
+          }`}
         >
           Setting
         </Link>
-        <button className="w-full py-3 text-gray-70 bg-gray-100 hover:bg-gray-300 rounded">
+        <button className="w-full py-3 text-black bg-white hover:bg-gray-300 rounded">
           Logout
         </button>
       </div>
