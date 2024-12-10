@@ -1,0 +1,10 @@
+[build]
+  command = "bun run build"
+  publish = ".next"
+  edge_functions = "netlify/edge-functions"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+[dev]
+  targetPort = 9000
