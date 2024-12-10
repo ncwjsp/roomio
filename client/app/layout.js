@@ -3,8 +3,6 @@ import "./globals.css";
 import Navbar from "@/app/ui/navbar";
 import 'bootstrap-icons/font/bootstrap-icons.css';
 
-
-
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
   variable: "--font-geist-sans",
@@ -27,8 +25,15 @@ export default function RootLayout({ children }) {
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <Navbar />
-        {children}
+        {/* Main Layout Container */}
+        <div className="flex min-h-screen bg-[#EBECE1]">
+          {/* Fixed Navbar */}
+          <div className="w-60 bg-white fixed h-full">
+            <Navbar />
+          </div>
+          {/* Main Content */}
+          <div className="ml-60 flex-1 p-5 overflow-auto">{children}</div>
+        </div>
       </body>
     </html>
   );
