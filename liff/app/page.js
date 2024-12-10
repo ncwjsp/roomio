@@ -1,13 +1,21 @@
+"use client";
+
 import Head from "next/head";
 import packageJson from "../package.json";
+import { useLIFF } from "@/app/providers";
+import { useEffect } from "react";
 
-export default function Home(props) {
-  /** You can access to liff and liffError object through the props.
-   *  const { liff, liffError } = props;
-   *  console.log(liff.getVersion());
-   *
-   *  Learn more about LIFF API documentation (https://developers.line.biz/en/reference/liff)
-   **/
+export default function Home() {
+  const { liffObject, liffError } = useLIFF();
+
+  // Optional: Example of using LIFF object if needed
+  useEffect(() => {
+    if (liffObject) {
+      // You can perform LIFF-specific operations here
+      console.log("LIFF Version:", liffObject.getVersion());
+    }
+  }, [liffObject]);
+
   return (
     <div>
       <Head>
@@ -66,6 +74,13 @@ export default function Home(props) {
             LINE Developers Console
           </a>
         </div>
+
+        {/* Optional: Add LIFF initialization status */}
+        {liffError && (
+          <div className="liff-error">
+            LIFF Initialization Error: {liffError}
+          </div>
+        )}
       </div>
     </div>
   );
