@@ -1,0 +1,108 @@
+import React from "react";
+
+const ParcelManagement = () => {
+  return (
+    <div className="flex h-screen">
+      {/* Sidebar */}
+      <div className="w-1/5 bg-gray-100 p-4">
+        <h1 className="text-2xl font-bold text-green-700 mb-6">Roomio</h1>
+        <ul>
+          {[
+            "Dashboard",
+            "Tenants",
+            "Utility Usage",
+            "Billing",
+            "Cleaning",
+            "Maintenance",
+            "Staffs",
+            "Parcels",
+            "Inventory",
+            "Settings",
+            "Logout",
+          ].map((item, index) => (
+            <li
+              key={index}
+              className={`p-2 mb-2 ${
+                item === "Parcels" ? "bg-green-200 font-semibold" : ""
+              } cursor-pointer hover:bg-green-100`}
+            >
+              {item}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Main Content */}
+      <div className="w-4/5 p-6 bg-gray-50">
+        {/* Header */}
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex gap-4">
+            <select className="p-2 border border-gray-300 rounded">
+              <option>Select Building</option>
+              {/* Add options dynamically */}
+            </select>
+            <input
+              type="text"
+              placeholder="Search Room"
+              className="p-2 border border-gray-300 rounded"
+            />
+            <button className="px-4 py-2 bg-gray-200 rounded">Uncollected Items</button>
+          </div>
+
+          <div>
+            <button className="px-4 py-2 border border-gray-300 rounded">Filter</button>
+          </div>
+        </div>
+
+        {/* Search Bar and Actions */}
+        <div className="flex gap-4 mb-6">
+          <input
+            type="text"
+            placeholder="Search Parcels"
+            className="flex-1 p-2 border border-gray-300 rounded"
+          />
+          <button className="px-4 py-2 bg-blue-500 text-white rounded">Mark As Collected</button>
+          <button className="px-4 py-2 bg-yellow-500 text-white rounded">Send Reminder</button>
+        </div>
+
+        {/* Actions Buttons */}
+        <div className="flex gap-4 mb-6">
+          <button className="px-4 py-2 bg-orange-500 text-white rounded">Edit Parcels</button>
+          <button className="px-4 py-2 bg-green-500 text-white rounded">Add Parcels</button>
+          <button className="px-4 py-2 bg-red-500 text-white rounded">Delete Parcels</button>
+        </div>
+
+        {/* Parcel List */}
+        <div className="space-y-4">
+          {[...Array(7)].map((_, index) => (
+            <div
+              key={index}
+              className="flex justify-between items-center p-4 bg-white border border-gray-300 rounded"
+            >
+              <div>
+                <p className="text-lg font-semibold">Room no. 101</p>
+                <p className="text-sm text-gray-500">Name: Nine</p>
+                <p className="text-sm text-gray-500">Tracking number: EX68372657965</p>
+              </div>
+              <div>
+                <span
+                  className={`px-3 py-1 text-sm rounded-full ${
+                    index === 5
+                      ? "bg-green-200 text-green-700"
+                      : "bg-red-200 text-red-700"
+                  }`}
+                >
+                  {index === 5 ? "collected" : "haven't collected"}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ParcelManagement;
+
+
