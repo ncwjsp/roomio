@@ -4,7 +4,7 @@ import { useState } from "react";
 
 const Tenants = () => {
   const buildings = ["A", "B", "C"];
-  const floors = Array.from({ length: 8 }, (_, i) => `${i + 1}th`);
+  const floors = Array.from({ length: 8 }, (_, i) => `${i + 1}`);
   const filters = ["Paid", "Unpaid", "Overdue"];
 
   const generateRooms = () => {
@@ -19,7 +19,15 @@ const Tenants = () => {
               : Math.random() > 0.5
               ? "Unpaid"
               : "Paid";
-          rooms.push({ number, status });
+          rooms.push({
+            number,
+            building,
+            floor,
+            status,
+            name: `Tenant ${number}`,
+            phone: `012-345-${number.slice(-3)}`,
+            connectedDate: "18/08/2022",
+          });
         }
       }
     });
@@ -31,58 +39,44 @@ const Tenants = () => {
   const [filteredFloor, setFilteredFloor] = useState("");
   const [filteredStatus, setFilteredStatus] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedRoom, setSelectedRoom] = useState(null);
 
   const filteredRooms = roomCards.filter((room) => {
     const matchesBuilding = filteredBuilding
       ? room.number.startsWith(filteredBuilding)
       : true;
     const matchesFloor = filteredFloor
-      ? room.number.includes(`${filteredBuilding}${filteredFloor}`)
+      ? room.floor.toString() === filteredFloor
       : true;
     const matchesStatus = filteredStatus ? room.status === filteredStatus : true;
     const matchesSearch = searchQuery
-      ? room.number.includes(searchQuery.toUpperCase())
+      ? room.number.includes(searchQuery)
       : true;
     return matchesBuilding && matchesFloor && matchesStatus && matchesSearch;
   });
 
-  const roomStats = [
-    {
-      title: "Occupancy rate",
-      value: "80%",
-      icon: "bi bi-people-fill",
-      iconColor: "text-[#898F63]",
-      bgColor: "bg-[#D9D9D9]",
-    },
-    {
-      title: "Vacant room",
-      value: "10 rooms",
-      icon: "bi bi-door-open-fill",
-      iconColor: "text-[#898F63]",
-      bgColor: "bg-[#D9D9D9]",
-    },
-    {
-      title: "Booking room",
-      value: "2 rooms",
-      icon: "bi bi-calendar2-check-fill",
-      iconColor: "text-[#898F63]",
-      bgColor: "bg-[#D9D9D9]",
-    },
-    {
-      title: "Overdue",
-      value: "25 rooms",
-      icon: "bi bi-cash-coin",
-      iconColor: "text-[#898F63]",
-      bgColor: "bg-[#D9D9D9]",
-    },
-  ];
+  const handleDelete = (roomNumber) => {
+    setRoomCards((prev) => prev.filter((room) => room.number !== roomNumber));
+    setSelectedRoom(null);
+  };
+
+  const handleMoveRoom = (oldRoomNumber, newRoomNumber) => {
+    setRoomCards((prev) =>
+      prev.map((room) =>
+        room.number === oldRoomNumber
+          ? { ...room, number: newRoomNumber }
+          : room
+      )
+    );
+    setSelectedRoom(null);
+  };
 
   return (
     <div className="flex flex-col items-center min-h-screen bg-[#EBECE1]">
       <div className="w-full max-w-6xl p-5">
         <h1 className="text-3xl font-semibold mb-4">Tenants</h1>
 
-        {/* Filters and Stats Section */}
+        {/* Filters Section */}
         <div className="bg-[#898F63] p-6 rounded-[10px] mb-8">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
             <select
@@ -104,16 +98,15 @@ const Tenants = () => {
               disabled={!filteredBuilding}
             >
               <option value="">Select Floor</option>
-              {floors.map((floor, index) => (
-                <option key={index} value={index + 1}>
+              {floors.map((floor) => (
+                <option key={floor} value={floor}>
                   {floor} Floor
                 </option>
               ))}
             </select>
           </div>
 
-          {/* Search and Filter Inputs */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
             <div className="flex items-center bg-white border border-gray-300 rounded-[10px] p-2">
               <input
                 type="text"
@@ -137,33 +130,13 @@ const Tenants = () => {
               ))}
             </select>
           </div>
-
-          {/* Room Stats Section */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {roomStats.map((stat, index) => (
-              <div
-                key={index}
-                className="p-4 bg-white rounded-[10px] shadow flex justify-between items-center"
-              >
-                <div>
-                  <p className="text-2xl font-bold">{stat.value}</p>
-                  <p className="text-sm text-gray-500">{stat.title}</p>
-                </div>
-                <div
-                  className={`w-10 h-10 flex items-center justify-center rounded-full ${stat.bgColor}`}
-                >
-                  <i className={`${stat.icon} ${stat.iconColor} text-xl`}></i>
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
 
         {/* Room Cards Section */}
         <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-          {filteredRooms.map((room, index) => (
+          {filteredRooms.map((room) => (
             <div
-              key={index}
+              key={room.number}
               className={`p-4 rounded-[10px] shadow flex flex-col items-center ${
                 room.status === "Paid"
                   ? "bg-[#E9F9F1] border border-[#009231]"
@@ -171,33 +144,55 @@ const Tenants = () => {
                   ? "bg-[#FFF5CC] border border-[#FFA600]"
                   : "bg-[#FDEAEA] border border-[#F30505]"
               }`}
+              onClick={() => setSelectedRoom(room)}
             >
               <div
-                className={`w-10 h-10 flex items-center justify-center rounded-full ${
-                  room.status === "Paid"
-                    ? "bg-[#D9F9D9]"
-                    : room.status === "Unpaid"
-                    ? "bg-[#FFF2E0]"
-                    : "bg-[#FDDADA]"
-                }`}
+                className={`w-10 h-10 flex items-center justify-center rounded-full bg-[#D9D9D9]`}
               >
                 <i className="bi bi-people-fill text-[#898F63] text-lg"></i>
               </div>
               <p className="text-lg font-bold mt-2">{room.number}</p>
-              <p
-                className={`text-sm ${
-                  room.status === "Paid"
-                    ? "text-[#009231]"
-                    : room.status === "Unpaid"
-                    ? "text-[#FFA600]"
-                    : "text-[#F30505]"
-                }`}
-              >
-                {room.status}
-              </p>
             </div>
           ))}
         </div>
+
+        {/* Modal */}
+        {selectedRoom && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
+            <div className="bg-white p-6 rounded-[10px] w-full max-w-md relative">
+              <button
+                className="absolute top-3 right-3 text-gray-500"
+                onClick={() => setSelectedRoom(null)}
+              >
+                &times;
+              </button>
+              <h2 className="text-lg font-bold mb-4">Room Details</h2>
+              <p>Building: {selectedRoom.building}</p>
+              <p>Floor: {selectedRoom.floor}th</p>
+              <p>Room No.: {selectedRoom.number}</p>
+              <p>Name: {selectedRoom.name}</p>
+              <p>Phone: {selectedRoom.phone}</p>
+              <p>
+                Connected with the apartment at: {selectedRoom.connectedDate}
+              </p>
+              <button
+                className="bg-red-500 text-white px-4 py-2 rounded mt-4"
+                onClick={() => handleDelete(selectedRoom.number)}
+              >
+                Delete Tenant
+              </button>
+              <button
+                className="bg-green-500 text-white px-4 py-2 rounded mt-4 ml-4"
+                onClick={() => {
+                  const newRoom = prompt("Enter new room number:");
+                  if (newRoom) handleMoveRoom(selectedRoom.number, newRoom);
+                }}
+              >
+                Move Room
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
