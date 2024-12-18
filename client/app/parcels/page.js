@@ -5,10 +5,12 @@ import React, { useState } from "react";
 export default function Parcels() {
   const [parcels, setParcels] = useState([
     { id: 1, roomNo: "101", name: "Nine", trackingNumber: "EX68372657965", collected: false },
-    { id: 2, roomNo: "101", name: "Nine", trackingNumber: "EX68372657965", collected: false },
-    { id: 3, roomNo: "101", name: "Nine", trackingNumber: "EX68372657965", collected: true },
-    { id: 4, roomNo: "101", name: "Nine", trackingNumber: "EX68372657965", collected: false },
+    { id: 2, roomNo: "102", name: "John", trackingNumber: "EX68372657966", collected: false },
+    { id: 3, roomNo: "103", name: "Alice", trackingNumber: "EX68372657967", collected: true },
+    { id: 4, roomNo: "104", name: "Bob", trackingNumber: "EX68372657968", collected: false },
   ]);
+
+  const [selectedParcels, setSelectedParcels] = useState([]);
 
   const toggleCollected = (id) => {
     setParcels(
@@ -16,6 +18,23 @@ export default function Parcels() {
         parcel.id === id ? { ...parcel, collected: !parcel.collected } : parcel
       )
     );
+  };
+
+  const handleSelectParcel = (id) => {
+    setSelectedParcels((prevSelected) =>
+      prevSelected.includes(id)
+        ? prevSelected.filter((parcelId) => parcelId !== id)
+        : [...prevSelected, id]
+    );
+  };
+
+  const sendReminder = () => {
+    selectedParcels.forEach((id) => {
+      const parcel = parcels.find((p) => p.id === id);
+      alert(`Reminder sent for ${parcel.name} (Room: ${parcel.roomNo})`);
+    });
+    // Clear selected parcels after sending reminders
+    setSelectedParcels([]);
   };
 
   return (
@@ -42,20 +61,25 @@ export default function Parcels() {
       </div>
 
       {/* Action Buttons */}
-      
       <div style={styles.buttonContainer}>
         <button style={styles.buttonEdit}>Edit Parcels</button>
         <button style={styles.buttonAdd}>Add Parcels</button>
         <button style={styles.buttonDelete}>Delete Parcels</button>
+        <button style={styles.reminderButton} onClick={sendReminder}>
+          Send Reminder
+        </button>
       </div>
 
       {/* Parcel List */}
       {parcels.map((parcel) => (
         <div key={parcel.id} style={styles.parcelItem}>
           <div>
-            <p>
-              <strong>Room no. {parcel.roomNo}</strong>
-            </p>
+            <input
+              type="checkbox"
+              checked={selectedParcels.includes(parcel.id)}
+              onChange={() => handleSelectParcel(parcel.id)}
+            />
+            <strong>Room no. {parcel.roomNo}</strong>
             <p>Name: {parcel.name}</p>
             <p>Tracking number: {parcel.trackingNumber}</p>
           </div>
@@ -186,6 +210,14 @@ const styles = {
   },
   buttonUncollected: {
     backgroundColor: "#B64D3D",
+    color: "white",
+    padding: "5px 10px",
+    borderRadius: "5px",
+    border: "none",
+    cursor: "pointer",
+  },
+  reminderButton: {
+    backgroundColor: "#007BFF",
     color: "white",
     padding: "5px 10px",
     borderRadius: "5px",
