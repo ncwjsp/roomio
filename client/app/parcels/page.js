@@ -11,6 +11,7 @@ export default function Parcels() {
   ]);
 
   const [selectedParcels, setSelectedParcels] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const toggleCollected = (id) => {
     setParcels(
@@ -37,6 +38,12 @@ export default function Parcels() {
     setSelectedParcels([]);
   };
 
+  // Filter parcels based on search term
+  const filteredParcels = parcels.filter(parcel => 
+    parcel.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    parcel.trackingNumber.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <div style={styles.container}>
       {/* Top Section */}
@@ -48,7 +55,12 @@ export default function Parcels() {
         </select>
 
         <div style={styles.searchContainer}>
-          <input style={styles.searchInput} placeholder="Search Room" />
+          <input 
+            style={styles.searchInput} 
+            placeholder="Search by Name or Tracking Number" 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)} 
+          />
           <button style={styles.searchButton}>🔍</button>
         </div>
 
@@ -71,7 +83,7 @@ export default function Parcels() {
       </div>
 
       {/* Parcel List */}
-      {parcels.map((parcel) => (
+      {filteredParcels.map((parcel) => (
         <div key={parcel.id} style={styles.parcelItem}>
           <div>
             <input
@@ -108,7 +120,7 @@ const styles = {
   topSection: {
     display: "flex",
     justifyContent: "space-between",
-    alignItems: "center",
+ alignItems: "center",
     marginBottom: "20px",
     gap: "10px",
   },
