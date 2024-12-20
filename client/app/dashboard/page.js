@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   PieChart,
   Pie,
@@ -174,6 +174,16 @@ const Dashboard = () => {
   const [selectedCard, setSelectedCard] = useState(null);
   const [view, setView] = useState("Monthly"); // Toggle between Monthly and Yearly
   const [selectedYear, setSelectedYear] = useState("2024");
+  const [isMounted, setIsMounted] = useState(false); // State to track component mount
+
+  // UseEffect to ensure that hydration occurs correctly by setting `isMounted` to true after initial render
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  if (!isMounted) {
+    return null; // This prevents the component from rendering until after the first render
+  }
 
   const renderPieChart = (data, title) => (
     <div className="p-4 bg-white rounded-[10px] shadow flex items-center">
@@ -287,7 +297,9 @@ const Dashboard = () => {
             <button
               onClick={() => setView("Monthly")}
               className={`px-4 py-2 ${
-                view === "Monthly" ? "bg-[#898F63] text-white" : "bg-white text-black"
+                view === "Monthly"
+                  ? "bg-[#898F63] text-white"
+                  : "bg-white text-black"
               } rounded-[10px] mr-4`}
             >
               Monthly
@@ -295,7 +307,9 @@ const Dashboard = () => {
             <button
               onClick={() => setView("Yearly")}
               className={`px-4 py-2 ${
-                view === "Yearly" ? "bg-[#898F63] text-white" : "bg-white text-black"
+                view === "Yearly"
+                  ? "bg-[#898F63] text-white"
+                  : "bg-white text-black"
               } rounded-[10px]`}
             >
               Yearly
@@ -365,7 +379,9 @@ const Dashboard = () => {
             <button
               onClick={() => setTab("Overview")}
               className={`px-6 py-2 ${
-                tab === "Overview" ? "bg-[#898F63] text-white" : "bg-white text-black"
+                tab === "Overview"
+                  ? "bg-[#898F63] text-white"
+                  : "bg-white text-black"
               }`}
             >
               Overview
