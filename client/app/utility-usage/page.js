@@ -17,7 +17,8 @@ const Utility = () => {
           const waterRate = 10; // Per unit cost
           const totalCost =
             electricityUsage * electricityRate +
-            waterUsage * waterRate + " bath";
+            waterUsage * waterRate +
+            " bath";
           const paymentStatus =
             Math.random() > 0.7
               ? "Overdue"
@@ -125,7 +126,9 @@ const Utility = () => {
                 >
                   <td className="p-4 text-center">{utility.building}</td>
                   <td className="p-4 text-center">{utility.number}</td>
-                  <td className="p-4 text-center">{utility.electricityUsage}</td>
+                  <td className="p-4 text-center">
+                    {utility.electricityUsage}
+                  </td>
                   <td className="p-4 text-center">{utility.electricityRate}</td>
                   <td className="p-4 text-center">{utility.waterUsage}</td>
                   <td className="p-4 text-center">{utility.waterRate}</td>

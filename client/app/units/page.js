@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-const Tenants = () => {
+const Units = () => {
   const buildings = ["A", "B", "C"];
   const floors = Array.from({ length: 8 }, (_, i) => `${i + 1}`);
   const filters = ["Paid", "Unpaid", "Overdue"];
@@ -40,6 +40,8 @@ const Tenants = () => {
   const [filteredStatus, setFilteredStatus] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedRoom, setSelectedRoom] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
 
   const filteredRooms = roomCards.filter((room) => {
     const matchesBuilding = filteredBuilding
@@ -56,6 +58,12 @@ const Tenants = () => {
       : true;
     return matchesBuilding && matchesFloor && matchesStatus && matchesSearch;
   });
+
+  const totalPages = Math.ceil(filteredRooms.length / itemsPerPage);
+  const paginatedRooms = filteredRooms.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   const handleDelete = (roomNumber) => {
     setRoomCards((prev) => prev.filter((room) => room.number !== roomNumber));
@@ -136,7 +144,7 @@ const Tenants = () => {
 
         {/* Room Cards Section */}
         <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-          {filteredRooms.map((room) => (
+          {paginatedRooms.map((room) => (
             <div
               key={room.number}
               className={`p-4 rounded-[10px] shadow flex flex-col items-center ${
@@ -156,6 +164,29 @@ const Tenants = () => {
               <p className="text-lg font-bold mt-2">{room.number}</p>
             </div>
           ))}
+        </div>
+
+        {/* Pagination Section */}
+        <div className="flex justify-center mt-6">
+          <button
+            className="px-4 py-2 bg-gray-200 rounded-md mx-1"
+            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+            disabled={currentPage === 1}
+          >
+            Previous
+          </button>
+          <span className="px-4 py-2 bg-gray-100 rounded-md mx-1">
+            Page {currentPage} of {totalPages}
+          </span>
+          <button
+            className="px-4 py-2 bg-gray-200 rounded-md mx-1"
+            onClick={() =>
+              setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+            }
+            disabled={currentPage === totalPages}
+          >
+            Next
+          </button>
         </div>
 
         {/* Modal */}
@@ -200,4 +231,4 @@ const Tenants = () => {
   );
 };
 
-export default Tenants;
+export default Units;

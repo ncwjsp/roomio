@@ -2,6 +2,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 import Navbar from "@/app/ui/navbar";
 import "bootstrap-icons/font/bootstrap-icons.css";
+import SessionWrapper from "./components/SessionWrapper";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -21,18 +22,20 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        {/* Main Layout Container */}
-        <div className="flex min-h-screen bg-[#EBECE1]">
-          {/* Fixed Navbar */}
-          <Navbar />
-          {/* Main Content */}
-          <div className="ml-60 flex-1 p-5 overflow-auto">{children}</div>
-        </div>
-      </body>
-    </html>
+    <SessionWrapper>
+      <html lang="en">
+        <body
+          className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        >
+          {/* Main Layout Container */}
+          <div className="flex min-h-screen bg-[#EBECE1]">
+            {/* Fixed Navbar */}
+            <Navbar />
+            {/* Main Content */}
+            <div className="flex-1 p-5 overflow-auto">{children}</div>
+          </div>
+        </body>
+      </html>
+    </SessionWrapper>
   );
 }
