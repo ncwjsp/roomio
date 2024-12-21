@@ -1,33 +1,59 @@
 "use client";
 
 import { useState } from "react";
+import "bootstrap/dist/css/bootstrap.min.css";
+import "bootstrap/dist/js/bootstrap.bundle.min.js";
 
 const Units = () => {
   const buildings = ["A", "B", "C"];
-  const floors = Array.from({ length: 8 }, (_, i) => `${i + 1}`);
-  const filters = ["Paid", "Unpaid", "Overdue"];
+  const roomTypes = ["Studio", "One-Bedroom", "Duplex"];
+  const roomDetails = {
+    Studio: {
+      size: "30 sqm",
+      price: "10,000 THB/month",
+      features: "1 Room, 1 Bathroom, 1 Kitchen",
+      capacity: "2 persons",
+      floors: ["4", "5", "6"],
+      images: [
+        "/images/studio.jpeg",
+        "/images/studio_bath1.jpeg",
+        "/images/studio_bath2.jpeg",
+      ],
+    },
+    "One-Bedroom": {
+      size: "45 sqm",
+      price: "15,000 THB/month",
+      features: "1 Bedroom, 1 Bathroom, 1 Kitchen",
+      capacity: "2 persons",
+      floors: ["1", "2", "3"],
+      images: [
+        "/images/ob.jpeg",
+        "/images/ob_living.jpeg",
+        "/images/ob_bath.jpeg",
+      ],
+    },
+    Duplex: {
+      size: "70 sqm",
+      price: "25,000 THB/month",
+      features: "2 Bedrooms, 2 Bathrooms, 1 Kitchen",
+      capacity: "4 persons",
+      floors: ["7", "8"],
+      images: [
+        "/images/duplex.jpeg",
+        "/images/duplex_bath.jpeg",
+        "/images/duplex_wash.jpeg",
+      ],
+    },
+  };
 
   const generateRooms = () => {
     let rooms = [];
     buildings.forEach((building) => {
       for (let floor = 1; floor <= 8; floor++) {
-        for (let room = 1; room <= 20; room++) {
-          const number = `${building}${floor}0${room > 9 ? "" : "0"}${room}`;
-          const status =
-            Math.random() > 0.7
-              ? "Overdue"
-              : Math.random() > 0.5
-              ? "Unpaid"
-              : "Paid";
-          rooms.push({
-            number,
-            building,
-            floor,
-            status,
-            name: `Tenant ${number}`,
-            phone: `012-345-${number.slice(-3)}`,
-            connectedDate: "18/08/2022",
-          });
+        for (let room = 1; room <= 10; room++) {
+          const number = `${building}${floor}0${room}`;
+          const status = Math.random() > 0.7 ? "Available" : "Occupied";
+          rooms.push({ number, building, floor, status, tenant: null });
         }
       }
     });
@@ -35,198 +61,265 @@ const Units = () => {
   };
 
   const [roomCards, setRoomCards] = useState(generateRooms());
-  const [filteredBuilding, setFilteredBuilding] = useState("");
-  const [filteredFloor, setFilteredFloor] = useState("");
-  const [filteredStatus, setFilteredStatus] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedBuilding, setSelectedBuilding] = useState("");
+  const [selectedRoomType, setSelectedRoomType] = useState("");
+  const [showRooms, setShowRooms] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 20;
 
   const filteredRooms = roomCards.filter((room) => {
-    const matchesBuilding = filteredBuilding
-      ? room.number.startsWith(filteredBuilding)
+    const matchesBuilding = selectedBuilding
+      ? room.number.startsWith(selectedBuilding)
       : true;
-    const matchesFloor = filteredFloor
-      ? room.floor.toString() === filteredFloor
+    const matchesRoomType = selectedRoomType
+      ? roomDetails[selectedRoomType]?.floors.includes(room.floor.toString())
       : true;
-    const matchesStatus = filteredStatus
-      ? room.status === filteredStatus
-      : true;
-    const matchesSearch = searchQuery
-      ? room.number.includes(searchQuery)
-      : true;
-    return matchesBuilding && matchesFloor && matchesStatus && matchesSearch;
+    return matchesBuilding && matchesRoomType;
   });
 
-  const totalPages = Math.ceil(filteredRooms.length / itemsPerPage);
-  const paginatedRooms = filteredRooms.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
-
-  const handleDelete = (roomNumber) => {
-    setRoomCards((prev) => prev.filter((room) => room.number !== roomNumber));
+  const handleSaveTenant = (roomNumber, tenant) => {
+    setRoomCards((prev) =>
+      prev.map((room) =>
+        room.number === roomNumber ? { ...room, tenant, status: "Occupied" } : room
+      )
+    );
     setSelectedRoom(null);
   };
 
-  const handleMoveRoom = (oldRoomNumber, newRoomNumber) => {
+  const handleDeleteTenant = (roomNumber) => {
     setRoomCards((prev) =>
       prev.map((room) =>
-        room.number === oldRoomNumber
-          ? { ...room, number: newRoomNumber }
-          : room
+        room.number === roomNumber ? { ...room, tenant: null, status: "Available" } : room
       )
     );
     setSelectedRoom(null);
   };
 
   return (
-    <div className="flex flex-col items-center min-h-screen bg-[#EBECE1]">
-      <div className="w-full max-w-6xl p-5">
-        <h1 className="text-3xl font-semibold mb-4">Tenants</h1>
+    <div className="container py-5">
+      <h1 className="text-center mb-5">Units</h1>
 
-        {/* Filters Section */}
-        <div className="bg-[#898F63] p-6 rounded-[10px] mb-8">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-            <select
-              className="px-4 py-2 bg-white rounded-[10px] border border-gray-300"
-              value={filteredBuilding}
-              onChange={(e) => setFilteredBuilding(e.target.value)}
-            >
-              <option value="">Select Building</option>
-              {buildings.map((building) => (
-                <option key={building} value={building}>
-                  Building {building}
-                </option>
-              ))}
-            </select>
-            <select
-              className="px-4 py-2 bg-white rounded-[10px] border border-gray-300"
-              value={filteredFloor}
-              onChange={(e) => setFilteredFloor(e.target.value)}
-              disabled={!filteredBuilding}
-            >
-              <option value="">Select Floor</option>
-              {floors.map((floor) => (
-                <option key={floor} value={floor}>
-                  {floor} Floor
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
-            <div className="flex items-center bg-white border border-gray-300 rounded-[10px] p-2">
-              <input
-                type="text"
-                placeholder="Search Rooms"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value.toUpperCase())}
-                className="flex-grow px-2 text-sm text-gray-500 focus:outline-none"
-              />
-              <i className="bi bi-search text-gray-500"></i>
-            </div>
-            <select
-              className="px-4 py-2 bg-white rounded-[10px] border border-gray-300"
-              value={filteredStatus}
-              onChange={(e) => setFilteredStatus(e.target.value)}
-            >
-              <option value="">Filter Rooms</option>
-              {filters.map((filter) => (
-                <option key={filter} value={filter}>
-                  {filter}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* Room Cards Section */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-          {paginatedRooms.map((room) => (
+      {/* Room Types Section */}
+      {!showRooms && (
+        <div className="row g-4">
+          {roomTypes.map((type, index) => (
             <div
-              key={room.number}
-              className={`p-4 rounded-[10px] shadow flex flex-col items-center ${
-                room.status === "Paid"
-                  ? "bg-[#E9F9F1] border border-[#009231]"
-                  : room.status === "Unpaid"
-                  ? "bg-[#FFF5CC] border border-[#FFA600]"
-                  : "bg-[#FDEAEA] border border-[#F30505]"
-              }`}
-              onClick={() => setSelectedRoom(room)}
+              key={index}
+              className="col-md-4"
+              onClick={() => setSelectedRoomType(type)}
             >
-              <div
-                className={`w-10 h-10 flex items-center justify-center rounded-full bg-[#D9D9D9]`}
-              >
-                <i className="bi bi-people-fill text-[#898F63] text-lg"></i>
+              <div className="card shadow-sm" style={{ width: "18rem" }}>
+                <div
+                  id={`carousel-${type}`}
+                  className="carousel slide"
+                  data-bs-ride="carousel"
+                >
+                  <div className="carousel-inner">
+                    {roomDetails[type].images.map((image, idx) => (
+                      <div
+                        className={`carousel-item ${idx === 0 ? "active" : ""}`}
+                        key={idx}
+                      >
+                        <img
+                          src={image}
+                          className="d-block w-100"
+                          alt={`${type} Room`}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    className="carousel-control-prev"
+                    type="button"
+                    data-bs-target={`#carousel-${type}`}
+                    data-bs-slide="prev"
+                  >
+                    <span
+                      className="carousel-control-prev-icon"
+                      aria-hidden="true"
+                    ></span>
+                    <span className="visually-hidden">Previous</span>
+                  </button>
+                  <button
+                    className="carousel-control-next"
+                    type="button"
+                    data-bs-target={`#carousel-${type}`}
+                    data-bs-slide="next"
+                  >
+                    <span
+                      className="carousel-control-next-icon"
+                      aria-hidden="true"
+                    ></span>
+                    <span className="visually-hidden">Next</span>
+                  </button>
+                </div>
+                <div className="card-body">
+                  <h5 className="card-title">{type}</h5>
+                  <p className="card-text">
+                    <strong>Size:</strong> {roomDetails[type].size}
+                  </p>
+                  <p className="card-text">
+                    <strong>Price:</strong> {roomDetails[type].price}
+                  </p>
+                  <p className="card-text">
+                    <strong>Features:</strong> {roomDetails[type].features}
+                  </p>
+                  <p className="card-text">
+                    <strong>Capacity:</strong> {roomDetails[type].capacity}
+                  </p>
+                </div>
               </div>
-              <p className="text-lg font-bold mt-2">{room.number}</p>
             </div>
           ))}
         </div>
+      )}
 
-        {/* Pagination Section */}
-        <div className="flex justify-center mt-6">
-          <button
-            className="px-4 py-2 bg-gray-200 rounded-md mx-1"
-            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-            disabled={currentPage === 1}
-          >
-            Previous
-          </button>
-          <span className="px-4 py-2 bg-gray-100 rounded-md mx-1">
-            Page {currentPage} of {totalPages}
-          </span>
-          <button
-            className="px-4 py-2 bg-gray-200 rounded-md mx-1"
-            onClick={() =>
-              setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-            }
-            disabled={currentPage === totalPages}
-          >
-            Next
-          </button>
-        </div>
-
-        {/* Modal */}
-        {selectedRoom && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
-            <div className="bg-white p-6 rounded-[10px] w-full max-w-md relative">
-              <button
-                className="absolute top-3 right-3 text-gray-500"
-                onClick={() => setSelectedRoom(null)}
+      {/* Filter Section */}
+      {selectedRoomType && !showRooms && (
+        <div
+          className="p-4 rounded shadow-sm my-4"
+          style={{ backgroundColor: "#898F63", color: "#fff" }}
+        >
+          <h4>Filter Rooms</h4>
+          <div className="row g-2">
+            <div className="col-md-6">
+              <select
+                className="form-select"
+                value={selectedBuilding}
+                onChange={(e) => setSelectedBuilding(e.target.value)}
               >
-                &times;
-              </button>
-              <h2 className="text-lg font-bold mb-4">Room Details</h2>
-              <p>Building: {selectedRoom.building}</p>
-              <p>Floor: {selectedRoom.floor}th</p>
-              <p>Room No.: {selectedRoom.number}</p>
-              <p>Name: {selectedRoom.name}</p>
-              <p>Phone: {selectedRoom.phone}</p>
-              <p>
-                Connected with the apartment at: {selectedRoom.connectedDate}
-              </p>
+                <option value="">Select Building</option>
+                {buildings.map((building) => (
+                  <option key={building} value={building}>
+                    Building {building}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="col-md-6">
               <button
-                className="bg-red-500 text-white px-4 py-2 rounded mt-4"
-                onClick={() => handleDelete(selectedRoom.number)}
-              >
-                Delete Tenant
-              </button>
-              <button
-                className="bg-green-500 text-white px-4 py-2 rounded mt-4 ml-4"
-                onClick={() => {
-                  const newRoom = prompt("Enter new room number:");
-                  if (newRoom) handleMoveRoom(selectedRoom.number, newRoom);
+                className="btn"
+                style={{
+                  backgroundColor: "white",
+                  color: "#898F63",
+                  width: "100%",
+                  border: "1px solid #898F63",
                 }}
+                onClick={() => setShowRooms(true)}
               >
-                Move Room
+                Show Rooms
               </button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* Room Availability Section */}
+      {showRooms && (
+        <div>
+          <button
+            className="btn mb-4"
+            style={{ backgroundColor: "#898F63", color: "#fff" }}
+            onClick={() => {
+              setSelectedBuilding("");
+              setSelectedRoomType("");
+              setShowRooms(false);
+            }}
+          >
+            Back
+          </button>
+          <div className="row g-3">
+            {filteredRooms.map((room) => (
+              <div
+                key={room.number}
+                className={`col-md-2 p-3 text-center rounded ${
+                  room.status === "Available"
+                    ? "text-white"
+                    : "bg-light text-dark border"
+                }`}
+                style={{
+                  backgroundColor: room.status === "Available" ? "#898F63" : "white",
+                  cursor: "pointer",
+                }}
+                onClick={() => setSelectedRoom(room)}
+              >
+                <h5>{room.number}</h5>
+                <p className="mb-0">{room.status}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Room Details Modal */}
+      {selectedRoom && (
+        <div className="modal show d-block" tabIndex="-1" role="dialog">
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Room {selectedRoom.number}</h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setSelectedRoom(null)}
+                ></button>
+              </div>
+              <div className="modal-body">
+                {selectedRoom.status === "Occupied" ? (
+                  <div>
+                    <h6>Tenant Information</h6>
+                    <p>
+                      <strong>Name:</strong> {selectedRoom.tenant?.name || ""}
+                    </p>
+                    <p>
+                      <strong>Phone:</strong> {selectedRoom.tenant?.phone || ""}
+                    </p>
+                    <button
+                      className="btn btn-danger"
+                      onClick={() => handleDeleteTenant(selectedRoom.number)}
+                    >
+                      Remove Tenant
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <h6>Add Tenant</h6>
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const name = e.target.name.value;
+                        const phone = e.target.phone.value;
+                        handleSaveTenant(selectedRoom.number, { name, phone });
+                      }}
+                    >
+                      <div className="mb-3">
+                        <label className="form-label">Name</label>
+                        <input
+                          type="text"
+                          name="name"
+                          className="form-control"
+                          required
+                        />
+                      </div>
+                      <div className="mb-3">
+                        <label className="form-label">Phone</label>
+                        <input
+                          type="text"
+                          name="phone"
+                          className="form-control"
+                          required
+                        />
+                      </div>
+                      <button type="submit" className="btn btn-primary">
+                        Save Tenant
+                      </button>
+                    </form>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
