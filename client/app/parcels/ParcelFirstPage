@@ -1,108 +1,164 @@
-import React from "react";
+import React, { useState } from "react";
 
-const ParcelManagement = () => {
+function AddParcelsForm() {
+  const [formData, setFormData] = useState({
+    building: "",
+    roomNumber: "",
+    name: "",
+    trackingNumber: "",
+  });
+
+  // Handle input changes
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+  };
+
+  // Handle form submission
+  const handleSubmit = () => {
+    console.log("Form Data Submitted:", formData);
+  };
+
   return (
-    <div className="flex h-screen">
-      {/* Sidebar */}
-      <div className="w-1/5 bg-gray-100 p-4">
-        <h1 className="text-2xl font-bold text-green-700 mb-6">Roomio</h1>
-        <ul>
-          {[
-            "Dashboard",
-            "Tenants",
-            "Utility Usage",
-            "Billing",
-            "Cleaning",
-            "Maintenance",
-            "Staffs",
-            "Parcels",
-            "Inventory",
-            "Settings",
-            "Logout",
-          ].map((item, index) => (
-            <li
-              key={index}
-              className={`p-2 mb-2 ${
-                item === "Parcels" ? "bg-green-200 font-semibold" : ""
-              } cursor-pointer hover:bg-green-100`}
-            >
-              {item}
-            </li>
-          ))}
-        </ul>
+    <div style={styles.container}>
+      <h2 style={styles.heading}>Add Parcels Information</h2>
+
+      {/* Select Building */}
+      <div style={styles.inputContainer}>
+        <label style={styles.label}>Select Building</label>
+        <select
+          name="building"
+          value={formData.building}
+          onChange={handleChange}
+          style={styles.selectInput}
+        >
+          <option value="">Select Building</option>
+          <option value="Building A">Building A</option>
+          <option value="Building B">Building B</option>
+          <option value="Building C">Building C</option>
+        </select>
       </div>
 
-      {/* Main Content */}
-      <div className="w-4/5 p-6 bg-gray-50">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex gap-4">
-            <select className="p-2 border border-gray-300 rounded">
-              <option>Select Building</option>
-              {/* Add options dynamically */}
-            </select>
-            <input
-              type="text"
-              placeholder="Search Room"
-              className="p-2 border border-gray-300 rounded"
-            />
-            <button className="px-4 py-2 bg-gray-200 rounded">Uncollected Items</button>
-          </div>
-
-          <div>
-            <button className="px-4 py-2 border border-gray-300 rounded">Filter</button>
-          </div>
-        </div>
-
-        {/* Search Bar and Actions */}
-        <div className="flex gap-4 mb-6">
+      {/* Room Number and Name */}
+      <div style={styles.rowContainer}>
+        <div style={styles.inputGroup}>
+          <label style={styles.label}>Room no.</label>
           <input
             type="text"
-            placeholder="Search Parcels"
-            className="flex-1 p-2 border border-gray-300 rounded"
+            name="roomNumber"
+            value={formData.roomNumber}
+            onChange={handleChange}
+            placeholder="Enter room number"
+            style={styles.input}
           />
-          <button className="px-4 py-2 bg-blue-500 text-white rounded">Mark As Collected</button>
-          <button className="px-4 py-2 bg-yellow-500 text-white rounded">Send Reminder</button>
         </div>
+        <div style={styles.inputGroup}>
+          <label style={styles.label}>Name</label>
+          <input
+            type="text"
+            name="name"
+            value={formData.name}
+            onChange={handleChange}
+            placeholder="Enter name"
+            style={styles.input}
+          />
+        </div>
+      </div>
 
-        {/* Actions Buttons */}
-        <div className="flex gap-4 mb-6">
-          <button className="px-4 py-2 bg-orange-500 text-white rounded">Edit Parcels</button>
-          <button className="px-4 py-2 bg-green-500 text-white rounded">Add Parcels</button>
-          <button className="px-4 py-2 bg-red-500 text-white rounded">Delete Parcels</button>
-        </div>
+      {/* Tracking Number */}
+      <div style={styles.inputContainer}>
+        <label style={styles.label}>
+          Tracking Number{" "}
+          <span style={styles.hint}>
+            **if have more than one tracking number use comma to separate
+          </span>
+        </label>
+        <input
+          type="text"
+          name="trackingNumber"
+          value={formData.trackingNumber}
+          onChange={handleChange}
+          placeholder="Enter tracking number"
+          style={styles.input}
+        />
+      </div>
 
-        {/* Parcel List */}
-        <div className="space-y-4">
-          {[...Array(7)].map((_, index) => (
-            <div
-              key={index}
-              className="flex justify-between items-center p-4 bg-white border border-gray-300 rounded"
-            >
-              <div>
-                <p className="text-lg font-semibold">Room no. 101</p>
-                <p className="text-sm text-gray-500">Name: Nine</p>
-                <p className="text-sm text-gray-500">Tracking number: EX68372657965</p>
-              </div>
-              <div>
-                <span
-                  className={`px-3 py-1 text-sm rounded-full ${
-                    index === 5
-                      ? "bg-green-200 text-green-700"
-                      : "bg-red-200 text-red-700"
-                  }`}
-                >
-                  {index === 5 ? "collected" : "haven't collected"}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
+      {/* Done Button */}
+      <div style={styles.buttonContainer}>
+        <button onClick={handleSubmit} style={styles.doneButton}>
+          Done
+        </button>
       </div>
     </div>
   );
+}
+
+// Styles
+const styles = {
+  container: {
+    backgroundColor: "#F4F3EC",
+    padding: "40px",
+    maxWidth: "700px",
+    margin: "auto",
+    borderRadius: "10px",
+    fontFamily: "Arial, sans-serif",
+  },
+  heading: {
+    marginBottom: "20px",
+    fontSize: "24px",
+    color: "#333",
+  },
+  inputContainer: {
+    marginBottom: "20px",
+  },
+  rowContainer: {
+    display: "flex",
+    justifyContent: "space-between",
+    marginBottom: "20px",
+  },
+  inputGroup: {
+    width: "48%",
+  },
+  label: {
+    display: "block",
+    marginBottom: "8px",
+    fontSize: "14px",
+    color: "#333",
+    fontWeight: "bold",
+  },
+  hint: {
+    color: "#E98C6C",
+    fontSize: "12px",
+    marginLeft: "5px",
+  },
+  input: {
+    width: "100%",
+    padding: "10px",
+    border: "1px solid #ccc",
+    borderRadius: "5px",
+  },
+  selectInput: {
+    width: "100%",
+    padding: "10px",
+    border: "1px solid #ccc",
+    borderRadius: "5px",
+    backgroundColor: "#fff",
+  },
+  buttonContainer: {
+    display: "flex",
+    justifyContent: "flex-end",
+    marginTop: "20px",
+  },
+  doneButton: {
+    backgroundColor: "#8E9169",
+    color: "white",
+    padding: "10px 30px",
+    border: "none",
+    borderRadius: "5px",
+    cursor: "pointer",
+    fontSize: "16px",
+    fontWeight: "bold",
+  },
 };
 
-export default ParcelManagement;
-
-
+export default AddParcelsForm;

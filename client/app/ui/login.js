@@ -1,17 +1,34 @@
 "use client";
 import Link from "next/link";
-import React from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
 
 const Login = () => {
   const router = useRouter();
 
-  const handleLogin = (e) => {
-    e.preventDefault();
-    // Add your login logic here (e.g., API call to authenticate user)
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
-    // After successful login, navigate to the dashboard page
-    router.push("/dashboard");
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    try {
+      const res = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+      });
+
+      if (res.error) {
+        return;
+      }
+
+      router.push("/dashboard");
+    } catch (error) {
+      console.log(error);
+      return;
+    }
   };
 
   return (
@@ -22,16 +39,18 @@ const Login = () => {
         </h1>
         <h3 className="text-md font-semibold">Apartment Management System</h3>
         <p className="text-sm text-gray-600 mt-4">Please Login your account</p>
-        <form className="mt-6" onSubmit={handleLogin}>
+        <form className="mt-6" onSubmit={handleSubmit}>
           <input
             type="email"
             placeholder="Email"
             className="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4 focus:outline-none focus:ring-2"
+            onChange={(e) => setEmail(e.target.value)}
           />
           <input
             type="password"
             placeholder="Password"
             className="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4 focus:outline-none focus:ring-2"
+            onChange={(e) => setPassword(e.target.value)}
           />
           <div className="flex justify-between items-center mb-4">
             <label className="flex items-center text-sm text-gray-600">
@@ -45,7 +64,11 @@ const Login = () => {
           <button
             type="submit"
             className="w-full text-white"
-            style={{ backgroundColor: "#898f63", padding: "0.5rem", borderRadius: "0.5rem" }}
+            style={{
+              backgroundColor: "#898f63",
+              padding: "0.5rem",
+              borderRadius: "0.5rem",
+            }}
           >
             Log In
           </button>
