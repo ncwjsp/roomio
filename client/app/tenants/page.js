@@ -5,28 +5,25 @@ import { useState } from "react";
 const Tenants = () => {
   const buildings = ["A", "B", "C"];
   const floors = Array.from({ length: 8 }, (_, i) => `${i + 1}`);
-  const filters = ["Paid", "Unpaid", "Overdue"];
+  const filters = ["Available", "Occupied"];
 
+  // Generate rooms with statuses "Available" and "Occupied"
   const generateRooms = () => {
     let rooms = [];
     buildings.forEach((building) => {
       for (let floor = 1; floor <= 8; floor++) {
         for (let room = 1; room <= 20; room++) {
           const number = `${building}${floor}0${room > 9 ? "" : "0"}${room}`;
-          const status =
-            Math.random() > 0.7
-              ? "Overdue"
-              : Math.random() > 0.5
-              ? "Unpaid"
-              : "Paid";
+          const status = Math.random() > 0.5 ? "Occupied" : "Available";
           rooms.push({
             number,
             building,
             floor,
             status,
-            name: `Tenant ${number}`,
-            phone: `012-345-${number.slice(-3)}`,
-            connectedDate: "18/08/2022",
+            name: "",
+            phone: "",
+            idLine: "",
+            connectedDate: "",
           });
         }
       }
@@ -40,6 +37,8 @@ const Tenants = () => {
   const [filteredStatus, setFilteredStatus] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedRoom, setSelectedRoom] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [confirmationVisible, setConfirmationVisible] = useState(false);
 
   const filteredRooms = roomCards.filter((room) => {
     const matchesBuilding = filteredBuilding
@@ -55,20 +54,25 @@ const Tenants = () => {
     return matchesBuilding && matchesFloor && matchesStatus && matchesSearch;
   });
 
-  const handleDelete = (roomNumber) => {
-    setRoomCards((prev) => prev.filter((room) => room.number !== roomNumber));
-    setSelectedRoom(null);
-  };
-
-  const handleMoveRoom = (oldRoomNumber, newRoomNumber) => {
+  const handleSaveTenantInfo = (updatedRoom) => {
     setRoomCards((prev) =>
       prev.map((room) =>
-        room.number === oldRoomNumber
-          ? { ...room, number: newRoomNumber }
+        room.number === updatedRoom.number
+          ? { ...updatedRoom, status: "Occupied", connectedDate: new Date().toLocaleDateString() }
           : room
       )
     );
     setSelectedRoom(null);
+    setIsEditing(false);
+  };
+
+  const handleEditTenantInfo = () => {
+    setIsEditing(true);
+  };
+
+  const handleCancel = () => {
+    setConfirmationVisible(false);
+    setIsEditing(false);
   };
 
   return (
@@ -138,10 +142,8 @@ const Tenants = () => {
             <div
               key={room.number}
               className={`p-4 rounded-[10px] shadow flex flex-col items-center ${
-                room.status === "Paid"
+                room.status === "Available"
                   ? "bg-[#E9F9F1] border border-[#009231]"
-                  : room.status === "Unpaid"
-                  ? "bg-[#FFF5CC] border border-[#FFA600]"
                   : "bg-[#FDEAEA] border border-[#F30505]"
               }`}
               onClick={() => setSelectedRoom(room)}
@@ -166,29 +168,87 @@ const Tenants = () => {
               >
                 &times;
               </button>
-              <h2 className="text-lg font-bold mb-4">Room Details</h2>
-              <p>Building: {selectedRoom.building}</p>
-              <p>Floor: {selectedRoom.floor}th</p>
-              <p>Room No.: {selectedRoom.number}</p>
-              <p>Name: {selectedRoom.name}</p>
-              <p>Phone: {selectedRoom.phone}</p>
-              <p>
-                Connected with the apartment at: {selectedRoom.connectedDate}
-              </p>
+              <h2 className="text-lg font-bold mb-4">
+                {selectedRoom.status === "Available"
+                  ? "Add Tenant Information"
+                  : "Room Details"}
+              </h2>
+              {isEditing || selectedRoom.status === "Available" ? (
+                <>
+                  <input
+                    className="w-full p-2 mb-4 border border-gray-300 rounded"
+                    placeholder="Tenant Name"
+                    value={selectedRoom.name}
+                    onChange={(e) =>
+                      setSelectedRoom({ ...selectedRoom, name: e.target.value })
+                    }
+                  />
+                  <input
+                    className="w-full p-2 mb-4 border border-gray-300 rounded"
+                    placeholder="Phone"
+                    value={selectedRoom.phone}
+                    onChange={(e) =>
+                      setSelectedRoom({ ...selectedRoom, phone: e.target.value })
+                    }
+                  />
+                  <input
+                    className="w-full p-2 mb-4 border border-gray-300 rounded"
+                    placeholder="ID Line"
+                    value={selectedRoom.idLine}
+                    onChange={(e) =>
+                      setSelectedRoom({
+                        ...selectedRoom,
+                        idLine: e.target.value,
+                      })
+                    }
+                  />
+                  <button
+                    className="bg-blue-500 text-white px-4 py-2 rounded"
+                    onClick={() => setConfirmationVisible(true)}
+                  >
+                    Save
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p>Name: {selectedRoom.name}</p>
+                  <p>Phone: {selectedRoom.phone}</p>
+                  <p>ID Line: {selectedRoom.idLine}</p>
+                  <p>
+                    Connected on:{" "}
+                    {selectedRoom.connectedDate || "Not connected yet"}
+                  </p>
+                  <button
+                    className="bg-green-500 text-white px-4 py-2 rounded mt-4"
+                    onClick={handleEditTenantInfo}
+                  >
+                    Edit
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Confirmation Modal */}
+        {confirmationVisible && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
+            <div className="bg-white p-6 rounded-[10px] w-full max-w-md text-center">
+              <h2 className="text-lg font-bold mb-4">Are you sure?</h2>
               <button
-                className="bg-red-500 text-white px-4 py-2 rounded mt-4"
-                onClick={() => handleDelete(selectedRoom.number)}
-              >
-                Delete Tenant
-              </button>
-              <button
-                className="bg-green-500 text-white px-4 py-2 rounded mt-4 ml-4"
+                className="bg-green-500 text-white px-4 py-2 rounded mr-2"
                 onClick={() => {
-                  const newRoom = prompt("Enter new room number:");
-                  if (newRoom) handleMoveRoom(selectedRoom.number, newRoom);
+                  handleSaveTenantInfo(selectedRoom);
+                  setConfirmationVisible(false);
                 }}
               >
-                Move Room
+                Done
+              </button>
+              <button
+                className="bg-red-500 text-white px-4 py-2 rounded"
+                onClick={handleCancel}
+              >
+                Cancel
               </button>
             </div>
           </div>
