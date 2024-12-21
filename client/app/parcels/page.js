@@ -1,239 +1,362 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
+import "bootstrap/dist/css/bootstrap.min.css";
+import "bootstrap/dist/js/bootstrap.bundle.min.js";
 
-export default function Parcels() {
-  const [parcels, setParcels] = useState([
-    { id: 1, roomNo: "101", name: "Nine", trackingNumber: "EX68372657965", collected: false },
-    { id: 2, roomNo: "102", name: "John", trackingNumber: "EX68372657966", collected: false },
-    { id: 3, roomNo: "103", name: "Alice", trackingNumber: "EX68372657967", collected: true },
-    { id: 4, roomNo: "104", name: "Bob", trackingNumber: "EX68372657968", collected: false },
-  ]);
+const ParcelsPage = () => {
+  const buildings = ["A", "B", "C"];
+  const parcelsData = [];
 
-  const [selectedParcels, setSelectedParcels] = useState([]);
-  const [searchTerm, setSearchTerm] = useState("");
+  // Generate initial room numbers
+  buildings.forEach((building) => {
+    for (let floor = 1; floor <= 8; floor++) {
+      for (let room = 1; room <= 10; room++) {
+        const roomNo = `${building}${floor}0${room}`;
+        parcelsData.push({
+          roomNo,
+          name: `Tenant ${roomNo}`,
+          trackingNumber: `EX${Math.random().toString().slice(2, 14)}`,
+          status: Math.random() > 0.5 ? "haven't collected" : "collected",
+        });
+      }
+    }
+  });
 
-  const toggleCollected = (id) => {
-    setParcels(
-      parcels.map((parcel) =>
-        parcel.id === id ? { ...parcel, collected: !parcel.collected } : parcel
+  const [parcels, setParcels] = useState(parcelsData);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedBuilding, setSelectedBuilding] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
+  const [isAddingParcel, setIsAddingParcel] = useState(false);
+  const [isEditingParcel, setIsEditingParcel] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [newParcel, setNewParcel] = useState({
+    roomNo: "",
+    name: "",
+    trackingNumber: "",
+    building: "",
+  });
+
+  const filteredParcels = parcels.filter((parcel) => {
+    const matchesBuilding = selectedBuilding
+      ? parcel.roomNo.startsWith(selectedBuilding)
+      : true;
+    const matchesSearch = searchQuery
+      ? parcel.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        parcel.trackingNumber.includes(searchQuery)
+      : true;
+    const matchesStatus = filterStatus
+      ? parcel.status === filterStatus
+      : true;
+    return matchesBuilding && matchesSearch && matchesStatus;
+  });
+
+  const handleSaveEditParcel = () => {
+    setParcels((prevParcels) =>
+      prevParcels.map((parcel) =>
+        parcel.trackingNumber === isEditingParcel.trackingNumber
+          ? isEditingParcel
+          : parcel
+      )
+    );
+    setIsEditingParcel(null);
+  };
+
+  const handleDeleteSelected = () => {
+    setParcels((prevParcels) =>
+      prevParcels.filter((parcel) => !parcel.isSelected)
+    );
+    setIsDeleting(false);
+  };
+
+  const toggleSelectForDelete = (trackingNumber) => {
+    setParcels((prevParcels) =>
+      prevParcels.map((parcel) =>
+        parcel.trackingNumber === trackingNumber
+          ? { ...parcel, isSelected: !parcel.isSelected }
+          : parcel
       )
     );
   };
 
-  const handleSelectParcel = (id) => {
-    setSelectedParcels((prevSelected) =>
-      prevSelected.includes(id)
-        ? prevSelected.filter((parcelId) => parcelId !== id)
-        : [...prevSelected, id]
-    );
-  };
-
-  const sendReminder = () => {
-    selectedParcels.forEach((id) => {
-      const parcel = parcels.find((p) => p.id === id);
-      alert(`Reminder sent for ${parcel.name} (Room: ${parcel.roomNo})`);
-    });
-    // Clear selected parcels after sending reminders
-    setSelectedParcels([]);
-  };
-
-  // Filter parcels based on search term
-  const filteredParcels = parcels.filter(parcel => 
-    parcel.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    parcel.trackingNumber.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
   return (
-    <div style={styles.container}>
-      {/* Top Section */}
-      <div style={styles.topSection}>
-        <select style={styles.selectInput}>
-          <option>Select Building</option>
-          <option>Building A</option>
-          <option>Building B</option>
-        </select>
+    <div className="container py-5" style={{ backgroundColor: "#EBECE1" }}>
+      <h1 className="text-center mb-5">Parcels Page</h1>
 
-        <div style={styles.searchContainer}>
-          <input 
-            style={styles.searchInput} 
-            placeholder="Search by Name or Tracking Number" 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)} 
-          />
-          <button style={styles.searchButton}>🔍</button>
-        </div>
-
-        <button style={styles.uncollectedButton}>Uncollected Items</button>
-
-        <div style={styles.filterContainer}>
-          <input style={styles.filterInput} placeholder="Filter" />
-          <button style={styles.filterButton}>⚙️</button>
-        </div>
-      </div>
-
-      {/* Action Buttons */}
-      <div style={styles.buttonContainer}>
-        <button style={styles.buttonEdit}>Edit Parcels</button>
-        <button style={styles.buttonAdd}>Add Parcels</button>
-        <button style={styles.buttonDelete}>Delete Parcels</button>
-        <button style={styles.reminderButton} onClick={sendReminder}>
-          Send Reminder
-        </button>
-      </div>
-
-      {/* Parcel List */}
-      {filteredParcels.map((parcel) => (
-        <div key={parcel.id} style={styles.parcelItem}>
-          <div>
-            <input
-              type="checkbox"
-              checked={selectedParcels.includes(parcel.id)}
-              onChange={() => handleSelectParcel(parcel.id)}
-            />
-            <strong>Room no. {parcel.roomNo}</strong>
-            <p>Name: {parcel.name}</p>
-            <p>Tracking number: {parcel.trackingNumber}</p>
-          </div>
-          <div>
-            <button
-              style={
-                parcel.collected ? styles.buttonCollected : styles.buttonUncollected
-              }
-              onClick={() => toggleCollected(parcel.id)}
+      {/* Filters Section */}
+      <div
+        className="p-4 rounded shadow-sm mb-4"
+        style={{ backgroundColor: "#898F63", color: "white" }}
+      >
+        <div className="row g-2 mb-3">
+          <div className="col-md-3">
+            <select
+              className="form-select"
+              value={selectedBuilding}
+              onChange={(e) => setSelectedBuilding(e.target.value)}
+              style={{ backgroundColor: "white" }}
             >
-              {parcel.collected ? "collected" : "haven't collected"}
+              <option value="">Select Building</option>
+              {buildings.map((building) => (
+                <option key={building} value={building}>
+                  Building {building}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="col-md-3">
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Search Room, Parcel number"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          <div className="col-md-3">
+            <select
+              className="form-select"
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              style={{ backgroundColor: "white" }}
+            >
+              <option value="">Filter Status</option>
+              <option value="haven't collected">Haven't Collected</option>
+              <option value="collected">Collected</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="row g-2">
+          <div className="col-md-6">
+            <button
+              className="btn btn-warning w-100"
+              onClick={() => setIsAddingParcel(true)}
+            >
+              Add Parcels
+            </button>
+          </div>
+          <div className="col-md-6">
+            <button
+              className="btn btn-danger w-100"
+              onClick={() => setIsDeleting(true)}
+            >
+              Delete Parcels
             </button>
           </div>
         </div>
-      ))}
+      </div>
+
+      {/* Add Parcel Form */}
+      {isAddingParcel && (
+        <div className="p-4 rounded shadow-sm mb-4" style={{ backgroundColor: "#FFF" }}>
+          <h4>Add Parcel</h4>
+          <div className="row g-2">
+            <div className="col-md-3">
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Room No."
+                value={newParcel.roomNo}
+                onChange={(e) =>
+                  setNewParcel({ ...newParcel, roomNo: e.target.value })
+                }
+              />
+            </div>
+            <div className="col-md-3">
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Tenant Name"
+                value={newParcel.name}
+                onChange={(e) =>
+                  setNewParcel({ ...newParcel, name: e.target.value })
+                }
+              />
+            </div>
+            <div className="col-md-3">
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Tracking Number"
+                value={newParcel.trackingNumber}
+                onChange={(e) =>
+                  setNewParcel({
+                    ...newParcel,
+                    trackingNumber: e.target.value,
+                  })
+                }
+              />
+            </div>
+            <div className="col-md-3">
+              <select
+                className="form-select"
+                value={newParcel.building}
+                onChange={(e) =>
+                  setNewParcel({ ...newParcel, building: e.target.value })
+                }
+              >
+                <option value="">Select Building</option>
+                {buildings.map((building) => (
+                  <option key={building} value={building}>
+                    {building}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <button
+            className="btn btn-success mt-3"
+            onClick={() => {
+              setParcels((prevParcels) => [
+                ...prevParcels,
+                { ...newParcel, status: "haven't collected" },
+              ]);
+              setIsAddingParcel(false);
+            }}
+          >
+            Save Parcel
+          </button>
+        </div>
+      )}
+
+      {/* Edit Parcel Form */}
+      {isEditingParcel && (
+        <div className="p-4 rounded shadow-sm mb-4" style={{ backgroundColor: "#FFF" }}>
+          <h4>Edit Parcel</h4>
+          <div className="row g-2">
+            <div className="col-md-3">
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Room No."
+                value={isEditingParcel.roomNo}
+                onChange={(e) =>
+                  setIsEditingParcel({
+                    ...isEditingParcel,
+                    roomNo: e.target.value,
+                  })
+                }
+              />
+            </div>
+            <div className="col-md-3">
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Tenant Name"
+                value={isEditingParcel.name}
+                onChange={(e) =>
+                  setIsEditingParcel({
+                    ...isEditingParcel,
+                    name: e.target.value,
+                  })
+                }
+              />
+            </div>
+            <div className="col-md-3">
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Tracking Number"
+                value={isEditingParcel.trackingNumber}
+                onChange={(e) =>
+                  setIsEditingParcel({
+                    ...isEditingParcel,
+                    trackingNumber: e.target.value,
+                  })
+                }
+              />
+            </div>
+          </div>
+          <button
+            className="btn btn-success mt-3"
+            onClick={handleSaveEditParcel}
+          >
+            Save Changes
+          </button>
+        </div>
+      )}
+
+      {/* Parcels List */}
+      <div className="row g-3">
+        {filteredParcels.map((parcel) => (
+          <div
+            key={parcel.trackingNumber}
+            className="col-md-12 d-flex align-items-center justify-content-between p-3 shadow-sm rounded"
+            style={{
+              backgroundColor: "white",
+              border: "1px solid #D9D9D9",
+            }}
+          >
+            {isDeleting && (
+              <input
+                type="checkbox"
+                className="form-check-input me-3"
+                checked={parcel.isSelected || false}
+                onChange={() => toggleSelectForDelete(parcel.trackingNumber)}
+              />
+            )}
+            <div className="d-flex align-items-center gap-3">
+              <i
+                className="bi bi-box-seam-fill"
+                style={{ fontSize: "1.5rem", color: "#898F63" }}
+              ></i>
+              <div>
+                <p className="mb-0">Room no. {parcel.roomNo}</p>
+                <p className="mb-0">Name: {parcel.name}</p>
+                <p className="mb-0">Tracking number: {parcel.trackingNumber}</p>
+              </div>
+            </div>
+            <div>
+              {parcel.status === "haven't collected" ? (
+                <button
+                  className="btn btn-sm btn-primary me-2"
+                  onClick={() => setIsEditingParcel(parcel)}
+                >
+                  Edit
+                </button>
+              ) : null}
+              {parcel.status === "haven't collected" ? (
+                <button
+                  className="btn btn-sm btn-success"
+                  onClick={() =>
+                    setParcels((prevParcels) =>
+                      prevParcels.map((p) =>
+                        p.trackingNumber === parcel.trackingNumber
+                          ? { ...p, status: "collected" }
+                          : p
+                      )
+                    )
+                  }
+                >
+                  Mark as Collected
+                </button>
+              ) : (
+                <span
+                  className="badge"
+                  style={{
+                    backgroundColor: "#006400",
+                    color: "white",
+                    fontSize: "1rem",
+                  }}
+                >
+                  Collected
+                </span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+      {isDeleting && (
+        <button
+          className="btn btn-danger mt-3 position-fixed top-0 end-0 m-4"
+          onClick={handleDeleteSelected}
+        >
+          Delete Selected
+        </button>
+      )}
     </div>
   );
-}
-
-const styles = {
-  container: {
-    fontFamily: "Arial, sans-serif",
-    padding: "20px",
-    backgroundColor: "#F7F7E9",
-  },
-  topSection: {
-    display: "flex",
-    justifyContent: "space-between",
- alignItems: "center",
-    marginBottom: "20px",
-    gap: "10px",
-  },
-  selectInput: {
-    padding: "10px",
-    borderRadius: "5px",
-    border: "1px solid #ccc",
-    width: "150px",
-  },
-  searchContainer: {
-    display: "flex",
-    gap: "5px",
-  },
-  searchInput: {
-    padding: "10px",
-    borderRadius: "5px",
-    border: "1px solid #ccc",
-    width: "150px",
-  },
-  searchButton: {
-    padding: "10px",
-    border: "none",
-    backgroundColor: "#E79E4F",
-    color: "white",
-    borderRadius: "5px",
-    cursor: "pointer",
-  },
-  uncollectedButton: {
-    padding: "10px",
-    borderRadius: "5px",
-    border: "none",
-    backgroundColor: "#ccc",
-    cursor: "pointer",
-  },
-  filterContainer: {
-    display: "flex",
-    gap: "5px",
-  },
-  filterInput: {
-    padding: "10px",
-    borderRadius: "5px",
-    border: "1px solid #ccc",
-    width: "100px",
-  },
-  filterButton: {
-    padding: "10px",
-    backgroundColor: "#ccc",
-    borderRadius: "5px",
-    border: "none",
-    cursor: "pointer",
-  },
-  buttonContainer: {
-    display: "flex",
-    justifyContent: "center",
-    gap: "10px",
-    marginBottom: "20px",
-  },
-  buttonEdit: {
-    backgroundColor: "#E79E4F",
-    color: "white",
-    padding: "10px 20px",
-    border: "none",
-    borderRadius: "5px",
-    cursor: "pointer",
-  },
-  buttonAdd: {
-    backgroundColor: "#5E6C3F",
-    color: "white",
-    padding: "10px 20px",
-    border: "none",
-    borderRadius: "5px",
-    cursor: "pointer",
-  },
-  buttonDelete: {
-    backgroundColor: "#B64D3D",
-    color: "white",
-    padding: "10px 20px",
-    border: "none",
-    borderRadius: "5px",
-    cursor: "pointer",
-  },
-  parcelItem: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: "white",
-    padding: "15px",
-    margin: "10px 0",
-    borderRadius: "10px",
-    boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
-  },
-  buttonCollected: {
-    backgroundColor: "#5E6C3F",
-    color: "white",
-    padding: "5px 10px",
-    borderRadius: "5px",
-    border: "none",
-    cursor: "pointer",
-  },
-  buttonUncollected: {
-    backgroundColor: "#B64D3D",
-    color: "white",
-    padding: "5px 10px",
-    borderRadius: "5px",
-    border: "none",
-    cursor: "pointer",
-  },
-  reminderButton: {
-    backgroundColor: "#007BFF",
-    color: "white",
-    padding: "5px 10px",
-    borderRadius: "5px",
-    border: "none",
-    cursor: "pointer",
-  },
 };
+
+export default ParcelsPage;
