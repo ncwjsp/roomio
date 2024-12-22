@@ -5,20 +5,21 @@ import { useState } from "react";
 const Utility = () => {
   const buildings = ["A", "B", "C"];
   const filters = ["Completed", "Overdue", "Waiting"];
+
   const generateUtilities = () => {
     let utilities = [];
     buildings.forEach((building) => {
       for (let floor = 1; floor <= 8; floor++) {
-        for (let room = 1; room <= 20; room++) {
-          const number = `${building}${floor}0${room > 9 ? "" : "0"}${room}`;
-          const electricityUsage = 100; // Dummy usage
-          const waterUsage = 100; // Dummy usage
+        for (let room = 1; room <= 10; room++) {
+          const number = `${building}${floor}${room.toString().padStart(2, "0")}`; // Correct room numbering
+          const electricityUsage = Math.floor(Math.random() * 100); // Random usage
+          const waterUsage = Math.floor(Math.random() * 100); // Random usage
           const electricityRate = 10; // Per unit cost
           const waterRate = 10; // Per unit cost
           const totalCost =
             electricityUsage * electricityRate +
             waterUsage * waterRate +
-            " bath";
+            500; // Adding fixed room rental
           const paymentStatus =
             Math.random() > 0.7
               ? "Overdue"
@@ -34,6 +35,14 @@ const Utility = () => {
             waterRate,
             totalCost,
             paymentStatus,
+            details: {
+              water: paymentStatus === "Completed" ? "Paid" : "Unpaid",
+              electricity: paymentStatus === "Completed" ? "Paid" : "Unpaid",
+              roomRental: "Paid",
+              cleaning: Math.random() > 0.5 ? "Paid" : "Unpaid",
+              maintenance: Math.random() > 0.5 ? "Paid" : "Unpaid",
+              receipt: "/images/receipt.jpg", // Example receipt image
+            },
           });
         }
       }
@@ -44,6 +53,7 @@ const Utility = () => {
   const [utilityData, setUtilityData] = useState(generateUtilities());
   const [filteredBuilding, setFilteredBuilding] = useState("");
   const [filteredStatus, setFilteredStatus] = useState("");
+  const [selectedRoom, setSelectedRoom] = useState(null);
 
   const filteredUtilities = utilityData.filter((utility) => {
     const matchesBuilding = filteredBuilding
@@ -99,21 +109,15 @@ const Utility = () => {
                 <th className="p-4">Room No.</th>
                 <th className="p-4">
                   <i className="bi bi-lightning-charge-fill text-[#FFA600]"></i>{" "}
-                  This Month Usage
+                  Electricity Usage
                 </th>
                 <th className="p-4">
-                  <i className="bi bi-lightning-charge-fill text-[#FFA600]"></i>{" "}
-                  Per Unit
-                </th>
-                <th className="p-4">
-                  <i className="bi bi-droplet-half text-[#0775FF]"></i> This
-                  Month Usage
-                </th>
-                <th className="p-4">
-                  <i className="bi bi-droplet-half text-[#0775FF]"></i> Per Unit
+                  <i className="bi bi-droplet-half text-[#0775FF]"></i> Water
+                  Usage
                 </th>
                 <th className="p-4">Total Cost</th>
                 <th className="p-4">Payment Status</th>
+                <th className="p-4">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -129,10 +133,8 @@ const Utility = () => {
                   <td className="p-4 text-center">
                     {utility.electricityUsage}
                   </td>
-                  <td className="p-4 text-center">{utility.electricityRate}</td>
                   <td className="p-4 text-center">{utility.waterUsage}</td>
-                  <td className="p-4 text-center">{utility.waterRate}</td>
-                  <td className="p-4 text-center">{utility.totalCost}</td>
+                  <td className="p-4 text-center">{utility.totalCost} THB</td>
                   <td
                     className={`p-4 text-center font-semibold ${
                       utility.paymentStatus === "Completed"
@@ -144,11 +146,98 @@ const Utility = () => {
                   >
                     {utility.paymentStatus}
                   </td>
+                  <td className="p-4 text-center">
+                    <button
+                      className="px-4 py-2 bg-blue-500 text-white rounded"
+                      onClick={() => setSelectedRoom(utility)}
+                    >
+                      Details
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+
+        {/* Details Modal */}
+        {selectedRoom && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
+            <div className="bg-white p-6 rounded shadow-lg w-full max-w-lg">
+              <h2 className="text-lg font-bold mb-4">
+                Room {selectedRoom.number} Details
+              </h2>
+              <p>
+                <strong>Electricity:</strong>{" "}
+                <span
+                  className={
+                    selectedRoom.details.electricity === "Paid"
+                      ? "text-green-500"
+                      : "text-red-500"
+                  }
+                >
+                  {selectedRoom.details.electricity}
+                </span>
+              </p>
+              <p>
+                <strong>Water:</strong>{" "}
+                <span
+                  className={
+                    selectedRoom.details.water === "Paid"
+                      ? "text-green-500"
+                      : "text-red-500"
+                  }
+                >
+                  {selectedRoom.details.water}
+                </span>
+              </p>
+              <p>
+                <strong>Room Rental:</strong>{" "}
+                <span className="text-green-500">
+                  {selectedRoom.details.roomRental}
+                </span>
+              </p>
+              <p>
+                <strong>Cleaning Service:</strong>{" "}
+                <span
+                  className={
+                    selectedRoom.details.cleaning === "Paid"
+                      ? "text-green-500"
+                      : "text-red-500"
+                  }
+                >
+                  {selectedRoom.details.cleaning}
+                </span>
+              </p>
+              <p>
+                <strong>Maintenance Service:</strong>{" "}
+                <span
+                  className={
+                    selectedRoom.details.maintenance === "Paid"
+                      ? "text-green-500"
+                      : "text-red-500"
+                  }
+                >
+                  {selectedRoom.details.maintenance}
+                </span>
+              </p>
+              <div className="mt-4">
+                <strong>Receipt:</strong>
+                <img
+                  src={selectedRoom.details.receipt}
+                  alt="Receipt"
+                  className="mt-2 w-full rounded"
+                />
+              </div>
+              <button
+                className="mt-4 px-4 py-2 bg-red-500 text-white rounded"
+                onClick={() => setSelectedRoom(null)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

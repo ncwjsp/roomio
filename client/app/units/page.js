@@ -51,35 +51,47 @@ const Units = () => {
     buildings.forEach((building) => {
       for (let floor = 1; floor <= 8; floor++) {
         for (let room = 1; room <= 10; room++) {
-          const number = `${building}${floor}0${room}`;
+          const number = `${building}${floor}${room.toString().padStart(2, "0")}`; // Generate room number in 3-digit format
           const status = Math.random() > 0.7 ? "Available" : "Occupied";
           rooms.push({ number, building, floor, status, tenant: null });
         }
       }
     });
     return rooms;
-  };
+  };  
 
   const [roomCards, setRoomCards] = useState(generateRooms());
   const [selectedBuilding, setSelectedBuilding] = useState("");
+  const [filterStatus, setFilterStatus] = useState(""); // Filter by status (Available or Occupied)
   const [selectedRoomType, setSelectedRoomType] = useState("");
   const [showRooms, setShowRooms] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState(null);
 
-  const filteredRooms = roomCards.filter((room) => {
-    const matchesBuilding = selectedBuilding
-      ? room.number.startsWith(selectedBuilding)
-      : true;
-    const matchesRoomType = selectedRoomType
-      ? roomDetails[selectedRoomType]?.floors.includes(room.floor.toString())
-      : true;
-    return matchesBuilding && matchesRoomType;
-  });
+  const filteredRooms = roomCards
+    .filter((room) => {
+      const matchesBuilding = selectedBuilding
+        ? room.number.startsWith(selectedBuilding)
+        : true;
+      const matchesRoomType = selectedRoomType
+        ? roomDetails[selectedRoomType]?.floors.includes(room.floor.toString())
+        : true;
+      const matchesStatus = filterStatus
+        ? room.status === filterStatus
+        : true;
+      return matchesBuilding && matchesRoomType && matchesStatus;
+    })
+    .sort((a, b) => (a.status === "Available" ? -1 : 1)); // Sort Available rooms first
+
+  const handleRoomTypeClick = (type) => {
+    setSelectedRoomType(type);
+  };
 
   const handleSaveTenant = (roomNumber, tenant) => {
     setRoomCards((prev) =>
       prev.map((room) =>
-        room.number === roomNumber ? { ...room, tenant, status: "Occupied" } : room
+        room.number === roomNumber
+          ? { ...room, tenant, status: "Occupied" }
+          : room
       )
     );
     setSelectedRoom(null);
@@ -88,7 +100,9 @@ const Units = () => {
   const handleDeleteTenant = (roomNumber) => {
     setRoomCards((prev) =>
       prev.map((room) =>
-        room.number === roomNumber ? { ...room, tenant: null, status: "Available" } : room
+        room.number === roomNumber
+          ? { ...room, tenant: null, status: "Available" }
+          : room
       )
     );
     setSelectedRoom(null);
@@ -105,7 +119,7 @@ const Units = () => {
             <div
               key={index}
               className="col-md-4"
-              onClick={() => setSelectedRoomType(type)}
+              onClick={() => handleRoomTypeClick(type)}
             >
               <div className="card shadow-sm" style={{ width: "18rem" }}>
                 <div
@@ -179,9 +193,9 @@ const Units = () => {
           className="p-4 rounded shadow-sm my-4"
           style={{ backgroundColor: "#898F63", color: "#fff" }}
         >
-          <h4>Filter Rooms</h4>
+          <h4>Filter by Building</h4>
           <div className="row g-2">
-            <div className="col-md-6">
+            <div className="col-md-4">
               <select
                 className="form-select"
                 value={selectedBuilding}
@@ -195,7 +209,7 @@ const Units = () => {
                 ))}
               </select>
             </div>
-            <div className="col-md-6">
+            <div className="col-md-4">
               <button
                 className="btn"
                 style={{
@@ -221,6 +235,7 @@ const Units = () => {
             style={{ backgroundColor: "#898F63", color: "#fff" }}
             onClick={() => {
               setSelectedBuilding("");
+              setFilterStatus("");
               setSelectedRoomType("");
               setShowRooms(false);
             }}
@@ -237,7 +252,8 @@ const Units = () => {
                     : "bg-light text-dark border"
                 }`}
                 style={{
-                  backgroundColor: room.status === "Available" ? "#898F63" : "white",
+                  backgroundColor:
+                    room.status === "Available" ? "#898F63" : "white",
                   cursor: "pointer",
                 }}
                 onClick={() => setSelectedRoom(room)}
@@ -273,6 +289,9 @@ const Units = () => {
                     <p>
                       <strong>Phone:</strong> {selectedRoom.tenant?.phone || ""}
                     </p>
+                    <p>
+                      <strong>Line ID:</strong> {selectedRoom.tenant?.lineID || ""}
+                    </p>
                     <button
                       className="btn btn-danger"
                       onClick={() => handleDeleteTenant(selectedRoom.number)}
@@ -288,7 +307,8 @@ const Units = () => {
                         e.preventDefault();
                         const name = e.target.name.value;
                         const phone = e.target.phone.value;
-                        handleSaveTenant(selectedRoom.number, { name, phone });
+                        const lineID = e.target.lineID.value;
+                        handleSaveTenant(selectedRoom.number, { name, phone, lineID });
                       }}
                     >
                       <div className="mb-3">
@@ -305,6 +325,15 @@ const Units = () => {
                         <input
                           type="text"
                           name="phone"
+                          className="form-control"
+                          required
+                        />
+                      </div>
+                      <div className="mb-3">
+                        <label className="form-label">Line ID</label>
+                        <input
+                          type="text"
+                          name="lineID"
                           className="form-control"
                           required
                         />

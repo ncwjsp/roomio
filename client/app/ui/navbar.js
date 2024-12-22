@@ -34,9 +34,9 @@ export default function Navbar() {
               {[
                 { name: "Dashboard", route: "/dashboard" },
                 { name: "Units", route: "/units" },
-                { name: "Tenants", route: "/tenants" },
+                // { name: "Tenants", route: "/tenants"},
                 { name: "Utility Usage", route: "/utility-usage" },
-                { name: "Billing", route: "/billing" },
+                // { name: "Billing", route: "/billing" },
                 { name: "Cleaning", route: "/cleaning" },
                 { name: "Maintenance", route: "/maintenance" },
                 { name: "Staffs", route: "/staffs" },
