@@ -1,0 +1,38 @@
+import { Schema, models, model } from "mongoose";
+
+const RoomSchema = new Schema(
+  {
+    roomNumber: {
+      type: String,
+      required: true,
+      unique: true,
+    },
+    floor: {
+      type: Number,
+      required: true,
+    },
+    status: {
+      type: String,
+      enum: ["Available", "Occupied"],
+      default: "Available",
+    },
+    building: {
+      type: String,
+      required: true,
+    },
+    tenant: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    price: {
+      type: Number,
+      required: true,
+    },
+  },
+  { timestamps: true }
+);
+
+const Room = models.Room || model("Room", RoomSchema);
+
+export default Room;
