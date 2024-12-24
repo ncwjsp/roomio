@@ -30,7 +30,7 @@ export default function Navbar() {
 
           {/* Navigation Links */}
           <nav className="mt-6">
-            <ul>
+            <ul className="list-none p-0 m-0">
               {[
                 { name: "Dashboard", route: "/dashboard" },
                 { name: "Units", route: "/units" },
@@ -45,7 +45,7 @@ export default function Navbar() {
                 <li className="mb-2" key={link.route}>
                   <Link
                     href={link.route}
-                    className={`flex justify-center items-center px-6 py-3 rounded ${
+                    className={`flex justify-center items-center px-6 py-3 rounded no-underline ${
                       isActive(link.route)
                         ? "bg-[#889F63] text-white"
                         : "text-black hover:bg-gray-200"
@@ -63,7 +63,7 @@ export default function Navbar() {
         <div className="mb-4">
           <Link
             href="/setting"
-            className={`flex justify-center items-center px-6 py-3 rounded ${
+            className={`flex justify-center items-center px-6 py-3 rounded no-underline ${
               isActive("/setting")
                 ? "bg-[#889F63] text-white"
                 : "text-black hover:bg-gray-200"
