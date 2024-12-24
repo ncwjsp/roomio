@@ -1,29 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import "bootstrap/dist/css/bootstrap.min.css";
-import "bootstrap/dist/js/bootstrap.bundle.min.js";
+import { useState, useEffect } from "react";
 
 const ParcelsPage = () => {
   const buildings = ["A", "B", "C"];
-  const parcelsData = [];
-
-  // Generate initial room numbers
-  buildings.forEach((building) => {
-    for (let floor = 1; floor <= 8; floor++) {
-      for (let room = 1; room <= 10; room++) {
-        const roomNo = `${building}${floor}0${room}`;
-        parcelsData.push({
-          roomNo,
-          name: `Tenant ${roomNo}`,
-          trackingNumber: `EX${Math.random().toString().slice(2, 14)}`,
-          status: Math.random() > 0.5 ? "haven't collected" : "collected",
-        });
-      }
-    }
-  });
-
-  const [parcels, setParcels] = useState(parcelsData);
+  const [parcelsData, setParcelsData] = useState([]);
+  const [parcels, setParcels] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedBuilding, setSelectedBuilding] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
@@ -37,6 +19,26 @@ const ParcelsPage = () => {
     building: "",
   });
 
+  // Initialize data on client-side only
+  useEffect(() => {
+    const initialParcelsData = [];
+    buildings.forEach((building) => {
+      for (let floor = 1; floor <= 8; floor++) {
+        for (let room = 1; room <= 10; room++) {
+          const roomNo = `${building}${floor}0${room}`;
+          initialParcelsData.push({
+            roomNo,
+            name: `Tenant ${roomNo}`,
+            trackingNumber: `EX${Math.random().toString().slice(2, 14)}`,
+            status: Math.random() > 0.5 ? "haven't collected" : "collected",
+          });
+        }
+      }
+    });
+    setParcelsData(initialParcelsData);
+    setParcels(initialParcelsData);
+  }, []);
+
   const filteredParcels = parcels.filter((parcel) => {
     const matchesBuilding = selectedBuilding
       ? parcel.roomNo.startsWith(selectedBuilding)
@@ -45,9 +47,7 @@ const ParcelsPage = () => {
       ? parcel.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         parcel.trackingNumber.includes(searchQuery)
       : true;
-    const matchesStatus = filterStatus
-      ? parcel.status === filterStatus
-      : true;
+    const matchesStatus = filterStatus ? parcel.status === filterStatus : true;
     return matchesBuilding && matchesSearch && matchesStatus;
   });
 
@@ -80,133 +80,112 @@ const ParcelsPage = () => {
   };
 
   return (
-    <div className="container py-5" style={{ backgroundColor: "#EBECE1" }}>
-      <h1 className="text-center mb-5">Parcels Page</h1>
+    <div className="min-h-screen p-8 bg-[#EBECE1]">
+      <h1 className="text-3xl font-bold text-center mb-8">Parcels Page</h1>
 
       {/* Filters Section */}
-      <div
-        className="p-4 rounded shadow-sm mb-4"
-        style={{ backgroundColor: "#898F63", color: "white" }}
-      >
-        <div className="row g-2 mb-3">
-          <div className="col-md-3">
-            <select
-              className="form-select"
-              value={selectedBuilding}
-              onChange={(e) => setSelectedBuilding(e.target.value)}
-              style={{ backgroundColor: "white" }}
-            >
-              <option value="">Select Building</option>
-              {buildings.map((building) => (
-                <option key={building} value={building}>
-                  Building {building}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="col-md-3">
-            <input
-              type="text"
-              className="form-control"
-              placeholder="Search Room, Parcel number"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          <div className="col-md-3">
-            <select
-              className="form-select"
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              style={{ backgroundColor: "white" }}
-            >
-              <option value="">Filter Status</option>
-              <option value="haven't collected">Haven't Collected</option>
-              <option value="collected">Collected</option>
-            </select>
-          </div>
+      <div className="p-6 rounded-lg shadow-sm mb-6 bg-[#898F63] text-white">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <select
+            className="w-full p-2 rounded bg-white text-black"
+            value={selectedBuilding}
+            onChange={(e) => setSelectedBuilding(e.target.value)}
+          >
+            <option value="">Select Building</option>
+            {buildings.map((building) => (
+              <option key={building} value={building}>
+                Building {building}
+              </option>
+            ))}
+          </select>
+
+          <input
+            type="text"
+            className="w-full p-2 rounded"
+            placeholder="Search Room, Parcel number"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+
+          <select
+            className="w-full p-2 rounded bg-white text-black"
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+          >
+            <option value="">Filter Status</option>
+            <option value="haven't collected">Haven't Collected</option>
+            <option value="collected">Collected</option>
+          </select>
         </div>
 
-        <div className="row g-2">
-          <div className="col-md-6">
-            <button
-              className="btn btn-warning w-100"
-              onClick={() => setIsAddingParcel(true)}
-            >
-              Add Parcels
-            </button>
-          </div>
-          <div className="col-md-6">
-            <button
-              className="btn btn-danger w-100"
-              onClick={() => setIsDeleting(true)}
-            >
-              Delete Parcels
-            </button>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <button
+            className="w-full p-2 bg-yellow-500 hover:bg-yellow-600 text-black rounded"
+            onClick={() => setIsAddingParcel(true)}
+          >
+            Add Parcels
+          </button>
+          <button
+            className="w-full p-2 bg-red-500 hover:bg-red-600 text-white rounded"
+            onClick={() => setIsDeleting(true)}
+          >
+            Delete Parcels
+          </button>
         </div>
       </div>
 
       {/* Add Parcel Form */}
       {isAddingParcel && (
-        <div className="p-4 rounded shadow-sm mb-4" style={{ backgroundColor: "#FFF" }}>
-          <h4>Add Parcel</h4>
-          <div className="row g-2">
-            <div className="col-md-3">
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Room No."
-                value={newParcel.roomNo}
-                onChange={(e) =>
-                  setNewParcel({ ...newParcel, roomNo: e.target.value })
-                }
-              />
-            </div>
-            <div className="col-md-3">
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Tenant Name"
-                value={newParcel.name}
-                onChange={(e) =>
-                  setNewParcel({ ...newParcel, name: e.target.value })
-                }
-              />
-            </div>
-            <div className="col-md-3">
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Tracking Number"
-                value={newParcel.trackingNumber}
-                onChange={(e) =>
-                  setNewParcel({
-                    ...newParcel,
-                    trackingNumber: e.target.value,
-                  })
-                }
-              />
-            </div>
-            <div className="col-md-3">
-              <select
-                className="form-select"
-                value={newParcel.building}
-                onChange={(e) =>
-                  setNewParcel({ ...newParcel, building: e.target.value })
-                }
-              >
-                <option value="">Select Building</option>
-                {buildings.map((building) => (
-                  <option key={building} value={building}>
-                    {building}
-                  </option>
-                ))}
-              </select>
-            </div>
+        <div className="p-6 rounded-lg shadow-sm mb-6 bg-white">
+          <h4 className="text-xl font-semibold mb-4">Add Parcel</h4>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <input
+              type="text"
+              className="w-full p-2 border rounded"
+              placeholder="Room No."
+              value={newParcel.roomNo}
+              onChange={(e) =>
+                setNewParcel({ ...newParcel, roomNo: e.target.value })
+              }
+            />
+            <input
+              type="text"
+              className="w-full p-2 border rounded"
+              placeholder="Tenant Name"
+              value={newParcel.name}
+              onChange={(e) =>
+                setNewParcel({ ...newParcel, name: e.target.value })
+              }
+            />
+            <input
+              type="text"
+              className="w-full p-2 border rounded"
+              placeholder="Tracking Number"
+              value={newParcel.trackingNumber}
+              onChange={(e) =>
+                setNewParcel({
+                  ...newParcel,
+                  trackingNumber: e.target.value,
+                })
+              }
+            />
+            <select
+              className="w-full p-2 border rounded"
+              value={newParcel.building}
+              onChange={(e) =>
+                setNewParcel({ ...newParcel, building: e.target.value })
+              }
+            >
+              <option value="">Select Building</option>
+              {buildings.map((building) => (
+                <option key={building} value={building}>
+                  {building}
+                </option>
+              ))}
+            </select>
           </div>
           <button
-            className="btn btn-success mt-3"
+            className="mt-4 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded"
             onClick={() => {
               setParcels((prevParcels) => [
                 ...prevParcels,
@@ -222,54 +201,48 @@ const ParcelsPage = () => {
 
       {/* Edit Parcel Form */}
       {isEditingParcel && (
-        <div className="p-4 rounded shadow-sm mb-4" style={{ backgroundColor: "#FFF" }}>
-          <h4>Edit Parcel</h4>
-          <div className="row g-2">
-            <div className="col-md-3">
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Room No."
-                value={isEditingParcel.roomNo}
-                onChange={(e) =>
-                  setIsEditingParcel({
-                    ...isEditingParcel,
-                    roomNo: e.target.value,
-                  })
-                }
-              />
-            </div>
-            <div className="col-md-3">
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Tenant Name"
-                value={isEditingParcel.name}
-                onChange={(e) =>
-                  setIsEditingParcel({
-                    ...isEditingParcel,
-                    name: e.target.value,
-                  })
-                }
-              />
-            </div>
-            <div className="col-md-3">
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Tracking Number"
-                value={isEditingParcel.trackingNumber}
-                onChange={(e) =>
-                  setIsEditingParcel({
-                    ...isEditingParcel,
-                    trackingNumber: e.target.value,
-                  })
-                }
-              />
-            </div>
+        <div className="p-6 rounded-lg shadow-sm mb-6 bg-white">
+          <h4 className="text-xl font-semibold mb-4">Edit Parcel</h4>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <input
+              type="text"
+              className="w-full p-2 border rounded"
+              placeholder="Room No."
+              value={isEditingParcel.roomNo}
+              onChange={(e) =>
+                setIsEditingParcel({
+                  ...isEditingParcel,
+                  roomNo: e.target.value,
+                })
+              }
+            />
+            <input
+              type="text"
+              className="w-full p-2 border rounded"
+              placeholder="Tenant Name"
+              value={isEditingParcel.name}
+              onChange={(e) =>
+                setIsEditingParcel({
+                  ...isEditingParcel,
+                  name: e.target.value,
+                })
+              }
+            />
+            <input
+              type="text"
+              className="w-full p-2 border rounded"
+              placeholder="Tracking Number"
+              value={isEditingParcel.trackingNumber}
+              onChange={(e) =>
+                setIsEditingParcel({
+                  ...isEditingParcel,
+                  trackingNumber: e.target.value,
+                })
+              }
+            />
           </div>
           <button
-            className="btn btn-success mt-3"
+            className="mt-4 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded"
             onClick={handleSaveEditParcel}
           >
             Save Changes
@@ -278,68 +251,60 @@ const ParcelsPage = () => {
       )}
 
       {/* Parcels List */}
-      <div className="row g-3">
+      <div className="space-y-4">
         {filteredParcels.map((parcel) => (
           <div
             key={parcel.trackingNumber}
-            className="col-md-12 d-flex align-items-center justify-content-between p-3 shadow-sm rounded"
-            style={{
-              backgroundColor: "white",
-              border: "1px solid #D9D9D9",
-            }}
+            className="flex items-center justify-between p-4 bg-white rounded-lg shadow-sm border border-gray-200"
           >
             {isDeleting && (
               <input
                 type="checkbox"
-                className="form-check-input me-3"
+                className="mr-4"
                 checked={parcel.isSelected || false}
                 onChange={() => toggleSelectForDelete(parcel.trackingNumber)}
               />
             )}
-            <div className="d-flex align-items-center gap-3">
-              <i
-                className="bi bi-box-seam-fill"
-                style={{ fontSize: "1.5rem", color: "#898F63" }}
-              ></i>
+            <div className="flex items-center gap-4">
+              <svg
+                className="w-6 h-6 text-[#898F63]"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4V5h12v10z" />
+              </svg>
               <div>
-                <p className="mb-0">Room no. {parcel.roomNo}</p>
-                <p className="mb-0">Name: {parcel.name}</p>
-                <p className="mb-0">Tracking number: {parcel.trackingNumber}</p>
+                <p className="mb-1">Room no. {parcel.roomNo}</p>
+                <p className="mb-1">Name: {parcel.name}</p>
+                <p className="mb-1">Tracking number: {parcel.trackingNumber}</p>
               </div>
             </div>
             <div>
               {parcel.status === "haven't collected" ? (
-                <button
-                  className="btn btn-sm btn-primary me-2"
-                  onClick={() => setIsEditingParcel(parcel)}
-                >
-                  Edit
-                </button>
-              ) : null}
-              {parcel.status === "haven't collected" ? (
-                <button
-                  className="btn btn-sm btn-success"
-                  onClick={() =>
-                    setParcels((prevParcels) =>
-                      prevParcels.map((p) =>
-                        p.trackingNumber === parcel.trackingNumber
-                          ? { ...p, status: "collected" }
-                          : p
+                <>
+                  <button
+                    className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded mr-2"
+                    onClick={() => setIsEditingParcel(parcel)}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    className="px-3 py-1 bg-green-500 hover:bg-green-600 text-white rounded"
+                    onClick={() =>
+                      setParcels((prevParcels) =>
+                        prevParcels.map((p) =>
+                          p.trackingNumber === parcel.trackingNumber
+                            ? { ...p, status: "collected" }
+                            : p
+                        )
                       )
-                    )
-                  }
-                >
-                  Mark as Collected
-                </button>
+                    }
+                  >
+                    Mark as Collected
+                  </button>
+                </>
               ) : (
-                <span
-                  className="badge"
-                  style={{
-                    backgroundColor: "#006400",
-                    color: "white",
-                    fontSize: "1rem",
-                  }}
-                >
+                <span className="px-3 py-1 bg-green-800 text-white rounded text-sm">
                   Collected
                 </span>
               )}
@@ -349,7 +314,7 @@ const ParcelsPage = () => {
       </div>
       {isDeleting && (
         <button
-          className="btn btn-danger mt-3 position-fixed top-0 end-0 m-4"
+          className="fixed top-4 right-4 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded"
           onClick={handleDeleteSelected}
         >
           Delete Selected
