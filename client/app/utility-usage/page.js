@@ -117,7 +117,7 @@ const Utility = () => {
                 </th>
                 <th className="p-4">Total Cost</th>
                 <th className="p-4">Payment Status</th>
-                <th className="p-4">Actions</th>
+                <th className="p-4">Details</th>
               </tr>
             </thead>
             <tbody>
