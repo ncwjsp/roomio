@@ -62,29 +62,24 @@ const StaffPage = () => {
   ]);
   const [filter, setFilter] = useState('');
   const [showForm, setShowForm] = useState(false);
+  const [previewMode, setPreviewMode] = useState(false);
   const [formData, setFormData] = useState({
+    id: '',
     building: '',
     firstName: '',
     lastName: '',
     position: '',
-    salary: ''
+    salary: '',
+    gender: '',
+    age: '',
+    dateOfBirth: '',
+    firstDayOfWork: '',
+    lineId: '',
+    phone: ''
   });
 
   const handleAddStaff = () => {
     setShowForm(true);
-  };
-
-  const handleSaveStaff = () => {
-    // Add logic to save the new staff member
-    setStaffList([...staffList, { ...formData, id: staffList.length + 1 }]);
-    setShowForm(false);
-    setFormData({
-      building: '',
-      firstName: '',
-      lastName: '',
-      position: '',
-      salary: ''
-    });
   };
 
   const handleDeleteStaff = (id) => {
