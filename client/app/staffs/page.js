@@ -53,6 +53,21 @@ const CardContent = ({ children }) => {
   );
 };
 
+const initialFormData = {
+  id: '',
+  building: '',
+  firstName: '',
+  lastName: '',
+  position: '',
+  salary: '',
+  gender: '',
+  age: '',
+  dateOfBirth: '',
+  firstDayOfWork: '',
+  lineId: '',
+  phone: ''
+};
+
 const StaffPage = () => {
   const [activeView, setActiveView] = useState("overview");
   const [staffList, setStaffList] = useState([
@@ -63,23 +78,11 @@ const StaffPage = () => {
   const [filter, setFilter] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
-  const [formData, setFormData] = useState({
-    id: '',
-    building: '',
-    firstName: '',
-    lastName: '',
-    position: '',
-    salary: '',
-    gender: '',
-    age: '',
-    dateOfBirth: '',
-    firstDayOfWork: '',
-    lineId: '',
-    phone: ''
-  });
+  const [formData, setFormData] = useState(initialFormData);
 
   const handleAddStaff = () => {
     setShowForm(true);
+    setPreviewMode(false);
   };
 
   const handleDeleteStaff = (id) => {
@@ -105,20 +108,7 @@ const StaffPage = () => {
     setShowForm(false);
     setPreviewMode(false);
     setActiveView("overview");
-    setFormData({
-      id: '',
-      building: '',
-      firstName: '',
-      lastName: '',
-      position: '',
-      salary: '',
-      gender: '',
-      age: '',
-      dateOfBirth: '',
-      firstDayOfWork: '',
-      lineId: '',
-      phone: ''
-    });
+    setFormData(initialFormData);
   };
 
   const filteredStaffList = staffList.filter(staff =>
