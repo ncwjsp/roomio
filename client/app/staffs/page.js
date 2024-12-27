@@ -79,6 +79,8 @@ const StaffPage = () => {
   const [showForm, setShowForm] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
   const [formData, setFormData] = useState(initialFormData);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [availabilityFilter, setAvailabilityFilter] = useState('all'); // 'all', 'available', 'unavailable'
 
   const handleAddStaff = () => {
     setShowForm(true);
@@ -439,9 +441,6 @@ const StaffPage = () => {
   );
 
   const renderDetails = () => {
-    const [searchTerm, setSearchTerm] = useState('');
-    const [availabilityFilter, setAvailabilityFilter] = useState('all'); // 'all', 'available', 'unavailable'
-    
     const housekeepers = staffDetails.filter(staff => staff.role === 'Housekeeper');
     const electricians = staffDetails.filter(staff => staff.role === 'Electrician');
   
