@@ -72,7 +72,9 @@ const Tenants = () => {
               key={tenant.id}
               className="p-4 rounded-lg bg-white text-gray-800 border border-gray-200"
             >
-              <h5 className="text-xl font-semibold">{tenant.name}</h5>
+              <Link href={`/preview/${tenant.id}`}>
+                <h5 className="text-xl font-semibold cursor-pointer">{tenant.name}</h5>
+              </Link>
               <p className="text-sm">Room: {tenant.room}</p>
               <p className="text-sm">Line ID: {tenant.lineId}</p>
               <p className="text-sm">Tel: {tenant.tel}</p>
