@@ -4,12 +4,12 @@ import Navbar from "@/app/ui/navbar";
 import { useState } from "react";
 
 const Home = () => {
-  const [darkMode, setDarkMode] = useState(false);
-  const [notifications, setNotifications] = useState(true);
+  const [electricityUsage, setElectricityUsage] = useState(0);
+  const [waterUsage, setWaterUsage] = useState(0);
 
   const handleSave = () => {
     // Save settings logic here
-    console.log("Settings saved:", { darkMode, notifications });
+    console.log("Settings saved:", { electricityUsage, waterUsage });
   };
 
   return (
@@ -17,21 +17,23 @@ const Home = () => {
       <h1 className="text-2xl mb-4">Settings</h1>
       <div className="mb-4">
         <label className="flex items-center">
-          <span className="mr-2">Dark Mode</span>
+          <span className="mr-2">Electricity Usage (units)</span>
           <input
-            type="checkbox"
-            checked={darkMode}
-            onChange={() => setDarkMode(!darkMode)}
+            type="number"
+            value={electricityUsage}
+            onChange={(e) => setElectricityUsage(Number(e.target.value))}
+            className="border p-2"
           />
         </label>
       </div>
       <div className="mb-4">
         <label className="flex items-center">
-          <span className="mr-2">Notifications</span>
+          <span className="mr-2">Water Usage (units)</span>
           <input
-            type="checkbox"
-            checked={notifications}
-            onChange={() => setNotifications(!notifications)}
+            type="number"
+            value={waterUsage}
+            onChange={(e) => setWaterUsage(Number(e.target.value))}
+            className="border p-2"
           />
         </label>
       </div>
