@@ -4,6 +4,7 @@
 import { useState, useEffect } from "react";
 
 const AddTenant = () => {
+  // State variables
   const [showModal, setShowModal] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState("");
   const [tenantData, setTenantData] = useState({
@@ -19,7 +20,6 @@ const AddTenant = () => {
   });
   const [friendName, setFriendName] = useState("");
   const [friendDate, setFriendDate] = useState("");
-
   const [usersList, setUsersList] = useState([]); // List of available users for userId
 
   // Fetch the list of available users (this could come from your user database)
@@ -28,12 +28,12 @@ const AddTenant = () => {
       try {
         const response = await fetch("/api/friend"); // Endpoint to fetch users
         const data = await response.json();
-
         setUsersList(data.friends);
       } catch (error) {
         console.error("Error fetching users:", error);
       }
     };
+
     fetchLineFriends();
   }, []);
 
