@@ -1,7 +1,12 @@
 {
   "compilerOptions": {
+    "baseUrl": ".", // This sets the base URL to the root of your project
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"], // This ensures the "@" alias works for everything under the root
+      "@app/*": ["./app/*"], // This makes sure the "@app" alias works for files in the "app" folder
+      "@components/*": ["./app/components/*"], // This maps "@components" to the components folder under "app"
+      "@data/*": ["./app/data/*"], // This maps "@data" to the data folder under "app"
+      "@ui/*": ["./app/ui/*"] // Similarly for any "ui" components
     }
   }
 }
