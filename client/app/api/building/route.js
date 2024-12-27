@@ -13,6 +13,18 @@ export async function POST(req) {
     // Connect to DB
     await dbConnect();
 
+    const isNotUnique = await Building.findOne({
+      name: name,
+      createdBy: createdBy,
+    });
+
+    if (isNotUnique) {
+      return NextResponse.json(
+        { message: "Building name must be unique" },
+        { status: 409 }
+      );
+    }
+
     // Create the building document
     const building = new Building({
       name,
@@ -56,7 +68,6 @@ export async function POST(req) {
 
     return NextResponse.json(building, { status: 201 });
   } catch (error) {
-    console.error("Error creating building and rooms:", error);
     return NextResponse.json(
       { message: "Error creating building and rooms" },
       { status: 500 }

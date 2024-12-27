@@ -2,11 +2,15 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import Notification from "@/app/ui/notification";
 
 const Units = () => {
   const { data: session } = useSession();
   const id = session?.user?.id;
   const ROOMS_PER_PAGE = 18;
+
+  const [showNotification, setShowNotification] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const [buildings, setBuildings] = useState([]);
   const [roomCards, setRoomCards] = useState([]);
@@ -17,8 +21,15 @@ const Units = () => {
   const [showModal, setShowModal] = useState(false);
   const [newBuilding, setNewBuilding] = useState("");
   const [newPrice, setNewPrice] = useState(5000);
-  const [numFloors, setNumFloors] = useState(8);
+  const [numFloors, setNumFloors] = useState(3);
   const [roomsPerFloor, setRoomsPerFloor] = useState(10);
+
+  const resetForm = () => {
+    setNewBuilding("");
+    setNewPrice(5000);
+    setNumFloors(3);
+    setRoomsPerFloor(10);
+  };
 
   useEffect(() => {
     const fetchRooms = async () => {
@@ -40,8 +51,7 @@ const Units = () => {
         setBuildings(data.buildings);
         setRoomCards(data.rooms);
       } catch (error) {
-        console.error(error);
-        alert("Error fetching rooms");
+        alert(error);
       }
     };
 
@@ -74,7 +84,7 @@ const Units = () => {
   };
 
   const handleAddBuilding = async () => {
-    if (newBuilding.trim() && !buildings.includes(newBuilding.trim())) {
+    if (newBuilding.trim()) {
       try {
         const response = await fetch("/api/building", {
           method: "POST",
@@ -91,6 +101,9 @@ const Units = () => {
         });
 
         if (!response.ok) {
+          if (response.status === 409) {
+            throw new Error("Building name must be unique");
+          }
           throw new Error("Failed to create building");
         }
 
@@ -102,14 +115,13 @@ const Units = () => {
         setNumFloors(8);
         setRoomsPerFloor(10);
         setShowModal(false);
-
-        alert("Building added successfully!");
       } catch (error) {
-        console.error(error);
-        alert("Error adding building");
+        setErrorMessage(error.message);
+        setShowNotification(true);
       }
     } else {
-      alert("Building name must be unique and not empty.");
+      setErrorMessage("All fields are required");
+      setShowNotification(true);
     }
   };
 
@@ -161,9 +173,15 @@ const Units = () => {
                 setCurrentPage(1);
               }}
             >
-              <option value="">All Status</option>
-              <option value="Available">Available</option>
-              <option value="Occupied">Occupied</option>
+              <option value="" key="all">
+                All Status
+              </option>
+              <option value="Available" key="available">
+                Available
+              </option>
+              <option value="Occupied" key="occupied">
+                Occupied
+              </option>
             </select>
             <input
               type="text"
@@ -179,21 +197,26 @@ const Units = () => {
         </div>
 
         {/* Room Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-          {paginatedRooms.map((room) => (
-            <div
-              key={room.roomNumber}
-              className={`p-4 rounded-lg text-center cursor-pointer ${
-                room.status === "Available"
-                  ? "bg-[#898F63] text-white"
-                  : "bg-white text-gray-800 border border-gray-200"
-              }`}
-            >
-              <h5 className="text-lg font-semibold">{room.roomNumber}</h5>
-              <p className="text-sm">{room.status}</p>
-            </div>
-          ))}
-        </div>
+
+        {buildings ? (
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+            {paginatedRooms.map((room) => (
+              <div
+                key={room.roomNumber}
+                className={`p-4 rounded-lg text-center cursor-pointer ${
+                  room.status === "Available"
+                    ? "bg-[#898F63] text-white"
+                    : "bg-white text-gray-800 border border-gray-200"
+                }`}
+              >
+                <h5 className="text-lg font-semibold">{room.roomNumber}</h5>
+                <p className="text-sm">{room.status}</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div>You dont have any buildings yet</div>
+        )}
 
         {/* Pagination */}
         {totalPages > 1 && (
@@ -238,8 +261,12 @@ const Units = () => {
               <div className="mb-4 flex justify-between items-center">
                 <h5 className="text-xl font-semibold">Add Building</h5>
                 <button
-                  className="text-gray-500 hover:text-gray-700"
-                  onClick={() => setShowModal(false)}
+                  className="text-gray-500 bg-white text-3xl hover:text-gray-700"
+                  onClick={() => {
+                    setShowModal(false);
+                    setShowNotification(false);
+                    resetForm();
+                  }}
                 >
                   ×
                 </button>
@@ -266,6 +293,7 @@ const Units = () => {
                     className="w-full p-2 border rounded"
                     value={newPrice}
                     onChange={(e) => setNewPrice(e.target.value)}
+                    required
                   />
                 </div>
                 <div>
@@ -277,6 +305,7 @@ const Units = () => {
                     className="w-full p-2 border rounded"
                     value={numFloors}
                     onChange={(e) => setNumFloors(e.target.value)}
+                    required
                   />
                 </div>
                 <div>
@@ -288,6 +317,7 @@ const Units = () => {
                     className="w-full p-2 border rounded"
                     value={roomsPerFloor}
                     onChange={(e) => setRoomsPerFloor(e.target.value)}
+                    required
                   />
                 </div>
 
@@ -320,7 +350,11 @@ const Units = () => {
               <div className="mt-6 flex justify-end space-x-2">
                 <button
                   className="px-4 py-2 text-gray-600 bg-gray-100 rounded hover:bg-gray-200"
-                  onClick={() => setShowModal(false)}
+                  onClick={() => {
+                    setShowModal(false);
+                    setShowNotification(false);
+                    resetForm();
+                  }}
                 >
                   Cancel
                 </button>
@@ -333,6 +367,23 @@ const Units = () => {
               </div>
             </div>
           </div>
+          {showNotification && errorMessage && (
+            <Notification
+              message={errorMessage}
+              duration={3000}
+              onClose={() => setShowNotification(false)}
+              type="bad"
+            />
+          )}
+
+          {/* {showNotification && (
+            <Notification
+              message={"Building created successfully"}
+              duration={3000}
+              onClose={() => setShowNotification(false)}
+              type="good"
+            />
+          )} */}
         </div>
       )}
     </div>

@@ -22,7 +22,7 @@ const RoomSchema = new Schema(
     },
     tenant: {
       type: Schema.Types.ObjectId,
-      ref: "User",
+      ref: "Tenant",
       default: null,
     },
     price: {
