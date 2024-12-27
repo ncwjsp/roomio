@@ -4,12 +4,12 @@ import Navbar from "@/app/ui/navbar";
 import { useState } from "react";
 
 const Home = () => {
-  const [electricityUnit, setElectricityUnit] = useState("kWh");
-  const [waterUnit, setWaterUnit] = useState("liters");
+  const [darkMode, setDarkMode] = useState(false);
+  const [notifications, setNotifications] = useState(true);
 
   const handleSave = () => {
     // Save settings logic here
-    console.log("Settings saved:", { electricityUnit, waterUnit });
+    console.log("Settings saved:", { darkMode, notifications });
   };
 
   return (
@@ -17,26 +17,22 @@ const Home = () => {
       <h1 className="text-2xl mb-4">Settings</h1>
       <div className="mb-4">
         <label className="flex items-center">
-          <span className="mr-2">Electricity Unit</span>
-          <select
-            value={electricityUnit}
-            onChange={(e) => setElectricityUnit(e.target.value)}
-          >
-            <option value="kWh">kWh</option>
-            <option value="MWh">MWh</option>
-          </select>
+          <span className="mr-2">Dark Mode</span>
+          <input
+            type="checkbox"
+            checked={darkMode}
+            onChange={() => setDarkMode(!darkMode)}
+          />
         </label>
       </div>
       <div className="mb-4">
         <label className="flex items-center">
-          <span className="mr-2">Water Unit</span>
-          <select
-            value={waterUnit}
-            onChange={(e) => setWaterUnit(e.target.value)}
-          >
-            <option value="liters">Liters</option>
-            <option value="gallons">Gallons</option>
-          </select>
+          <span className="mr-2">Notifications</span>
+          <input
+            type="checkbox"
+            checked={notifications}
+            onChange={() => setNotifications(!notifications)}
+          />
         </label>
       </div>
       <button
