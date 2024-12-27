@@ -28,6 +28,7 @@
     "recharts": "^2.14.1"
   },
   "devDependencies": {
+    "@types/react": "19.0.2",
     "eslint": "^8",
     "eslint-config-next": "^15.0.3",
     "postcss": "^8",
