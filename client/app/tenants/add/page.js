@@ -3,11 +3,13 @@
 // pages/tenant/add.js
 import { useState, useEffect } from "react";
 import PropTypes from "prop-types";
-import { Modal, Button, TextField, Grid, CircularProgress, Alert, Snackbar } from '@mui/material';
+import { Modal, Button, TextField, Grid, CircularProgress, Alert, Snackbar, List, ListItem, ListItemText } from '@mui/material';
 
 const AddTenant = () => {
   // State variables
-  const [showModal, setShowModal] = useState(true); // Set to true to show modal by default
+  const [showModal, setShowModal] = useState(false);
+  const [showMoveRoomModal, setShowMoveRoomModal] = useState(false);
+  const [selectedTenant, setSelectedTenant] = useState(null);
   const [selectedUserId, setSelectedUserId] = useState("");
   const [tenantData, setTenantData] = useState({
     name: "",
@@ -23,6 +25,7 @@ const AddTenant = () => {
   const [friendName, setFriendName] = useState("");
   const [friendDate, setFriendDate] = useState("");
   const [usersList, setUsersList] = useState([]); // List of available users for userId
+  const [availableRooms, setAvailableRooms] = useState([]); // List of available rooms
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
@@ -44,9 +47,27 @@ const AddTenant = () => {
     }
   };
 
-  // Fetch the list of available users on component mount
+  // Function to fetch the list of available rooms
+  const fetchAvailableRooms = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch("/api/rooms"); // Endpoint to fetch available rooms
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      setAvailableRooms(data.rooms);
+    } catch (error) {
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch the list of available users and rooms on component mount
   useEffect(() => {
     fetchLineFriends();
+    fetchAvailableRooms();
   }, []);
 
   const handleInputChange = (e) => {
@@ -95,8 +116,44 @@ const AddTenant = () => {
     }
   };
 
+  const handleMoveRoom = async (roomId) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/tenant/${selectedTenant.id}/move`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ roomId }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to move tenant");
+      }
+
+      const data = await response.json();
+      console.log("Tenant moved:", data);
+      setSuccess(true);
+      setShowMoveRoomModal(false);
+    } catch (error) {
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div>
+      <Button variant="contained" color="primary" onClick={() => setShowModal(true)}>
+        Add Tenant
+      </Button>
+      <List>
+        {usersList.map((user) => (
+          <ListItem button key={user.id} onClick={() => { setSelectedTenant(user); setShowMoveRoomModal(true); }}>
+            <ListItemText primary={user.name} />
+          </ListItem>
+        ))}
+      </List>
       <Modal open={showModal} onClose={() => setShowModal(false)}>
         <div style={{ padding: '20px', backgroundColor: 'white', margin: 'auto', marginTop: '10%', width: '50%' }}>
           <h2>Add Tenant</h2>
@@ -212,11 +269,28 @@ const AddTenant = () => {
           </form>
         </div>
       </Modal>
+      <Modal open={showMoveRoomModal} onClose={() => setShowMoveRoomModal(false)}>
+        <div style={{ padding: '20px', backgroundColor: 'white', margin: 'auto', marginTop: '10%', width: '50%' }}>
+          <h2>Move Room for {selectedTenant?.name}</h2>
+          {loading && <CircularProgress />}
+          {error && <Alert severity="error">{error}</Alert>}
+          <List>
+            {availableRooms.map((room) => (
+              <ListItem button key={room.id} onClick={() => handleMoveRoom(room.id)}>
+                <ListItemText primary={`Room ${room.number}`} />
+              </ListItem>
+            ))}
+          </List>
+          <Button variant="outlined" color="secondary" fullWidth onClick={() => setShowMoveRoomModal(false)}>
+            Back
+          </Button>
+        </div>
+      </Modal>
       <Snackbar
         open={success}
         autoHideDuration={6000}
         onClose={() => setSuccess(false)}
-        message="Tenant added successfully"
+        message="Operation successful"
       />
     </div>
   );
