@@ -156,14 +156,16 @@ const StaffPage = () => {
     { name: 'Housekeepers', value: 30, color: '#4CAF50' },
     { name: 'Electricians', value: 20, color: '#FFA726' },
     { name: 'Plumbers', value: 15, color: '#42A5F5' },
-    { name: 'Security Guards', value: 25, color: '#EF5350' }
+    { name: 'Managers', value: 10, color: '#FF7043' },
+    { name: 'Technicians', value: 15, color: '#AB47BC' }
   ];
 
   const staffSalaryPieData = [
-    { name: 'Housekeepers', value: 300000, color: '#4CAF50' },
-    { name: 'Electricians', value: 400000, color: '#FFA726' },
-    { name: 'Plumbers', value: 200000, color: '#42A5F5' },
-    { name: 'Security Guards', value: 300000, color: '#EF5350' }
+    { name: 'Housekeepers', value: 30000, color: '#4CAF50' },
+    { name: 'Electricians', value: 40000, color: '#FFA726' },
+    { name: 'Plumbers', value: 35000, color: '#42A5F5' },
+    { name: 'Managers', value: 50000, color: '#FF7043' },
+    { name: 'Technicians', value: 45000, color: '#AB47BC' }
   ];
 
   const staffDetails = [
@@ -243,202 +245,7 @@ const StaffPage = () => {
     </div>
   );
 
-  const renderManagement = () => (
-    <div className="w-full">
-      <div className="flex items-center mb-4">
-        <button 
-          onClick={() => setActiveView("overview")} 
-          className="flex items-center text-gray-600 hover:text-gray-900 mr-4"
-        >
-          <ArrowLeft className="mr-2" /> Back to Overview
-        </button>
-      </div>
-      <div className="p-6">
-        <Card className="shadow-lg rounded-lg bg-white">
-          <CardHeader className="flex justify-between items-center bg-green-600 text-white rounded-t-lg">
-            <h2 className="text-xl font-bold">Staff Management List</h2>
-            <button onClick={handleAddStaff} className="bg-blue-500 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">Add Staff</button>
-          </CardHeader>
-          <div className="p-4">
-            <input
-              type="text"
-              placeholder="Filter by name, building, or position..."
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              className="mb-4 p-2 border rounded-lg w-full"
-            />
-            <div className="overflow-x-auto">
-              <table className="min-w-full bg-white border border-gray-200">
-                <thead>
-                  <tr className="bg-gray-100">
-                    <th className="py-2 px-4 border-b">Building</th>
-                    <th className="py-2 px-4 border-b">First Name</th>
-                    <th className="py-2 px-4 border-b">Last Name</th>
-                    <th className="py-2 px-4 border-b">Position</th>
-                    <th className="py-2 px-4 border-b">Salary/Month</th>
-                    <th className="py-2 px-4 border-b">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredStaffList.map((staff, index) => (
-                    <tr key={staff.id} className={`border-t ${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'} hover:bg-gray-100`}>
-                      <td className="py-2 px-4">{staff.building}</td>
-                      <td className="py-2 px-4">{staff.firstName}</td>
-                      <td className="py-2 px-4">{staff.lastName}</td>
-                      <td className="py-2 px-4">{staff.position}</td>
-                      <td className="py-2 px-4">${staff.salary}</td>
-                      <td className="py-2 px-4">
-                        <button onClick={() => handleEditStaff(staff.id)} className="bg-yellow-500 hover:bg-yellow-700 text-white px-2 py-1 rounded-lg mr-2">Edit</button>
-                        <button onClick={() => handleDeleteStaff(staff.id)} className="bg-red-500 hover:bg-red-700 text-white px-2 py-1 rounded-lg">Delete</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </Card>
-
-        {showForm && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
-            <div className="bg-white p-6 rounded-lg shadow-lg">
-              <h2 className="text-xl font-bold mb-4">Add New Staff</h2>
-              <form onSubmit={handleSubmit}>
-                <div className="mb-4">
-                  <label className="block text-gray-700">ID</label>
-                  <input
-                    type="text"
-                    name="id"
-                    value={formData.id}
-                    onChange={handleChange}
-                    className="w-full p-2 border rounded-lg"
-                  />
-                </div>
-                <div className="mb-4">
-                  <label className="block text-gray-700">Building</label>
-                  <input
-                    type="text"
-                    name="building"
-                    value={formData.building}
-                    onChange={handleChange}
-                    className="w-full p-2 border rounded-lg"
-                  />
-                </div>
-                <div className="mb-4">
-                  <label className="block text-gray-700">First Name</label>
-                  <input
-                    type="text"
-                    name="firstName"
-                    value={formData.firstName}
-                    onChange={handleChange}
-                    className="w-full p-2 border rounded-lg"
-                  />
-                </div>
-                <div className="mb-4">
-                  <label className="block text-gray-700">Last Name</label>
-                  <input
-                    type="text"
-                    name="lastName"
-                    value={formData.lastName}
-                    onChange={handleChange}
-                    className="w-full p-2 border rounded-lg"
-                  />
-                </div>
-                <div className="mb-4">
-                  <label className="block text-gray-700">Position</label>
-                  <input
-                    type="text"
-                    name="position"
-                    value={formData.position}
-                    onChange={handleChange}
-                    className="w-full p-2 border rounded-lg"
-                  />
-                </div>
-                <div className="mb-4">
-                  <label className="block text-gray-700">Salary</label>
-                  <input
-                    type="number"
-                    name="salary"
-                    value={formData.salary}
-                    onChange={handleChange}
-                    className="w-full p-2 border rounded-lg"
-                  />
-                </div>
-                <div className="mb-4">
-                  <label className="block text-gray-700">Gender</label>
-                  <select
-                    name="gender"
-                    value={formData.gender}
-                    onChange={handleChange}
-                    className="w-full p-2 border rounded-lg"
-                  >
-                    <option value="">Select Gender</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-                <div className="mb-4">
-                  <label className="block text-gray-700">Age</label>
-                  <input
-                    type="number"
-                    name="age"
-                    value={formData.age}
-                    onChange={handleChange}
-                    className="w-full p-2 border rounded-lg"
-                  />
-                </div>
-                <div className="mb-4">
-                  <label className="block text-gray-700">Date of Birth</label>
-                  <input
-                    type="date"
-                    name="dateOfBirth"
-                    value={formData.dateOfBirth}
-                    onChange={handleChange}
-                    className="w-full p-2 border rounded-lg"
-                  />
-                </div>
-                <div className="mb-4">
-                  <label className="block text-gray-700">First Day of Work</label>
-                  <input
-                    type="date"
-                    name="firstDayOfWork"
-                    value={formData.firstDayOfWork}
-                    onChange={handleChange}
-                    className="w-full p-2 border rounded-lg"
-                  />
-                </div>
-                <div className="mb-4">
-                  <label className="block text-gray-700">Line ID</label>
-                  <input
-                    type="text"
-                    name="lineId"
-                    value={formData.lineId}
-                    onChange={handleChange}
-                    className="w-full p-2 border rounded-lg"
-                  />
-                </div>
-                <div className="mb-4">
-                  <label className="block text-gray-700">Phone</label>
-                  <input
-                    type="text"
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleChange}
-                    className="w-full p-2 border rounded-lg"
-                  />
-                </div>
-                <div className="flex justify-end">
-                  <button type="button" onClick={() => setShowForm(false)} className="bg-red-500 hover:bg-red-700 text-white px-4 py-2 rounded-lg mr-2">Cancel</button>
-                  <button type="submit" className="bg-blue-500 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">Submit</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
+  
 
   const renderDetails = () => {
     const housekeepers = staffDetails.filter(staff => staff.role === 'Housekeeper');
