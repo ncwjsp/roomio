@@ -372,7 +372,7 @@ const StaffPage = () => {
             {renderOverview()}
           </div>
         )}
-        {activeView === "management" && renderManagement()} 
+        
         {activeView === "details" && renderDetails()}
       </div>
 
