@@ -353,6 +353,7 @@ const StaffPage = () => {
     );
   };
   
+  
 
   return (
     <div className="flex flex-col items-center min-h-screen bg-[#F5F5F5]">
@@ -372,18 +373,11 @@ const StaffPage = () => {
             {renderOverview()}
           </div>
         )}
-        {activeView === "management" && renderManagement()}         {activeView === "details" && renderDetails()}
+        
+        {activeView === "details" && renderDetails()}
       </div>
-
-     
     </div>
   );
 };
 
-export default StaffPage;{activeView === "overview" && (
-  <div className="bg-white p-4 rounded-lg shadow-md">
-    {renderOverview()}
-  </div>
-)}
-{activeView === "management" && renderManagement()}
-{activeView === "details" && renderDetails()}
+export default StaffPage;
