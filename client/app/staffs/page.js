@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Users, Clock, Wrench, ArrowLeft, XCircle, User, Building, Briefcase, DollarSign, Calendar, Phone, Info } from 'lucide-react';
+import { Users, Clock, Wrench, ArrowLeft, XCircle, User, Building, Briefcase, DollarSign, Calendar, Phone, Info, UserRound, PlusCircle } from 'lucide-react';
 import { 
   PieChart, 
   Pie, 
@@ -66,6 +66,37 @@ const initialFormData = {
   firstDayOfWork: '',
   lineId: '',
   phone: ''
+};
+
+// StaffCard Component
+const StaffCard = ({ 
+  title, 
+  icon, 
+  isAdd = false, 
+  staffCount = 0, 
+  onClick 
+}) => {
+  return (
+    <div 
+      onClick={onClick}
+      className={`
+        bg-white rounded-lg p-8 flex flex-col items-center justify-center
+        cursor-pointer transition-all hover:scale-105 hover:shadow-lg
+        ${isAdd ? 'border-2 border-dashed border-gray-300' : 'shadow-md'}
+      `}
+    >
+      <div className="mb-4 text-[#8b8f78]">
+        {icon}
+      </div>
+      <h2 className="text-lg font-medium text-gray-800 mb-2">{title}</h2>
+      {!isAdd && (
+        <div className="flex items-center text-sm text-gray-600">
+          <Users size={16} className="mr-1" />
+          <span>{staffCount} members</span>
+        </div>
+      )}
+    </div>
+  );
 };
 
 const StaffPage = () => {
@@ -353,19 +384,19 @@ const StaffPage = () => {
     );
   };
   
-  
+  const handleClick = (role) => {
+    console.log(`${role} card clicked`);
+  };
+
+  const handleAddRole = () => {
+    console.log('Add new role clicked');
+  };
 
   return (
     <div className="flex flex-col items-center min-h-screen bg-[#F5F5F5]">
       <div className="w-full max-w-6xl p-5">
         <div className={`flex justify-between items-center mb-6 p-4 rounded-lg shadow-md ${activeView === "overview" ? "bg-white" : "bg-gray-100"}`}>
-          <h1 className="text-3xl font-semibold">
-            {activeView === "overview" 
-              ? "Staff Overview" 
-              : activeView === "management" 
-                ? "Staff Management" 
-                : "Staff Details"}
-          </h1>
+        
         </div>
 
         {activeView === "overview" && (
@@ -375,6 +406,23 @@ const StaffPage = () => {
         )}
         
         {activeView === "details" && renderDetails()}
+
+        {activeView === "management" && (
+          <div className="bg-white p-4 rounded-lg shadow-md">
+            <StaffCard
+              title="Housekeeper"
+              icon={<UserRound size={48} />}
+              staffCount={4}
+              onClick={() => handleClick('housekeeper')}
+            />
+            <StaffCard
+              title="Add new role"
+              icon={<PlusCircle size={48} />}
+              isAdd
+              onClick={handleAddRole}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
