@@ -16,7 +16,7 @@ import {
   Avatar,
   IconButton,
   Pagination,
-  Skeleton,
+  CircularProgress,
   Alert,
   Dialog,
   DialogTitle,
@@ -24,7 +24,7 @@ import {
   DialogActions,
 } from "@mui/material";
 import {
-  Search as SearchIcon,
+  Search as SearchIcon, 
   Edit as EditIcon,
   Delete as DeleteIcon,
   ArrowBack as ArrowBackIcon,
@@ -86,15 +86,10 @@ const Tenants = () => {
 
   if (loading) {
     return (
-      <Container maxWidth="lg" sx={{ py: 4 }}>
-        <Grid container spacing={3}>
-          {[...Array(6)].map((_, index) => (
-            <Grid item xs={12} sm={6} md={4} key={index}>
-              <Skeleton variant="rectangular" height={200} />
-            </Grid>
-          ))}
-        </Grid>
-      </Container>
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <CircularProgress size={40} sx={{ color: "#898F63" }} />
+        <p className="mt-4 text-gray-600">Loading tenants...</p>
+      </div>
     );
   }
 
@@ -149,64 +144,79 @@ const Tenants = () => {
         />
       </Box>
 
-      <Grid container spacing={3}>
-        {paginatedTenants.map((tenant) => (
-          <Grid item xs={12} sm={6} md={4} key={tenant._id}>
-            <Card
-              elevation={2}
-              sx={{
-                cursor: "pointer",
-                transition: "transform 0.2s, box-shadow 0.2s",
-                "&:hover": {
-                  transform: "translateY(-4px)",
-                  boxShadow: 8,
-                },
-              }}
-              onClick={() => handleTenantClick(tenant._id)}
-            >
-              <CardContent>
-                <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-                  <Avatar sx={{ bgcolor: "primary.main", mr: 2 }}>
-                    {tenant.name[0]}
-                  </Avatar>
-                  <Typography variant="h6" component="h2">
-                    {tenant.name}
-                  </Typography>
-                </Box>
-                <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                  <Chip
-                    icon={<HomeIcon />}
-                    label={`Room ${tenant.room.roomNumber}`}
-                    size="small"
-                  />
-                  <Typography variant="body2" color="text.secondary">
-                    <PhoneIcon
-                      sx={{ fontSize: 16, mr: 1, verticalAlign: "middle" }}
-                    />
-                    {tenant.phone}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    <PersonIcon
-                      sx={{ fontSize: 16, mr: 1, verticalAlign: "middle" }}
-                    />
-                    {tenant.lineId}
-                  </Typography>
-                </Box>
-              </CardContent>
-            </Card>
+      {loading ? (
+        <div className="flex flex-col items-center justify-center py-12">
+          <CircularProgress size={40} sx={{ color: "#898F63" }} />
+          <p className="mt-4 text-gray-600">Loading tenants...</p>
+        </div>
+      ) : error ? (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      ) : (
+        <>
+          <Grid container spacing={3}>
+            {paginatedTenants.map((tenant) => (
+              <Grid item xs={12} sm={6} md={4} key={tenant._id}>
+                <Card
+                  elevation={2}
+                  sx={{
+                    cursor: "pointer",
+                    transition: "transform 0.2s, box-shadow 0.2s",
+                    "&:hover": {
+                      transform: "translateY(-4px)",
+                      boxShadow: 8,
+                    },
+                  }}
+                  onClick={() => handleTenantClick(tenant._id)}
+                >
+                  <CardContent>
+                    <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+                      <Avatar sx={{ bgcolor: "primary.main", mr: 2 }}>
+                        {tenant.name[0]}
+                      </Avatar>
+                      <Typography variant="h6" component="h2">
+                        {tenant.name}
+                      </Typography>
+                    </Box>
+                    <Box
+                      sx={{ display: "flex", flexDirection: "column", gap: 1 }}
+                    >
+                      <Chip
+                        icon={<HomeIcon />}
+                        label={`Room ${tenant.room.roomNumber}`}
+                        size="small"
+                      />
+                      <Typography variant="body2" color="text.secondary">
+                        <PhoneIcon
+                          sx={{ fontSize: 16, mr: 1, verticalAlign: "middle" }}
+                        />
+                        {tenant.phone}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        <PersonIcon
+                          sx={{ fontSize: 16, mr: 1, verticalAlign: "middle" }}
+                        />
+                        {tenant.lineId}
+                      </Typography>
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
           </Grid>
-        ))}
-      </Grid>
 
-      {totalPages > 1 && (
-        <Box sx={{ mt: 4, display: "flex", justifyContent: "center" }}>
-          <Pagination
-            count={totalPages}
-            page={currentPage}
-            onChange={(_, page) => setCurrentPage(page)}
-            color="primary"
-          />
-        </Box>
+          {totalPages > 1 && (
+            <Box sx={{ mt: 4, display: "flex", justifyContent: "center" }}>
+              <Pagination
+                count={totalPages}
+                page={currentPage}
+                onChange={(_, page) => setCurrentPage(page)}
+                color="primary"
+              />
+            </Box>
+          )}
+        </>
       )}
     </Container>
   );

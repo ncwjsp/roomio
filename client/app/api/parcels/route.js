@@ -1,5 +1,5 @@
 import dbConnect from "@/lib/mongodb";
-import Parcel from "@/app/models/Parcels";
+import Parcel from "@/app/models/Parcel";
 
 export async function GET(req) {
   await dbConnect();
