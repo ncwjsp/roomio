@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import Notification from "@/app/ui/notification";
+import { CircularProgress } from "@mui/material";
+import AddIcon from "@mui/icons-material/Add";
 
 const Units = () => {
   const { data: session, status } = useSession();
@@ -26,6 +28,13 @@ const Units = () => {
   const [roomsPerFloor, setRoomsPerFloor] = useState(10);
 
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  const [showAddRoomModal, setShowAddRoomModal] = useState(false);
+  const [newRoomNumber, setNewRoomNumber] = useState("");
+  const [selectedBuildingForRoom, setSelectedBuildingForRoom] = useState("");
+  const [selectedFloor, setSelectedFloor] = useState(1);
+  const [roomPrice, setRoomPrice] = useState(5000);
+  const [selectedBuildingData, setSelectedBuildingData] = useState(null);
 
   const resetForm = () => {
     setNewBuilding("");
@@ -156,20 +165,90 @@ const Units = () => {
     }
   };
 
+  useEffect(() => {
+    if (selectedBuildingForRoom) {
+      const building = buildings.find((b) => b._id === selectedBuildingForRoom);
+      setSelectedBuildingData(building);
+      // Reset floor when building changes
+      setSelectedFloor(1);
+    }
+  }, [selectedBuildingForRoom, buildings]);
+
+  // Generate floor options based on selected building
+  const getFloorOptions = () => {
+    if (!selectedBuildingData) return [];
+    return Array.from(
+      { length: selectedBuildingData.numFloors },
+      (_, i) => i + 1
+    );
+  };
+
+  const handleAddRoom = async () => {
+    try {
+      const response = await fetch("/api/room", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          buildingId: selectedBuildingForRoom,
+          roomNumber: newRoomNumber,
+          floor: selectedFloor,
+          price: roomPrice,
+          createdBy: session?.user?.id,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to create room");
+      }
+
+      setShowAddRoomModal(false);
+      refreshData();
+      resetRoomForm();
+    } catch (error) {
+      setErrorMessage(error.message);
+      setShowNotification(true);
+    }
+  };
+
+  const resetRoomForm = () => {
+    setNewRoomNumber("");
+    setSelectedBuildingForRoom("");
+    setSelectedFloor(1);
+    setRoomPrice(5000);
+    setSelectedBuildingData(null);
+  };
+
   return (
     <div className="flex flex-col items-center min-h-screen bg-[#EBECE1]">
       <div className="container px-4 py-8">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-semibold">Units</h1>
-          <button
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-            onClick={() => setShowModal(true)}
-          >
-            Add Building
-          </button>
+          <div className="flex gap-2">
+            <button
+              className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 flex items-center"
+              onClick={() => setShowAddRoomModal(true)}
+            >
+              <AddIcon className="mr-1" /> Add Room
+            </button>
+            <button
+              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+              onClick={() => setShowModal(true)}
+            >
+              Add Building
+            </button>
+          </div>
         </div>
 
-        {buildings.length > 0 ? (
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-20">
+            <CircularProgress size={40} sx={{ color: "#898F63" }} />
+            <p className="mt-4 text-gray-600">Loading units...</p>
+          </div>
+        ) : buildings.length > 0 ? (
           <>
             {/* Filter Section */}
             <div className="p-6 rounded-lg shadow-sm mb-6 bg-[#898F63] text-white">
@@ -387,15 +466,117 @@ const Units = () => {
               type="bad"
             />
           )}
+        </div>
+      )}
 
-          {/* {showNotification && (
-            <Notification
-              message={"Building created successfully"}
-              duration={3000}
-              onClose={() => setShowNotification(false)}
-              type="good"
-            />
-          )} */}
+      {/* Add Room Modal */}
+      {showAddRoomModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen px-4">
+            <div className="fixed inset-0 bg-black opacity-50"></div>
+            <div className="relative bg-white rounded-lg w-full max-w-md p-6">
+              <div className="mb-4 flex justify-between items-center">
+                <h5 className="text-xl font-semibold">Add Room</h5>
+                <button
+                  className="text-gray-500 bg-white text-3xl hover:text-gray-700"
+                  onClick={() => {
+                    setShowAddRoomModal(false);
+                    resetRoomForm();
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Select Building
+                  </label>
+                  <select
+                    className="w-full p-2 border rounded"
+                    value={selectedBuildingForRoom}
+                    onChange={(e) => setSelectedBuildingForRoom(e.target.value)}
+                    required
+                  >
+                    <option value="">Select a building</option>
+                    {buildings.map((building) => (
+                      <option key={building._id} value={building._id}>
+                        Building {building.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Floor Number
+                  </label>
+                  <select
+                    className="w-full p-2 border rounded"
+                    value={selectedFloor}
+                    onChange={(e) => setSelectedFloor(Number(e.target.value))}
+                    required
+                    disabled={!selectedBuildingForRoom}
+                  >
+                    <option value="">Select floor</option>
+                    {getFloorOptions().map((floor) => (
+                      <option key={floor} value={floor}>
+                        Floor {floor}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Room Number
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full p-2 border rounded"
+                    value={newRoomNumber}
+                    onChange={(e) => setNewRoomNumber(e.target.value)}
+                    placeholder={
+                      selectedBuildingData
+                        ? `e.g., ${selectedBuildingData.name}${selectedFloor}01`
+                        : "Select a building first"
+                    }
+                    required
+                  />
+                  <p className="text-sm text-gray-500 mt-1">
+                    Suggested format: Building{selectedFloor}XX
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Room Price
+                  </label>
+                  <input
+                    type="number"
+                    className="w-full p-2 border rounded"
+                    value={roomPrice}
+                    onChange={(e) => setRoomPrice(Number(e.target.value))}
+                    required
+                  />
+                </div>
+              </div>
+              <div className="mt-6 flex justify-end space-x-2">
+                <button
+                  className="px-4 py-2 text-gray-600 bg-gray-100 rounded hover:bg-gray-200"
+                  onClick={() => {
+                    setShowAddRoomModal(false);
+                    resetRoomForm();
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="px-4 py-2 text-white bg-green-500 rounded hover:bg-green-600"
+                  onClick={handleAddRoom}
+                >
+                  Add Room
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

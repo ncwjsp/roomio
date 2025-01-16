@@ -3,16 +3,13 @@ import dbConnect from "@/lib/mongodb";
 import Room from "@/app/models/Room";
 import Building from "@/app/models/Building";
 
-export async function POST(req) {
+export async function POST(request) {
   try {
-    const { roomNumber, floor, status, buildingId, tenant, price } =
-      await req.json();
-
-    // Connect to the database
     await dbConnect();
+    const data = await request.json();
 
-    // Check if the building exists
-    const building = await Building.findById(buildingId);
+    // Validate building exists
+    const building = await Building.findById(data.buildingId);
     if (!building) {
       return NextResponse.json(
         { message: "Building not found" },
@@ -20,37 +17,21 @@ export async function POST(req) {
       );
     }
 
-    // Check if the room number is unique within the building
-    const existingRoom = await Room.findOne({
-      roomNumber,
-      building: buildingId,
-    });
-    if (existingRoom) {
-      return NextResponse.json(
-        { message: "Room number already exists in this building" },
-        { status: 409 }
-      );
-    }
-
-    // Create a new room linked to the building
-    const newRoom = await Room.create({
-      roomNumber,
-      floor,
-      status,
-      building: buildingId, // Reference to the building
-      tenant, // Reference to the tenant (if any)
-      price, // Room price
+    // Create room
+    const room = await Room.create({
+      building: data.buildingId,
+      roomNumber: data.roomNumber,
+      floor: data.floor,
+      price: data.price,
+      status: "Available",
+      createdBy: data.createdBy,
     });
 
-    // Optionally, you can update the building with the new room (if needed)
-    building.rooms.push(newRoom._id);
-    await building.save();
-
-    return NextResponse.json(newRoom, { status: 201 });
+    return NextResponse.json({ room }, { status: 201 });
   } catch (error) {
-    console.error("Error in creating room:", error);
+    console.error("Error in room API:", error);
     return NextResponse.json(
-      { message: "An error occurred while creating the room" },
+      { message: "Failed to create room", error: error.message },
       { status: 500 }
     );
   }
