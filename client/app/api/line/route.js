@@ -1,11 +1,11 @@
 import * as line from "@line/bot-sdk";
 import { NextResponse } from "next/server";
-import dbConnect from "@/app/lib/mongodb";
+import dbConnect from "@/lib/mongodb";
 import Friend from "@/app/models/Friend";
 
-const config = {
-  channelSecret: process.env.CHANNEL_SECRET,
-};
+// const config = {
+//   channelSecret: process.env.CHANNEL_SECRET,
+// };
 
 const client = new line.messagingApi.MessagingApiClient({
   channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN,
@@ -96,4 +96,9 @@ async function handleEvent(event) {
       console.error("Error replying to message:", err);
     }
   }
+}
+
+async function getAllFriends() {
+  const friends = await Friend.find({});
+  return friends;
 }

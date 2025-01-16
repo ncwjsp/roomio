@@ -1,3 +1,5 @@
+import { LocalizationProvider } from "@mui/x-date-pickers";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import localFont from "next/font/local";
 import "./globals.css";
 import Navbar from "@/app/ui/navbar";
@@ -27,11 +29,8 @@ export default function RootLayout({ children }) {
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         >
-          {/* Main Layout Container */}
           <div className="flex min-h-screen bg-[#EBECE1]">
-            {/* Fixed Navbar */}
             <Navbar />
-            {/* Main Content */}
             <div className="flex-1 p-5 overflow-auto">{children}</div>
           </div>
         </body>

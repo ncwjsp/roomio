@@ -5,7 +5,8 @@ import { useSession } from "next-auth/react";
 import Notification from "@/app/ui/notification";
 
 const Units = () => {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
+  const [isLoading, setIsLoading] = useState(true);
   const id = session?.user?.id;
   const ROOMS_PER_PAGE = 18;
 
@@ -24,6 +25,8 @@ const Units = () => {
   const [numFloors, setNumFloors] = useState(3);
   const [roomsPerFloor, setRoomsPerFloor] = useState(10);
 
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
   const resetForm = () => {
     setNewBuilding("");
     setNewPrice(5000);
@@ -34,34 +37,62 @@ const Units = () => {
   useEffect(() => {
     const fetchRooms = async () => {
       try {
-        if (!session?.user?.id) {
-          console.log("User ID is not available");
-          return;
-        }
+        if (!session?.user?.id) return;
+        setIsLoading(true);
 
-        const response = await fetch(`/api/building?id=${id}`, {
-          method: "GET",
-        });
-
+        const response = await fetch(`/api/building?id=${session.user.id}`);
         if (!response.ok) {
-          throw new Error("Failed to fetch rooms");
+          return;
         }
 
         const data = await response.json();
         setBuildings(data.buildings);
-        setRoomCards(data.rooms);
+
+        // Update room cards with current building names
+        const updatedRooms = data.rooms.map((room) => {
+          const currentBuilding = data.buildings.find(
+            (b) => b._id === (room.building._id || room.building)
+          );
+          return {
+            ...room,
+            building: currentBuilding || room.building,
+          };
+        });
+
+        setRoomCards(updatedRooms);
+        console.log("Updated rooms:", updatedRooms); // Debug log
       } catch (error) {
-        alert(error);
+        console.error("Error fetching rooms:", error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    fetchRooms();
-  }, [session, id]);
+    if (status !== "loading") {
+      fetchRooms();
+    }
+  }, [session, status, refreshTrigger]);
+
+  const refreshData = () => {
+    setRefreshTrigger((prev) => prev + 1);
+  };
 
   const filteredRooms = roomCards
+    .map((room) => {
+      const currentBuilding = buildings.find(
+        (b) => b._id === room.building._id
+      );
+      return {
+        ...room,
+        building: {
+          ...room.building,
+          name: currentBuilding?.name || room.building.name,
+        },
+      };
+    })
     .filter((room) => {
       const matchesBuilding = selectedBuilding
-        ? room.building === selectedBuilding
+        ? room.building.name === selectedBuilding
         : true;
       const matchesStatus = filterStatus ? room.status === filterStatus : true;
       const matchesSearch = searchQuery
@@ -130,124 +161,105 @@ const Units = () => {
       <div className="container px-4 py-8">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-semibold">Units</h1>
-          <div className="space-x-2">
-            <button
-              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-              onClick={() => setShowModal(true)}
-            >
-              Add Building
-            </button>
-            <button
-              className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
-              onClick={() => alert("Add Room functionality coming soon!")}
-            >
-              Add Room
-            </button>
-          </div>
+          <button
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            onClick={() => setShowModal(true)}
+          >
+            Add Building
+          </button>
         </div>
 
-        {/* Filter Section */}
-        <div className="p-6 rounded-lg shadow-sm mb-6 bg-[#898F63] text-white">
-          <h4 className="text-lg font-semibold mb-4">Filter Rooms</h4>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <select
-              className="w-full p-2 rounded text-gray-700"
-              value={selectedBuilding}
-              onChange={(e) => {
-                setSelectedBuilding(e.target.value);
-                setCurrentPage(1);
-              }}
-            >
-              <option value="">All Buildings</option>
-              {buildings.map((building) => (
-                <option key={building._id} value={building.name}>
-                  Building {building.name}
-                </option>
-              ))}
-            </select>
-            <select
-              className="w-full p-2 rounded text-gray-700"
-              value={filterStatus}
-              onChange={(e) => {
-                setFilterStatus(e.target.value);
-                setCurrentPage(1);
-              }}
-            >
-              <option value="" key="all">
-                All Status
-              </option>
-              <option value="Available" key="available">
-                Available
-              </option>
-              <option value="Occupied" key="occupied">
-                Occupied
-              </option>
-            </select>
-            <input
-              type="text"
-              className="w-full p-2 rounded text-gray-700"
-              placeholder="Search by Room Number"
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setCurrentPage(1);
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Room Grid */}
-
-        {buildings ? (
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-            {paginatedRooms.map((room) => (
-              <div
-                key={room.roomNumber}
-                className={`p-4 rounded-lg text-center cursor-pointer ${
-                  room.status === "Available"
-                    ? "bg-[#898F63] text-white"
-                    : "bg-white text-gray-800 border border-gray-200"
-                }`}
-              >
-                <h5 className="text-lg font-semibold">{room.roomNumber}</h5>
-                <p className="text-sm">{room.status}</p>
+        {buildings.length > 0 ? (
+          <>
+            {/* Filter Section */}
+            <div className="p-6 rounded-lg shadow-sm mb-6 bg-[#898F63] text-white">
+              <h4 className="text-lg font-semibold mb-4">Filter Rooms</h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <select
+                  className="w-full p-2 rounded text-gray-700"
+                  value={selectedBuilding}
+                  onChange={(e) => {
+                    setSelectedBuilding(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                >
+                  <option value="">All Buildings</option>
+                  {buildings.map((building) => (
+                    <option key={building._id} value={building.name}>
+                      Building {building.name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="w-full p-2 rounded text-gray-700"
+                  value={filterStatus}
+                  onChange={(e) => {
+                    setFilterStatus(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                >
+                  <option value="">All Status</option>
+                  <option value="Available">Available</option>
+                  <option value="Occupied">Occupied</option>
+                </select>
+                <input
+                  type="text"
+                  className="w-full p-2 rounded text-gray-700"
+                  placeholder="Search by Room Number"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                />
               </div>
-            ))}
-          </div>
-        ) : (
-          <div>You dont have any buildings yet</div>
-        )}
+            </div>
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex justify-center mt-6 space-x-2">
-            <button
-              className="px-4 py-2 rounded border disabled:opacity-50"
-              disabled={currentPage === 1}
-              onClick={() => handlePageChange(currentPage - 1)}
-            >
-              Previous
-            </button>
-            {[...Array(totalPages)].map((_, idx) => (
-              <button
-                key={idx}
-                className={`px-4 py-2 rounded ${
-                  currentPage === idx + 1
-                    ? "bg-blue-500 text-white"
-                    : "border hover:bg-gray-100"
-                }`}
-                onClick={() => handlePageChange(idx + 1)}
-              >
-                {idx + 1}
-              </button>
-            ))}
-            <button
-              className="px-4 py-2 rounded border disabled:opacity-50"
-              disabled={currentPage === totalPages}
-              onClick={() => handlePageChange(currentPage + 1)}
-            >
-              Next
-            </button>
+            {/* Room Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+              {paginatedRooms.map((room) => (
+                <div
+                  key={room._id}
+                  className={`p-4 rounded-lg text-center cursor-pointer ${
+                    room.status === "Available"
+                      ? "bg-[#898F63] text-white"
+                      : "bg-white text-gray-800 border border-gray-200"
+                  }`}
+                >
+                  <h5 className="text-lg font-semibold">{room.roomNumber}</h5>
+                  <p className="text-sm">{room.status}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex justify-center mt-6 space-x-2">
+                {Array.from({ length: totalPages }, (_, index) => (
+                  <button
+                    key={`page-${index + 1}`}
+                    className={`px-4 py-2 rounded ${
+                      currentPage === index + 1
+                        ? "bg-blue-500 text-white"
+                        : "border hover:bg-gray-100"
+                    }`}
+                    onClick={() => handlePageChange(index + 1)}
+                  >
+                    {index + 1}
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="text-center py-12">
+            <div className="mb-4 text-gray-600">
+              You don't have any buildings yet
+            </div>
+            <div className="text-sm text-gray-500">
+              Click the "Add Building" button above to create your first
+              building
+            </div>
           </div>
         )}
       </div>

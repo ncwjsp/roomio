@@ -1,4 +1,4 @@
-import dbConnect from "@/app/lib/mongodb";
+import dbConnect from "@/lib/mongodb";
 import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 
@@ -47,7 +47,7 @@ export async function POST(req) {
 
         // Create a new room with the required fields
         const room = new Room({
-          building: building.name, // Set the building field
+          building: building._id, // MongoDB will automatically convert string to ObjectId
           roomNumber: roomId, // Set the room number
           floor,
           status: "Available",
@@ -99,8 +99,6 @@ export async function GET(req) {
         _id: { $in: roomIds.map((id) => new ObjectId(id)) },
       });
 
-      console.log(rooms); // Log the room details
-
       return NextResponse.json({ buildings, rooms }, { status: 200 });
     } else {
       return NextResponse.json(
@@ -118,7 +116,6 @@ export async function GET(req) {
     );
   }
 }
-
 // export async function DELETE(req) {
 //   try {
 //     const id = req.nextUrl.searchParams.get("id");

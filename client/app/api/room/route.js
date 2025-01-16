@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import dbConnect from "@/app/lib/mongodb";
+import dbConnect from "@/lib/mongodb";
 import Room from "@/app/models/Room";
 import Building from "@/app/models/Building";
 
@@ -51,6 +51,34 @@ export async function POST(req) {
     console.error("Error in creating room:", error);
     return NextResponse.json(
       { message: "An error occurred while creating the room" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET() {
+  try {
+    await dbConnect();
+
+    const rooms = await Room.find({})
+      .populate("building", "name") // Get building name
+      .sort({ roomNumber: 1 }); // Sort by room number
+
+    const formattedRooms = rooms.map((room) => ({
+      _id: room._id,
+      name: room.roomNumber,
+      floor: room.floor,
+      building: room.building,
+      status: room.status,
+      price: room.price,
+      buildingId: room.building?._id,
+    }));
+
+    return NextResponse.json({ rooms: formattedRooms });
+  } catch (error) {
+    console.error("Error fetching rooms:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch rooms" },
       { status: 500 }
     );
   }

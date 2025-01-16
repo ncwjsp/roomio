@@ -17,7 +17,8 @@ const RoomSchema = new Schema(
       default: "Available",
     },
     building: {
-      type: String,
+      type: Schema.Types.ObjectId,
+      ref: "Building",
       required: true,
     },
     tenant: {

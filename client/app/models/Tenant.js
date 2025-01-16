@@ -1,25 +1,51 @@
-import { Schema, models, model } from "mongoose";
+import mongoose from "mongoose";
 
-const TenantSchema = new Schema(
+const tenantSchema = new mongoose.Schema(
   {
-    userId: { type: String, required: true, unique: true },
-    name: { type: String, required: true },
-    email: { type: String, required: true, unique: true },
-    phone: { type: String, required: true },
-    lineId: { type: String, required: true },
-    pfp: { type: String },
+    name: {
+      type: String,
+      required: true,
+    },
+    email: {
+      type: String,
+      required: true,
+    },
+    phone: {
+      type: String,
+      required: true,
+    },
+    lineId: {
+      type: String,
+      required: true,
+    },
+    depositAmount: {
+      type: Number,
+      required: true,
+    },
+    leaseStartDate: {
+      type: Date,
+      required: true,
+    },
+    leaseEndDate: {
+      type: Date,
+      required: true,
+    },
     room: {
-      type: Schema.Types.ObjectId,
+      type: mongoose.Schema.Types.ObjectId,
       ref: "Room",
       required: true,
     },
-    leaseStartDate: { type: Date, required: true },
-    leaseEndDate: { type: Date, required: true },
-    depositAmount: { type: Number, required: true },
+    owner: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  }
 );
 
-const Tenant = models.Tenant || model("Tenant", TenantSchema);
+const Tenant = mongoose.models.Tenant || mongoose.model("Tenant", tenantSchema);
 
 export default Tenant;
