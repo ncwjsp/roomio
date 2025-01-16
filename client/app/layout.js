@@ -1,5 +1,3 @@
-import { LocalizationProvider } from "@mui/x-date-pickers";
-import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import localFont from "next/font/local";
 import "./globals.css";
 import Navbar from "@/app/ui/navbar";
