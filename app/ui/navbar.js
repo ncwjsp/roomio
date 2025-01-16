@@ -9,7 +9,16 @@ export default function Navbar() {
   const pathname = usePathname();
 
   // Define routes where the Navbar should not appear
-  const hideNavbarRoutes = ["/", "/login", "/register"];
+  const hideNavbarRoutes = [
+    "/",
+    "/login",
+    "/register",
+    "/line/cleaning",
+    "/line/maintenance",
+    "/line/parcels",
+    "/line/payment",
+    "/line/report",
+  ];
 
   // Check if the current path is in the "hideNavbarRoutes" list
   if (hideNavbarRoutes.includes(pathname)) {

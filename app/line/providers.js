@@ -1,6 +1,5 @@
 "use client";
 
-import "./styles/globals.css";
 import { useState, useEffect, createContext, useContext } from "react";
 import liff from "@line/liff";
 

@@ -12,19 +12,6 @@ export default function Report() {
     image: null,
   });
 
-  const [liffInitialized, setLiffInitialized] = useState(false);
-
-  // Initialize LIFF on page load
-  useEffect(() => {
-    liff
-      .init({ liffId: process.env.LIFF_ID })
-      .then(() => {
-        console.log("LIFF initialized");
-        setLiffInitialized(true);
-      })
-      .catch((err) => console.error("LIFF initialization failed", err));
-  }, []);
-
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
