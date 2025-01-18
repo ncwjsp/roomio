@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import dayjs from "dayjs";
 import {
   Button,
@@ -29,6 +29,7 @@ import {
   FormControl,
   InputLabel,
   Pagination,
+  Autocomplete,
 } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
@@ -37,9 +38,10 @@ import CloseIcon from "@mui/icons-material/Close";
 import MeetingRoomIcon from "@mui/icons-material/MeetingRoom";
 import { useSession } from "next-auth/react";
 import Providers from "@/app/components/Providers";
+import { useRouter } from "next/navigation";
 
 const AddTenant = () => {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [activeStep, setActiveStep] = useState(0);
   const [tenantData, setTenantData] = useState({
     name: "",
@@ -73,10 +75,15 @@ const AddTenant = () => {
   const [roomSortBy, setRoomSortBy] = useState("name");
   const [roomSortOrder, setRoomSortOrder] = useState("asc");
   const [roomPage, setRoomPage] = useState(1);
-  const [roomsPerPage] = useState(5);
+  const roomsPerPage = 12;
   const [buildings, setBuildings] = useState([]);
   const [selectedBuilding, setSelectedBuilding] = useState("all");
   const [loadingBuildings, setLoadingBuildings] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [selectedBuildingFilter, setSelectedBuildingFilter] = useState("all");
+  const [selectedFloorFilter, setSelectedFloorFilter] = useState("all");
+  const router = useRouter();
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -134,24 +141,8 @@ const AddTenant = () => {
         throw new Error(data.message || "Failed to add tenant");
       }
 
-      // Success
-      setSuccess(true);
-
-      // Reset form
-      setTenantData({
-        name: "",
-        email: "",
-        phone: "",
-        lineId: "",
-        pfp: "",
-        room: "",
-        depositAmount: "",
-      });
-      setFromDate("");
-      setToDate("");
-      setSelectedRoom(null);
-      setSelectedFriend(null);
-      setActiveStep(0);
+      // Success - redirect to tenants page
+      router.push("/tenants");
     } catch (error) {
       console.error("Error adding tenant:", error);
       setError(error.message);
@@ -163,13 +154,13 @@ const AddTenant = () => {
   const handleOpenFriendModal = async () => {
     setLoadingFriends(true);
     try {
-      const response = await fetch("/api/friend");
+      const response = await fetch("/api/linecontact");
       const data = await response.json();
 
-      // Extract the friends array from the data object
-      setFriends(Array.isArray(data.friends) ? data.friends : []);
+      // Extract the lineContacts array from the data object
+      setFriends(Array.isArray(data.lineContacts) ? data.lineContacts : []);
     } catch (error) {
-      console.error("Error fetching friends:", error);
+      console.error("Error fetching LINE contacts:", error);
       setFriends([]);
     } finally {
       setLoadingFriends(false);
@@ -230,52 +221,25 @@ const AddTenant = () => {
     };
   };
 
-  const handleOpenRoomModal = async () => {
-    if (!session?.user?.id) {
-      console.error("No user session found");
-      return;
-    }
-
-    setLoadingRooms(true);
-    setLoadingBuildings(true);
-    try {
-      // Fetch rooms
-      const roomsResponse = await fetch("/api/room");
-      const roomsData = await roomsResponse.json();
-      console.log("Rooms data:", roomsData);
-      setRooms(Array.isArray(roomsData.rooms) ? roomsData.rooms : []);
-
-      // Fetch buildings with user ID from session
-      const buildingsResponse = await fetch(
-        `/api/building?id=${session.user.id}`
-      );
-      const buildingsData = await buildingsResponse.json();
-      console.log("Buildings data:", buildingsData);
-      setBuildings(
-        Array.isArray(buildingsData.buildings) ? buildingsData.buildings : []
-      );
-    } catch (error) {
-      console.error("Error fetching data:", error);
-      setRooms([]);
-      setBuildings([]);
-    } finally {
-      setLoadingRooms(false);
-      setLoadingBuildings(false);
-    }
-    setOpenRoomModal(true);
-  };
-
-  const handleCloseRoomModal = () => {
-    setOpenRoomModal(false);
-  };
+  const handleOpenRoomModal = () => setOpenRoomModal(true);
+  const handleCloseRoomModal = () => setOpenRoomModal(false);
 
   const handleSelectRoom = (room) => {
-    setSelectedRoom(room);
+    setSelectedRoom({
+      _id: room._id,
+      roomNumber: room.roomNumber,
+      floor: {
+        floorNumber: room.floorNumber,
+        building: {
+          name: room.buildingName,
+        },
+      },
+    });
     setTenantData((prev) => ({
       ...prev,
-      room: room.name,
+      room: room._id,
     }));
-    setOpenRoomModal(false);
+    handleCloseRoomModal();
   };
 
   const handleDeselectRoom = () => {
@@ -289,36 +253,127 @@ const AddTenant = () => {
   const getSortedAndFilteredRooms = () => {
     return rooms
       .filter((room) => {
-        const matchesSearch = room.name
-          .toLowerCase()
-          .includes(roomSearchQuery.toLowerCase());
+        // Check if room exists and has a roomNumber
+        if (!room || !room.roomNumber) return false;
+
+        const matchesSearch = roomSearchQuery
+          ? room.roomNumber
+              .toLowerCase()
+              .includes(roomSearchQuery.toLowerCase())
+          : true;
+
         const matchesBuilding =
-          selectedBuilding === "all" || room.buildingId === selectedBuilding;
-        const isAvailable = room.status !== "Occupied";
+          selectedBuilding === "all" ||
+          room.floor?.building?._id === selectedBuilding;
+
+        const isAvailable = room.status === "Available";
+
         return matchesSearch && matchesBuilding && isAvailable;
       })
       .sort((a, b) => {
         if (roomSortBy === "name") {
           return roomSortOrder === "asc"
-            ? a.name.localeCompare(b.name)
-            : b.name.localeCompare(a.name);
+            ? a.roomNumber.localeCompare(b.roomNumber, undefined, {
+                numeric: true,
+              })
+            : b.roomNumber.localeCompare(a.roomNumber, undefined, {
+                numeric: true,
+              });
         } else {
           return roomSortOrder === "asc"
-            ? a.floor - b.floor
-            : b.floor - a.floor;
+            ? a.floor?.floorNumber - b.floor?.floorNumber
+            : b.floor?.floorNumber - a.floor?.floorNumber;
         }
       });
   };
 
   const getPaginatedRooms = () => {
-    const filteredRooms = getSortedAndFilteredRooms();
     const startIndex = (roomPage - 1) * roomsPerPage;
+    const endIndex = startIndex + roomsPerPage;
+    const totalRooms = buildings.reduce(
+      (acc, building) =>
+        acc +
+        building.floors.reduce(
+          (floorAcc, floor) =>
+            floorAcc +
+            floor.rooms.filter((room) => room.status === "Available").length,
+          0
+        ),
+      0
+    );
+    const totalPages = Math.ceil(totalRooms / roomsPerPage);
+
+    return { totalPages };
+  };
+
+  const getFloorNumbers = () => {
+    if (selectedBuildingFilter === "all") {
+      return buildings
+        .flatMap((building) =>
+          building.floors.map((floor) => floor.floorNumber)
+        )
+        .filter((value, index, self) => self.indexOf(value) === index)
+        .sort((a, b) => a - b);
+    }
+
+    const building = buildings.find((b) => b._id === selectedBuildingFilter);
+    return building
+      ? building.floors.map((floor) => floor.floorNumber).sort((a, b) => a - b)
+      : [];
+  };
+
+  const getPaginatedBuildingData = () => {
+    const itemsPerPage = 12;
+    const startIndex = (roomPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+
+    const allRooms = buildings.reduce((acc, building) => {
+      if (
+        selectedBuildingFilter !== "all" &&
+        building._id !== selectedBuildingFilter
+      ) {
+        return acc;
+      }
+
+      const buildingRooms = building.floors.reduce((floorAcc, floor) => {
+        if (
+          selectedFloorFilter !== "all" &&
+          floor.floorNumber !== parseInt(selectedFloorFilter)
+        ) {
+          return floorAcc;
+        }
+
+        const availableRooms = floor.rooms
+          .filter((room) => room.status === "Available")
+          .map((room) => ({
+            ...room,
+            floorNumber: floor.floorNumber,
+            buildingName: building.name,
+          }));
+        return [...floorAcc, ...availableRooms];
+      }, []);
+      return [...acc, ...buildingRooms];
+    }, []);
+
+    const sortedRooms = allRooms.sort((a, b) => {
+      if (a.buildingName !== b.buildingName) {
+        return a.buildingName.localeCompare(b.buildingName);
+      }
+      if (a.floorNumber !== b.floorNumber) {
+        return a.floorNumber - b.floorNumber;
+      }
+      return a.roomNumber.localeCompare(b.roomNumber, undefined, {
+        numeric: true,
+      });
+    });
+
+    const paginatedRooms = sortedRooms.slice(startIndex, endIndex);
+    const totalPages = Math.ceil(sortedRooms.length / itemsPerPage);
+
     return {
-      paginatedRooms: filteredRooms.slice(
-        startIndex,
-        startIndex + roomsPerPage
-      ),
-      totalPages: Math.ceil(filteredRooms.length / roomsPerPage),
+      paginatedRooms,
+      totalPages,
+      totalRooms: sortedRooms.length,
     };
   };
 
@@ -434,8 +489,8 @@ const AddTenant = () => {
                   }}
                 >
                   {selectedFriend
-                    ? "Change LINE Friend"
-                    : "Select LINE Friend *"}
+                    ? "Change LINE Contact"
+                    : "Select LINE Contact *"}
                 </Button>
                 {selectedFriend && (
                   <Box
@@ -500,45 +555,66 @@ const AddTenant = () => {
             </Grid>
 
             <Grid item xs={12} md={6}>
-              <div className="flex items-center gap-4 flex-wrap">
+              <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
                 <Button
                   variant="outlined"
                   startIcon={<MeetingRoomIcon />}
                   onClick={handleOpenRoomModal}
-                  className={`
-                    rounded-lg py-3 px-6
-                    ${
-                      errors.room
-                        ? "border-red-500 text-red-500 hover:bg-red-50"
-                        : ""
-                    }
-                  `}
+                  sx={{
+                    borderRadius: 2,
+                    py: 1.5,
+                    px: 3,
+                    borderColor: errors.room ? "error.main" : "primary.main",
+                    color: errors.room ? "error.main" : "primary.main",
+                    whiteSpace: "nowrap",
+                  }}
                 >
                   {selectedRoom ? "Change Room" : "Select Room *"}
                 </Button>
 
                 {selectedRoom && (
-                  <div className="flex items-center gap-4 p-4 rounded-lg bg-gray-50 relative flex-grow max-w-md">
-                    <div className="flex-grow">
-                      <Typography className="font-semibold">
-                        Room {selectedRoom.name}
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 2,
+                      p: 1,
+                      borderRadius: 1,
+                      bgcolor: "grey.50",
+                      position: "relative",
+                      flex: 1,
+                    }}
+                  >
+                    <Box>
+                      <Typography variant="subtitle2">
+                        Room {selectedRoom.roomNumber}
                       </Typography>
-                      <Typography variant="caption" className="text-gray-600">
-                        Floor {selectedRoom.floor} • {selectedRoom.type}
+                      <Typography variant="caption" color="textSecondary">
+                        Floor {selectedRoom.floor?.floorNumber || "N/A"} •{" "}
+                        Building {selectedRoom.floor?.building?.name || "N/A"}
                       </Typography>
-                    </div>
+                    </Box>
                     <IconButton
-                      onClick={handleDeselectRoom}
-                      className="absolute right-2 top-2 bg-white hover:bg-gray-100 shadow-sm"
                       size="small"
+                      onClick={() => setSelectedRoom(null)}
+                      sx={{
+                        position: "absolute",
+                        right: 8,
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                      }}
                     >
                       <CloseIcon fontSize="small" />
                     </IconButton>
-                  </div>
+                  </Box>
                 )}
-              </div>
+              </Box>
               {errors.room && (
-                <Typography className="mt-1 text-sm text-red-500 ml-2">
+                <Typography
+                  color="error"
+                  variant="caption"
+                  sx={{ display: "block", mt: 1, ml: 2 }}
+                >
                   {errors.room}
                 </Typography>
               )}
@@ -623,6 +699,36 @@ const AddTenant = () => {
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
+
+  useEffect(() => {
+    const fetchRooms = async () => {
+      try {
+        if (!session?.user?.id) return;
+        setIsLoading(true);
+
+        const response = await fetch(`/api/building?id=${session.user.id}`);
+        if (!response.ok) {
+          throw new Error("Failed to fetch buildings");
+        }
+
+        const data = await response.json();
+        console.log("Fetched buildings data:", data); // Debug log
+
+        if (data.buildings) {
+          setBuildings(data.buildings);
+        }
+      } catch (error) {
+        console.error("Error fetching rooms:", error);
+        setErrorMessage("Failed to fetch buildings and rooms");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (status !== "loading") {
+      fetchRooms();
+    }
+  }, [session, status]);
 
   return (
     <Box sx={{ maxWidth: 1200, margin: "0 auto", p: 3 }}>
@@ -815,109 +921,171 @@ const AddTenant = () => {
         onClose={handleCloseRoomModal}
         aria-labelledby="room-modal-title"
       >
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[500px] max-h-[80vh] bg-white shadow-xl p-6 rounded-lg overflow-auto">
-          <Typography id="room-modal-title" variant="h6" className="mb-4">
-            Select Room
-          </Typography>
+        <Box
+          sx={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: "90%",
+            maxWidth: 800,
+            height: "80vh",
+            bgcolor: "background.paper",
+            boxShadow: 24,
+            borderRadius: 1,
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          <Box sx={{ p: 3, borderBottom: 1, borderColor: "divider" }}>
+            <Typography id="room-modal-title" variant="h6" gutterBottom>
+              Select Room
+            </Typography>
 
-          <div className="flex gap-4 mb-6">
-            <FormControl size="small" className="min-w-[200px]">
-              <InputLabel>Building</InputLabel>
-              <Select
-                value={selectedBuilding}
-                label="Building"
-                onChange={(e) => setSelectedBuilding(e.target.value)}
+            <Box sx={{ mt: 2, display: "flex", gap: 2 }}>
+              <FormControl size="small" sx={{ minWidth: 200 }}>
+                <InputLabel>Building</InputLabel>
+                <Select
+                  value={selectedBuildingFilter}
+                  label="Building"
+                  onChange={(e) => {
+                    setSelectedBuildingFilter(e.target.value);
+                    setSelectedFloorFilter("all");
+                    setRoomPage(1);
+                  }}
+                >
+                  <MenuItem value="all">All Buildings</MenuItem>
+                  {buildings.map((building) => (
+                    <MenuItem key={building._id} value={building._id}>
+                      {building.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <FormControl size="small" sx={{ minWidth: 120 }}>
+                <InputLabel>Floor</InputLabel>
+                <Select
+                  value={selectedFloorFilter}
+                  label="Floor"
+                  onChange={(e) => {
+                    setSelectedFloorFilter(e.target.value);
+                    setRoomPage(1);
+                  }}
+                >
+                  <MenuItem value="all">All Floors</MenuItem>
+                  {getFloorNumbers().map((floorNumber) => (
+                    <MenuItem key={floorNumber} value={floorNumber}>
+                      Floor {floorNumber}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+          </Box>
+
+          <Box
+            sx={{
+              flex: 1,
+              p: 3,
+              overflow: "hidden",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            {isLoading ? (
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  flex: 1,
+                }}
               >
-                <MenuItem value="all">All Buildings</MenuItem>
-                {buildings.map((building) => (
-                  <MenuItem key={building._id} value={building._id}>
-                    {building.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <TextField
-              size="small"
-              placeholder="Search rooms..."
-              value={roomSearchQuery}
-              onChange={(e) => setRoomSearchQuery(e.target.value)}
-              className="flex-grow"
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-              }}
-            />
-            <FormControl size="small" className="min-w-[120px]">
-              <InputLabel>Sort by</InputLabel>
-              <Select
-                value={roomSortBy}
-                label="Sort by"
-                onChange={(e) => setRoomSortBy(e.target.value)}
+                <CircularProgress />
+              </Box>
+            ) : getPaginatedBuildingData().totalRooms === 0 ? (
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  flex: 1,
+                }}
               >
-                <MenuItem value="name">Room Number</MenuItem>
-                <MenuItem value="floor">Floor</MenuItem>
-              </Select>
-            </FormControl>
-            <IconButton
-              onClick={() =>
-                setRoomSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))
-              }
-              size="small"
-            >
-              {roomSortOrder === "asc" ? "↑" : "↓"}
-            </IconButton>
-          </div>
+                <Typography color="text.secondary">
+                  No available rooms found for the selected filters.
+                </Typography>
+              </Box>
+            ) : (
+              <>
+                <div className="grid grid-cols-3 gap-4 overflow-y-auto flex-1 pr-2">
+                  {getPaginatedBuildingData().paginatedRooms.map((room) => (
+                    <button
+                      key={room._id}
+                      onClick={() => handleSelectRoom(room)}
+                      className={`
+                        p-4 rounded-lg text-left transition-colors border
+                        ${
+                          selectedRoom?._id === room._id
+                            ? "bg-[#898F63] text-white border-[#898F63]"
+                            : "bg-white hover:bg-gray-50 border-gray-200"
+                        }
+                      `}
+                    >
+                      <div
+                        className={`font-semibold ${
+                          selectedRoom?._id === room._id
+                            ? "text-white"
+                            : "text-gray-900"
+                        }`}
+                      >
+                        Room {room.roomNumber}
+                      </div>
+                      <div
+                        className={`text-sm ${
+                          selectedRoom?._id === room._id
+                            ? "text-white/90"
+                            : "text-gray-500"
+                        }`}
+                      >
+                        Building {room.buildingName} • Floor {room.floorNumber}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </Box>
 
-          {loadingRooms ? (
-            <div className="flex justify-center p-4">
-              <CircularProgress />
-            </div>
-          ) : (
-            <>
-              <List className="w-full">
-                {getPaginatedRooms().paginatedRooms.map((room) => (
-                  <ListItem
-                    key={room._id}
-                    onClick={() => handleSelectRoom(room)}
-                    className="mb-2 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50"
-                  >
-                    <ListItemText
-                      primary={`Room ${room.name}`}
-                      secondary={
-                        <Typography component="span" variant="body2">
-                          Floor {room.floor} • {room.type}
-                          {room.status && (
-                            <span className="ml-2 text-green-600">
-                              • {room.status}
-                            </span>
-                          )}
-                        </Typography>
-                      }
-                    />
-                  </ListItem>
-                ))}
-              </List>
+          <Box
+            sx={{
+              p: 3,
+              borderTop: 1,
+              borderColor: "divider",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              bgcolor: "background.paper",
+            }}
+          >
+            <Typography variant="caption" color="text.secondary">
+              Showing {getPaginatedBuildingData().paginatedRooms.length} of{" "}
+              {getPaginatedBuildingData().totalRooms} rooms
+            </Typography>
 
-              <div className="flex justify-center mt-4">
-                <Pagination
-                  count={getPaginatedRooms().totalPages}
-                  page={roomPage}
-                  onChange={(e, newPage) => setRoomPage(newPage)}
-                  color="primary"
-                  size="small"
-                />
-              </div>
-            </>
-          )}
-
-          <div className="flex justify-end mt-4">
-            <Button onClick={handleCloseRoomModal}>Cancel</Button>
-          </div>
-        </div>
+            <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
+              <Pagination
+                count={getPaginatedBuildingData().totalPages}
+                page={roomPage}
+                onChange={(e, page) => setRoomPage(page)}
+                color="primary"
+                size="small"
+              />
+              <Button onClick={handleCloseRoomModal}>Cancel</Button>
+            </Box>
+          </Box>
+        </Box>
       </Modal>
     </Box>
   );

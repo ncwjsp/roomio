@@ -2,61 +2,101 @@ import { NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import Tenant from "@/app/models/Tenant";
 import Room from "@/app/models/Room";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/authOptions";
 
 export async function POST(request) {
   try {
     await dbConnect();
-    const session = await getServerSession(authOptions);
+    const data = await request.json();
+    console.log("Received tenant data:", data); // Debug log
 
-    if (!session) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    // Validate required fields
+    if (
+      !data.room ||
+      !data.leaseStartDate ||
+      !data.leaseEndDate ||
+      !data.depositAmount
+    ) {
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 }
+      );
     }
 
-    const data = await request.json();
+    // Find and update room status
+    const room = await Room.findById(data.room);
+    if (!room) {
+      return NextResponse.json({ error: "Room not found" }, { status: 404 });
+    }
 
-    // Create the tenant with owner
-    const tenant = await Tenant.create({
-      ...data,
-      owner: session.user.id, // Changed from userId to owner
+    if (room.status === "Occupied") {
+      return NextResponse.json(
+        { error: "Room is already occupied" },
+        { status: 400 }
+      );
+    }
+
+    // Create tenant
+    const tenant = new Tenant({
+      name: data.name,
+      email: data.email,
+      phone: data.phone,
+      lineId: data.lineId,
+      depositAmount: data.depositAmount,
+      leaseStartDate: data.leaseStartDate,
+      leaseEndDate: data.leaseEndDate,
+      room: data.room,
+      owner: data.owner,
     });
 
-    // Update room status
-    await Room.findByIdAndUpdate(data.room, {
-      status: "Occupied",
-      tenant: tenant._id,
-    });
+    // Save tenant
+    await tenant.save();
+    console.log("Tenant saved:", tenant); // Debug log
 
-    return NextResponse.json({ tenant }, { status: 201 });
+    // Update room status and tenant reference
+    room.status = "Occupied";
+    room.tenant = tenant._id;
+    await room.save();
+    console.log("Room updated:", room); // Debug log
+
+    return NextResponse.json({
+      success: true,
+      tenant,
+      room,
+    });
   } catch (error) {
-    console.error("Error in tenant API:", error);
+    console.error("Error creating tenant:", error);
     return NextResponse.json(
-      { message: "Failed to create tenant", error: error.message },
+      { error: "Failed to create tenant", details: error.message },
       { status: 500 }
     );
   }
 }
 
-// Get all tenants for the current user
-export async function GET() {
+export async function GET(request) {
   try {
     await dbConnect();
-    const session = await getServerSession(authOptions);
 
-    if (!session) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-    }
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get("id");
 
-    const tenants = await Tenant.find({ owner: session.user.id })
-      .populate("room")
-      .sort({ createdAt: -1 });
+    const query = userId ? { owner: userId } : {};
 
-    return NextResponse.json({ tenants }, { status: 200 });
+    const tenants = await Tenant.find(query).populate({
+      path: "room",
+      populate: {
+        path: "floor",
+        populate: {
+          path: "building",
+          select: "name",
+        },
+      },
+    });
+
+    return NextResponse.json({ tenants });
   } catch (error) {
-    console.error("Error in tenant API:", error);
+    console.error("Error fetching tenants:", error);
     return NextResponse.json(
-      { message: "Failed to fetch tenants" },
+      { error: "Failed to fetch tenants" },
       { status: 500 }
     );
   }

@@ -1,142 +1,143 @@
-import dbConnect from "@/lib/mongodb";
 import { NextResponse } from "next/server";
-import { ObjectId } from "mongodb";
-
+import dbConnect from "@/lib/mongodb";
 import Building from "@/app/models/Building";
+import Floor from "@/app/models/Floor";
 import Room from "@/app/models/Room";
 
-export async function POST(req) {
+export async function POST(request) {
   try {
-    const { name, price, numFloors, roomsPerFloor, createdBy } =
-      await req.json();
-
-    // Connect to DB
     await dbConnect();
+    const data = await request.json();
 
-    const isNotUnique = await Building.findOne({
-      name: name,
-      createdBy: createdBy,
+    // Check for existing rooms with similar numbers first
+    const existingRooms = await Room.find({
+      roomNumber: new RegExp(`^${data.name}\\d+`, "i"),
     });
 
-    if (isNotUnique) {
+    if (existingRooms.length > 0) {
       return NextResponse.json(
-        { message: "Building name must be unique" },
-        { status: 409 }
-      );
-    }
-
-    // Create the building document
-    const building = new Building({
-      name,
-      price,
-      createdBy, // Replace with actual user ID if necessary
-    });
-
-    // Save the building
-    await building.save();
-
-    // Array to hold rooms to be added to the building
-    let roomsToAdd = [];
-
-    // Generate and create rooms based on floors and rooms per floor
-    for (let floor = 1; floor <= numFloors; floor++) {
-      for (let roomNumber = 1; roomNumber <= roomsPerFloor; roomNumber++) {
-        const roomId = `${name}${floor}${roomNumber
-          .toString()
-          .padStart(2, "0")}`;
-
-        // Create a new room with the required fields
-        const room = new Room({
-          building: building._id, // MongoDB will automatically convert string to ObjectId
-          roomNumber: roomId, // Set the room number
-          floor,
-          status: "Available",
-          price: price,
-        });
-
-        // Save the room to the database
-        await room.save();
-
-        // Add the room ID to the array to push to the building later
-        roomsToAdd.push(room._id);
-      }
-    }
-
-    // Update the building with the list of room IDs
-    building.rooms = roomsToAdd;
-    await building.save(); // Save the updated building document
-
-    return NextResponse.json(building, { status: 201 });
-  } catch (error) {
-    return NextResponse.json(
-      { message: "Error creating building and rooms" },
-      { status: 500 }
-    );
-  }
-}
-
-export async function GET(req) {
-  try {
-    const { searchParams } = req.nextUrl;
-    const id = searchParams.get("id");
-
-    if (!id) {
-      return NextResponse.json(
-        { message: "Missing 'id' parameter" },
+        {
+          error: `Building ${data.name} already has rooms. Please use a different building name.`,
+        },
         { status: 400 }
       );
     }
 
-    await dbConnect();
+    // Create building
+    const building = new Building({
+      name: data.name,
+      createdBy: data.userId,
+      floors: [],
+    });
+    await building.save();
 
-    const buildings = await Building.find({ createdBy: id });
+    // Create floors and rooms
+    const floorPromises = Array.from(
+      { length: data.totalFloors },
+      async (_, index) => {
+        const floorNum = index + 1;
 
-    const roomIds = buildings.flatMap((building) => building.rooms);
+        const floor = new Floor({
+          floorNumber: floorNum,
+          building: building._id,
+          rooms: [],
+        });
 
-    if (roomIds.length > 0) {
-      // Fetch the room details using the room ids
-      const rooms = await Room.find({
-        _id: { $in: roomIds.map((id) => new ObjectId(id)) },
-      });
+        // Create rooms for this floor
+        const roomPromises = Array.from(
+          { length: data.roomsPerFloor },
+          async (_, roomIndex) => {
+            const roomNum = roomIndex + 1;
+            const roomNumber = `${data.name}${floorNum}${String(
+              roomNum
+            ).padStart(2, "0")}`;
 
-      return NextResponse.json({ buildings, rooms }, { status: 200 });
-    } else {
-      return NextResponse.json(
-        { message: "No rooms found for this user" },
-        { status: 404 }
-      );
-    }
+            const room = new Room({
+              roomNumber,
+              floor: floor._id,
+              price: data.price,
+              status: "Available", // Set default status
+            });
 
-    return NextResponse.json({ buildings }, { status: 200 });
+            await room.save();
+            floor.rooms.push(room._id);
+            return room;
+          }
+        );
+
+        await Promise.all(roomPromises);
+        await floor.save();
+        building.floors.push(floor._id);
+        return floor;
+      }
+    );
+
+    await Promise.all(floorPromises);
+    await building.save();
+
+    return NextResponse.json({
+      success: true,
+      building,
+    });
   } catch (error) {
-    console.error("Error fetching buildings:", error);
+    console.error("Building creation error:", error);
     return NextResponse.json(
-      { message: "Error fetching buildings" },
+      {
+        error: "Failed to create building",
+        details: error.message,
+      },
       { status: 500 }
     );
   }
 }
-// export async function DELETE(req) {
-//   try {
-//     const id = req.nextUrl.searchParams.get("id");
 
-//     if (!id) {
-//       return NextResponse.json(
-//         { message: "User ID is required" },
-//         { status: 400 }
-//       );
-//     }
+export async function GET(request) {
+  try {
+    await dbConnect();
 
-//     await dbConnect();
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get("id");
 
-//     await User.findByIdAndDelete(id);
+    const query = userId ? { createdBy: userId } : {};
 
-//     return NextResponse.json({ message: "User deleted" }, { status: 200 });
-//   } catch (error) {
-//     console.error("Error in DELETE request:", error);
-//     return NextResponse.json(
-//       { message: "An error occurred while deleting the user" },
-//       { status: 500 }
-//     );
-//   }
-// }
+    // Fetch buildings with populated floors and rooms
+    const buildings = await Building.find(query).populate({
+      path: "floors",
+      populate: {
+        path: "rooms",
+        populate: {
+          path: "tenant",
+          select: "name email phone lineId",
+        },
+      },
+    });
+
+    // Extract all rooms from all floors of all buildings
+    const rooms = buildings.reduce((allRooms, building) => {
+      const buildingRooms = building.floors.reduce((floorRooms, floor) => {
+        return [
+          ...floorRooms,
+          ...floor.rooms.map((room) => ({
+            ...room.toObject(),
+            building: {
+              _id: building._id,
+              name: building.name,
+            },
+          })),
+        ];
+      }, []);
+      return [...allRooms, ...buildingRooms];
+    }, []);
+
+    return NextResponse.json({
+      buildings,
+      rooms,
+    });
+  } catch (error) {
+    console.error("Error fetching buildings:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch buildings" },
+      { status: 500 }
+    );
+  }
+}

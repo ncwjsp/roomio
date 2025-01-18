@@ -14,6 +14,7 @@ const Units = () => {
 
   const [showNotification, setShowNotification] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
   const [buildings, setBuildings] = useState([]);
   const [roomCards, setRoomCards] = useState([]);
@@ -32,7 +33,7 @@ const Units = () => {
   const [showAddRoomModal, setShowAddRoomModal] = useState(false);
   const [newRoomNumber, setNewRoomNumber] = useState("");
   const [selectedBuildingForRoom, setSelectedBuildingForRoom] = useState("");
-  const [selectedFloor, setSelectedFloor] = useState(1);
+  const [selectedFloor, setSelectedFloor] = useState("");
   const [roomPrice, setRoomPrice] = useState(5000);
   const [selectedBuildingData, setSelectedBuildingData] = useState(null);
 
@@ -44,61 +45,90 @@ const Units = () => {
   };
 
   useEffect(() => {
-    const fetchRooms = async () => {
-      try {
-        if (!session?.user?.id) return;
-        setIsLoading(true);
+    fetchBuildings();
+  }, []);
 
-        const response = await fetch(`/api/building?id=${session.user.id}`);
-        if (!response.ok) {
-          return;
-        }
+  const fetchBuildings = async () => {
+    try {
+      if (!session?.user?.id) return;
+      setIsLoading(true);
 
-        const data = await response.json();
-        setBuildings(data.buildings);
-
-        // Update room cards with current building names
-        const updatedRooms = data.rooms.map((room) => {
-          const currentBuilding = data.buildings.find(
-            (b) => b._id === (room.building._id || room.building)
-          );
-          return {
-            ...room,
-            building: currentBuilding || room.building,
-          };
-        });
-
-        setRoomCards(updatedRooms);
-        console.log("Updated rooms:", updatedRooms); // Debug log
-      } catch (error) {
-        console.error("Error fetching rooms:", error);
-      } finally {
-        setIsLoading(false);
+      const response = await fetch(`/api/building?id=${session.user.id}`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch buildings");
       }
-    };
 
-    if (status !== "loading") {
-      fetchRooms();
+      const data = await response.json();
+
+      if (data.buildings) {
+        // Transform the data to include floor information
+        const transformedBuildings = data.buildings.map((building) => ({
+          ...building,
+          name: building.name,
+          floors: building.floors.map((floor) => ({
+            ...floor,
+            floorNumber: floor.floorNumber,
+            rooms: floor.rooms,
+          })),
+        }));
+
+        setBuildings(transformedBuildings);
+
+        // Transform rooms to include floor and building info
+        const allRooms = transformedBuildings.reduce((acc, building) => {
+          const buildingRooms = building.floors.reduce((floorAcc, floor) => {
+            const roomsWithInfo = floor.rooms.map((room) => ({
+              ...room,
+              floor: {
+                _id: floor._id,
+                floorNumber: floor.floorNumber,
+              },
+              building: {
+                _id: building._id,
+                name: building.name,
+              },
+            }));
+            return [...floorAcc, ...roomsWithInfo];
+          }, []);
+          return [...acc, ...buildingRooms];
+        }, []);
+
+        setRoomCards(allRooms);
+      }
+    } catch (error) {
+      console.error("Error fetching rooms:", error);
+      setErrorMessage("Failed to fetch buildings and rooms");
+      setShowNotification(true);
+    } finally {
+      setIsLoading(false);
     }
-  }, [session, status, refreshTrigger]);
+  };
 
   const refreshData = () => {
-    setRefreshTrigger((prev) => prev + 1);
+    fetchBuildings();
+  };
+
+  const getFloorOptions = () => {
+    if (selectedBuilding && selectedBuilding !== "") {
+      // If a building is selected, only show floors from that building
+      const building = buildings.find((b) => b.name === selectedBuilding);
+      if (building) {
+        return building.floors
+          .map((floor) => floor.floorNumber)
+          .sort((a, b) => a - b);
+      }
+      return [];
+    }
+
+    // If no building is selected, show all floors from all buildings
+    const allFloors = buildings.flatMap((building) =>
+      building.floors.map((floor) => floor.floorNumber)
+    );
+
+    return [...new Set(allFloors)].sort((a, b) => a - b);
   };
 
   const filteredRooms = roomCards
-    .map((room) => {
-      const currentBuilding = buildings.find(
-        (b) => b._id === room.building._id
-      );
-      return {
-        ...room,
-        building: {
-          ...room.building,
-          name: currentBuilding?.name || room.building.name,
-        },
-      };
-    })
     .filter((room) => {
       const matchesBuilding = selectedBuilding
         ? room.building.name === selectedBuilding
@@ -107,9 +137,19 @@ const Units = () => {
       const matchesSearch = searchQuery
         ? room.roomNumber.toLowerCase().includes(searchQuery.toLowerCase())
         : true;
-      return matchesBuilding && matchesStatus && matchesSearch;
+      const matchesFloor = selectedFloor
+        ? room.floor.floorNumber === parseInt(selectedFloor)
+        : true;
+
+      return matchesBuilding && matchesStatus && matchesSearch && matchesFloor;
     })
-    .sort((a, b) => (a.status === "Available" ? -1 : 1));
+    .sort((a, b) => {
+      // Sort by room number only
+      return a.roomNumber.localeCompare(b.roomNumber, undefined, {
+        numeric: true,
+        sensitivity: "base",
+      });
+    });
 
   const totalPages = Math.ceil(filteredRooms.length / ROOMS_PER_PAGE);
   const paginatedRooms = filteredRooms.slice(
@@ -133,34 +173,35 @@ const Units = () => {
           },
           body: JSON.stringify({
             name: newBuilding.trim(),
-            price: newPrice,
-            numFloors: numFloors,
-            roomsPerFloor: roomsPerFloor,
-            createdBy: session?.user?.id,
+            price: Number(newPrice),
+            totalFloors: Number(numFloors),
+            roomsPerFloor: Number(roomsPerFloor),
+            userId: session?.user?.id,
           }),
         });
 
         if (!response.ok) {
-          if (response.status === 409) {
-            throw new Error("Building name must be unique");
-          }
-          throw new Error("Failed to create building");
+          const error = await response.json();
+          throw new Error(error.error || "Failed to create building");
         }
 
-        const data = await response.json();
-        const updatedBuildings = [...buildings, newBuilding.trim()];
-        setBuildings(updatedBuildings);
-        setNewBuilding("");
-        setNewPrice(100);
-        setNumFloors(8);
-        setRoomsPerFloor(10);
+        setSuccessMessage(`Building ${newBuilding} was successfully created!`);
+        setShowNotification(true);
+        refreshData();
         setShowModal(false);
+        resetForm();
+
+        // Clear success message after 3 seconds
+        setTimeout(() => {
+          setSuccessMessage("");
+          setShowNotification(false);
+        }, 3000);
       } catch (error) {
         setErrorMessage(error.message);
         setShowNotification(true);
       }
     } else {
-      setErrorMessage("All fields are required");
+      setErrorMessage("Building name is required");
       setShowNotification(true);
     }
   };
@@ -170,18 +211,9 @@ const Units = () => {
       const building = buildings.find((b) => b._id === selectedBuildingForRoom);
       setSelectedBuildingData(building);
       // Reset floor when building changes
-      setSelectedFloor(1);
+      setSelectedFloor("");
     }
   }, [selectedBuildingForRoom, buildings]);
-
-  // Generate floor options based on selected building
-  const getFloorOptions = () => {
-    if (!selectedBuildingData) return [];
-    return Array.from(
-      { length: selectedBuildingData.numFloors },
-      (_, i) => i + 1
-    );
-  };
 
   const handleAddRoom = async () => {
     try {
@@ -217,9 +249,41 @@ const Units = () => {
   const resetRoomForm = () => {
     setNewRoomNumber("");
     setSelectedBuildingForRoom("");
-    setSelectedFloor(1);
+    setSelectedFloor("");
     setRoomPrice(5000);
     setSelectedBuildingData(null);
+  };
+
+  // Add this helper function to generate page numbers with ellipsis
+  const getPageNumbers = (currentPage, totalPages) => {
+    const delta = 2;
+    const range = [];
+    const rangeWithDots = [];
+    let l;
+
+    for (let i = 1; i <= totalPages; i++) {
+      if (
+        i === 1 ||
+        i === totalPages ||
+        (i >= currentPage - delta && i <= currentPage + delta)
+      ) {
+        range.push(i);
+      }
+    }
+
+    for (let i of range) {
+      if (l) {
+        if (i - l === 2) {
+          rangeWithDots.push(l + 1);
+        } else if (i - l !== 1) {
+          rangeWithDots.push("...");
+        }
+      }
+      rangeWithDots.push(i);
+      l = i;
+    }
+
+    return rangeWithDots;
   };
 
   return (
@@ -228,6 +292,25 @@ const Units = () => {
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-semibold">Units</h1>
           <div className="flex gap-2">
+            <button
+              className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 flex items-center"
+              onClick={refreshData}
+            >
+              <svg
+                className="w-4 h-4 mr-2"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
+              </svg>
+              Refresh
+            </button>
             <button
               className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 flex items-center"
               onClick={() => setShowAddRoomModal(true)}
@@ -243,6 +326,20 @@ const Units = () => {
           </div>
         </div>
 
+        {/* Notification Component */}
+        {showNotification && (successMessage || errorMessage) && (
+          <Notification
+            message={successMessage || errorMessage}
+            duration={3000}
+            onClose={() => {
+              setShowNotification(false);
+              setSuccessMessage("");
+              setErrorMessage("");
+            }}
+            type={successMessage ? "good" : "bad"}
+          />
+        )}
+
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20">
             <CircularProgress size={40} sx={{ color: "#898F63" }} />
@@ -253,12 +350,13 @@ const Units = () => {
             {/* Filter Section */}
             <div className="p-6 rounded-lg shadow-sm mb-6 bg-[#898F63] text-white">
               <h4 className="text-lg font-semibold mb-4">Filter Rooms</h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <select
                   className="w-full p-2 rounded text-gray-700"
                   value={selectedBuilding}
                   onChange={(e) => {
                     setSelectedBuilding(e.target.value);
+                    setSelectedFloor(""); // Reset floor when building changes
                     setCurrentPage(1);
                   }}
                 >
@@ -269,6 +367,23 @@ const Units = () => {
                     </option>
                   ))}
                 </select>
+
+                <select
+                  className="w-full p-2 rounded text-gray-700"
+                  value={selectedFloor}
+                  onChange={(e) => {
+                    setSelectedFloor(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                >
+                  <option value="">All Floors</option>
+                  {getFloorOptions().map((floorNum) => (
+                    <option key={floorNum} value={floorNum}>
+                      Floor {floorNum}
+                    </option>
+                  ))}
+                </select>
+
                 <select
                   className="w-full p-2 rounded text-gray-700"
                   value={filterStatus}
@@ -281,6 +396,7 @@ const Units = () => {
                   <option value="Available">Available</option>
                   <option value="Occupied">Occupied</option>
                 </select>
+
                 <input
                   type="text"
                   className="w-full p-2 rounded text-gray-700"
@@ -313,20 +429,54 @@ const Units = () => {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="flex justify-center mt-6 space-x-2">
-                {Array.from({ length: totalPages }, (_, index) => (
-                  <button
-                    key={`page-${index + 1}`}
-                    className={`px-4 py-2 rounded ${
-                      currentPage === index + 1
-                        ? "bg-blue-500 text-white"
-                        : "border hover:bg-gray-100"
-                    }`}
-                    onClick={() => handlePageChange(index + 1)}
-                  >
-                    {index + 1}
-                  </button>
-                ))}
+              <div className="flex justify-center mt-6 gap-1">
+                {/* Previous page button */}
+                <button
+                  className={`px-3 py-1 rounded ${
+                    currentPage === 1
+                      ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                      : "bg-[#898F63] text-white hover:bg-[#6B7355]"
+                  }`}
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                >
+                  ←
+                </button>
+
+                {/* Page numbers */}
+                {getPageNumbers(currentPage, totalPages).map(
+                  (pageNum, index) => (
+                    <button
+                      key={index}
+                      className={`px-3 py-1 rounded ${
+                        pageNum === currentPage
+                          ? "bg-white text-[#898F63] font-semibold"
+                          : pageNum === "..."
+                          ? "bg-transparent text-gray-500 cursor-default"
+                          : "bg-[#898F63] text-white hover:bg-[#6B7355]"
+                      }`}
+                      onClick={() =>
+                        pageNum !== "..." && handlePageChange(pageNum)
+                      }
+                      disabled={pageNum === "..."}
+                    >
+                      {pageNum}
+                    </button>
+                  )
+                )}
+
+                {/* Next page button */}
+                <button
+                  className={`px-3 py-1 rounded ${
+                    currentPage === totalPages
+                      ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                      : "bg-[#898F63] text-white hover:bg-[#6B7355]"
+                  }`}
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                >
+                  →
+                </button>
               </div>
             )}
           </>
@@ -513,7 +663,7 @@ const Units = () => {
                   <select
                     className="w-full p-2 border rounded"
                     value={selectedFloor}
-                    onChange={(e) => setSelectedFloor(Number(e.target.value))}
+                    onChange={(e) => setSelectedFloor(e.target.value)}
                     required
                     disabled={!selectedBuildingForRoom}
                   >

@@ -6,12 +6,18 @@ import mongoose from "mongoose";
 
 // GET building by ID
 export async function GET(request, { params }) {
-  const { id } = await params;
-
   try {
     await dbConnect();
+    const { id } = params;
 
-    const building = await Building.findById(id);
+    const building = await Building.findById(id).populate({
+      path: "floors",
+      populate: {
+        path: "rooms",
+        populate: "tenant",
+      },
+    });
+
     if (!building) {
       return NextResponse.json(
         { error: "Building not found" },
@@ -19,8 +25,7 @@ export async function GET(request, { params }) {
       );
     }
 
-    const rooms = await Room.find({ building: id });
-    return NextResponse.json({ building, rooms });
+    return NextResponse.json(building);
   } catch (error) {
     return NextResponse.json(
       { error: "Failed to fetch building" },
@@ -121,4 +126,3 @@ export async function DELETE(request, { params }) {
     );
   }
 }
-  

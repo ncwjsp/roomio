@@ -1,6 +1,6 @@
-import { Schema, models, model } from "mongoose";
+import mongoose from "mongoose";
 
-const RoomSchema = new Schema(
+const RoomSchema = new mongoose.Schema(
   {
     roomNumber: {
       type: String,
@@ -8,21 +8,17 @@ const RoomSchema = new Schema(
       unique: true,
     },
     floor: {
-      type: Number,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Floor",
       required: true,
     },
     status: {
       type: String,
-      enum: ["Available", "Occupied"],
+      enum: ["Available", "Unavailable", "Occupied"],
       default: "Available",
     },
-    building: {
-      type: Schema.Types.ObjectId,
-      ref: "Building",
-      required: true,
-    },
     tenant: {
-      type: Schema.Types.ObjectId,
+      type: mongoose.Schema.Types.ObjectId,
       ref: "Tenant",
       default: null,
     },
@@ -34,6 +30,5 @@ const RoomSchema = new Schema(
   { timestamps: true }
 );
 
-const Room = models.Room || model("Room", RoomSchema);
-
+const Room = mongoose.models.Room || mongoose.model("Room", RoomSchema);
 export default Room;

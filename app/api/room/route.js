@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import Room from "@/app/models/Room";
-import Building from "@/app/models/Building";
 
 export async function POST(request) {
   try {
@@ -37,29 +36,43 @@ export async function POST(request) {
   }
 }
 
-export async function GET() {
+export async function GET(request) {
   try {
     await dbConnect();
 
     const rooms = await Room.find({})
-      .populate("building", "name") // Get building name
-      .sort({ roomNumber: 1 }); // Sort by room number
+      .populate({
+        path: "floor",
+        populate: {
+          path: "building",
+          select: "name",
+        },
+      })
+      .populate("tenant", "name")
+      .sort({ roomNumber: 1 });
 
+    // Transform the response to maintain compatibility
     const formattedRooms = rooms.map((room) => ({
       _id: room._id,
-      name: room.roomNumber,
-      floor: room.floor,
-      building: room.building,
+      roomNumber: room.roomNumber,
+      floor: {
+        _id: room.floor._id,
+        floorNumber: room.floor.floorNumber,
+      },
+      building: {
+        _id: room.floor.building._id,
+        name: room.floor.building.name,
+      },
       status: room.status,
       price: room.price,
-      buildingId: room.building?._id,
+      tenant: room.tenant,
     }));
 
     return NextResponse.json({ rooms: formattedRooms });
   } catch (error) {
     console.error("Error fetching rooms:", error);
     return NextResponse.json(
-      { error: "Failed to fetch rooms" },
+      { error: "Failed to fetch rooms", details: error.message },
       { status: 500 }
     );
   }

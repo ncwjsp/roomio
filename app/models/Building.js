@@ -1,23 +1,19 @@
-import { Schema, models, model } from "mongoose";
+import mongoose from "mongoose";
 
-const BuildingSchema = new Schema(
+const BuildingSchema = new mongoose.Schema(
   {
     name: {
       type: String,
       required: true,
     },
-    price: {
-      type: Number,
-      required: true,
-    },
-    rooms: [
+    floors: [
       {
-        type: Schema.Types.ObjectId,
-        ref: "Room",
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Floor",
       },
     ],
     createdBy: {
-      type: Schema.Types.ObjectId,
+      type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
     },
@@ -25,6 +21,6 @@ const BuildingSchema = new Schema(
   { timestamps: true }
 );
 
-const Building = models.Building || model("Building", BuildingSchema);
-
+const Building =
+  mongoose.models.Building || mongoose.model("Building", BuildingSchema);
 export default Building;
