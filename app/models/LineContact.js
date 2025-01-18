@@ -1,6 +1,6 @@
 import { Schema, models, model } from "mongoose";
 
-const FriendSchema = new Schema(
+const LineContactSchema = new Schema(
   {
     userId: { type: String, required: true, unique: true },
     name: { type: String, required: true },
@@ -10,6 +10,7 @@ const FriendSchema = new Schema(
   { timestamps: true }
 );
 
-const Friend = models.Friend || model("Friend", FriendSchema);
+const LineContact =
+  models.LineContact || model("LineContact", LineContactSchema);
 
-export default Friend;
+export default LineContact;

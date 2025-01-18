@@ -1,7 +1,7 @@
 import * as line from "@line/bot-sdk";
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
-import Friend from "@/app/models/Friend";
+import LineContact from "@/app/models/LineContact";
 
 // const config = {
 //   channelSecret: process.env.CHANNEL_SECRET,
@@ -11,6 +11,48 @@ const client = new line.messagingApi.MessagingApiClient({
   channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN,
   channelSecret: process.env.CHANNEL_SECRET,
 });
+
+async function handleLineContact(userId) {
+  try {
+    const response = await fetch(
+      `https://api.line.me/v2/bot/profile/${userId}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${process.env.CHANNEL_ACCESS_TOKEN}`,
+        },
+      }
+    );
+
+    const user = await response.json();
+
+    const lineContactData = {
+      userId: user.userId,
+      name: user.displayName,
+      pfp: user.pictureUrl,
+      isTenant: false,
+    };
+
+    await dbConnect();
+
+    const existingContact = await LineContact.findOne({
+      userId: lineContactData.userId,
+    });
+
+    if (!existingContact) {
+      const newLineContact = new LineContact(lineContactData);
+      await newLineContact.save();
+      console.log("New LINE contact added:", lineContactData);
+      return { status: "created", contact: newLineContact };
+    } else {
+      console.log("LINE contact already exists:", existingContact);
+      return { status: "exists", contact: existingContact };
+    }
+  } catch (err) {
+    console.error("Error handling LINE contact:", err);
+    throw err;
+  }
+}
 
 export async function POST(req) {
   try {
@@ -22,7 +64,6 @@ export async function POST(req) {
       );
     }
 
-    // Process events
     const events = body.events;
     await Promise.all(events.map(handleEvent));
 
@@ -40,42 +81,10 @@ async function handleEvent(event) {
   console.log("Event received:", event);
 
   if (event.type === "follow") {
-    const userId = event.source.userId;
-    const response = await fetch(
-      `https://api.line.me/v2/bot/profile/${userId}`,
-      {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${process.env.CHANNEL_ACCESS_TOKEN}`,
-        },
-      }
-    );
-
-    const user = await response.json();
-
-    const friendData = {
-      userId: user.userId,
-      name: user.displayName,
-      pfp: user.pictureUrl,
-      isTenant: false,
-    };
-
     try {
-      dbConnect();
-
-      const existingFriend = await Friend.findOne({
-        userId: friendData.userId,
-      });
-
-      if (!existingFriend) {
-        const newFriend = new Friend(friendData);
-        await newFriend.save();
-        console.log("New friend added:", friendData);
-      } else {
-        console.log("Friend already exists:", existingFriend);
-      }
+      await handleLineContact(event.source.userId);
     } catch (err) {
-      console.error("Error saving friend data:", err);
+      console.error("Error in follow event:", err);
     }
   }
 
