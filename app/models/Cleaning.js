@@ -9,6 +9,7 @@ const CleaningSchema = new mongoose.Schema(
     date: { type: String, required: true },
     status: { type: String, required: true, enum: ["waiting", "successful", "in process"] },
     assignedTo: { type: String, required: true },
+    timeSlot: { type: String, required: true }, // Time slot for cleaning
   },
   { timestamps: true }
 );

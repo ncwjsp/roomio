@@ -7,12 +7,7 @@ const StaffSchema = new mongoose.Schema(
     building: { type: String, required: true },
     position: { type: String, required: true },
     salary: { type: Number, required: true },
-    gender: { type: String },
-    age: { type: Number },
-    dateOfBirth: { type: String },
-    firstDayOfWork: { type: String },
-    lineId: { type: String },
-    phone: { type: String },
+    role: { type: String, required: true, enum: ["Housekeeper", "Electrician", "Plumber", "Manager", "Technician"] },
   },
   { timestamps: true }
 );
