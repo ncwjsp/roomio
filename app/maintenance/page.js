@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const MaintenancePage = () => {
   const buildings = ["A", "B", "C"];
@@ -8,52 +8,83 @@ const MaintenancePage = () => {
   const workTypes = ["Plumber", "Electrician"];
   const maintenanceStatuses = ["successful", "in process", "waiting"];
 
-  const generateMaintenanceData = () => {
-    let maintenanceRequests = [];
-    buildings.forEach((building) => {
-      for (let floor = 1; floor <= 8; floor++) {
-        for (let room = 1; room <= 10; room++) {
-          const roomNo = `${building}${floor}0${room}`;
-          const workType = Math.random() > 0.5 ? "Plumber" : "Electrician";
-          let status = Math.random() > 0.7
-            ? "successful"
-            : Math.random() > 0.5
-            ? "in process"
-            : "waiting";
-          let assignedTo =
-            status === "waiting" && Math.random() > 0.5
-              ? "Not Assigned"
-              : `Worker${Math.ceil(Math.random() * 4)}`;
-
-          // Validation for successful and in process work
-          if ((status === "successful" || status === "in process") && assignedTo === "Not Assigned") {
-            status = "waiting"; // Revert status to waiting if no worker is assigned
-          }
-
-          maintenanceRequests.push({
-            roomNo,
-            building,
-            name: `Tenant ${roomNo}`,
-            date: new Date(
-              2022,
-              Math.floor(Math.random() * 12),
-              Math.floor(Math.random() * 28) + 1
-            ).toLocaleDateString("en-GB"),
-            workType,
-            status,
-            assignedTo,
-          });
-        }
-      }
-    });
-    return maintenanceRequests;
-  };
-
-  const [maintenanceData, setMaintenanceData] = useState(generateMaintenanceData());
+  const [maintenanceData, setMaintenanceData] = useState([]);
   const [filteredBuilding, setFilteredBuilding] = useState("");
   const [filteredFloor, setFilteredFloor] = useState("");
   const [filteredWorkType, setFilteredWorkType] = useState("");
   const [filteredStatus, setFilteredStatus] = useState("");
+  const [newRequest, setNewRequest] = useState({
+    roomNo: "",
+    building: "",
+    name: "",
+    date: "",
+    workType: "",
+    status: "",
+    assignedTo: "",
+  });
+
+  const fetchMaintenanceRequests = () => {
+    fetch("/api/maintenance")
+      .then((res) => res.json())
+      .then((data) => setMaintenanceData(data))
+      .catch((error) => console.error("Error fetching maintenance data:", error));
+  };
+
+  useEffect(() => {
+    fetchMaintenanceRequests();
+  }, []);
+
+  const handleAddRequest = () => {
+    fetch("/api/maintenance", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(newRequest),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to add maintenance request");
+        return res.json();
+      })
+      .then(() => {
+        fetchMaintenanceRequests();
+        setNewRequest({
+          roomNo: "",
+          building: "",
+          name: "",
+          date: "",
+          workType: "",
+          status: "",
+          assignedTo: "",
+        });
+      })
+      .catch((error) => console.error("Error adding maintenance request:", error));
+  };
+
+  const handleEditRequest = (id, updates) => {
+    fetch("/api/maintenance", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, updates }),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to update maintenance request");
+        return res.json();
+      })
+      .then(() => fetchMaintenanceRequests())
+      .catch((error) => console.error("Error updating maintenance request:", error));
+  };
+
+  const handleDeleteRequests = (ids) => {
+    fetch("/api/maintenance", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids }),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to delete maintenance requests");
+        fetchMaintenanceRequests();
+      })
+      .catch((error) => console.error("Error deleting maintenance requests:", error));
+  };
 
   const filteredMaintenanceRequests = maintenanceData.filter((request) => {
     const matchesBuilding = filteredBuilding
@@ -68,9 +99,7 @@ const MaintenancePage = () => {
     const matchesStatus = filteredStatus
       ? request.status === filteredStatus
       : true;
-    return (
-      matchesBuilding && matchesFloor && matchesWorkType && matchesStatus
-    );
+    return matchesBuilding && matchesFloor && matchesWorkType && matchesStatus;
   });
 
   return (
@@ -78,7 +107,7 @@ const MaintenancePage = () => {
       <div className="w-full max-w-6xl p-5">
         <h1 className="text-3xl font-semibold mb-4">Maintenance Page</h1>
 
-        {/* Filters Section */}
+        {/* Filters */}
         <div className="bg-[#898F63] p-6 rounded-[10px] mb-8">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
             <select
@@ -132,7 +161,7 @@ const MaintenancePage = () => {
           </select>
         </div>
 
-        {/* Table Section */}
+        {/* Table */}
         <div className="overflow-x-auto">
           <table className="w-full table-auto border-collapse">
             <thead className="bg-[#898F63] text-white">

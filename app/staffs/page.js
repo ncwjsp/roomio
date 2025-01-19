@@ -1,379 +1,218 @@
-"use client";
-
-import React, { useState } from 'react';
-import { Users, Clock, Wrench, ArrowLeft, XCircle, User, Building, Briefcase, DollarSign, Calendar, Phone, Info } from 'lucide-react';
-import { 
-  PieChart, 
-  Pie, 
-  Cell, 
-  ResponsiveContainer, 
-  Legend, 
-  Tooltip 
-} from 'recharts';
-
-// Custom Card Components
-const Card = ({ className, children, ...props }) => {
-  return (
-    <div 
-      className={`border rounded-lg shadow-sm ${className}`} 
-      {...props}
-    >
-      {children}
-    </div>
-  );
-};
-
-const CardHeader = ({ className, children, ...props }) => {
-  return (
-    <div 
-      className={`p-4 border-b ${className}`} 
-      {...props}
-    >
-      {children}
-    </div>
-  );
-};
-
-const CardTitle = ({ className, children, ...props }) => {
-  return (
-    <h2 
-      className={`text-xl font-semibold ${className}`} 
-      {...props}
-    >
-      {children}
-    </h2>
-  );
-};
-
-const CardContent = ({ children }) => {
-  return (
-    <div className="p-4">
-      {children}
-    </div>
-  );
-};
-
-const initialFormData = {
-  id: '',
-  building: '',
-  firstName: '',
-  lastName: '',
-  position: '',
-  salary: '',
-  gender: '',
-  age: '',
-  dateOfBirth: '',
-  firstDayOfWork: '',
-  lineId: '',
-  phone: ''
-};
+"use client"
+import React, { useState, useEffect } from "react";
+import { Users, Clock, Wrench, ArrowLeft } from "lucide-react";
 
 const StaffPage = () => {
   const [activeView, setActiveView] = useState("overview");
-  const [staffList, setStaffList] = useState([
-    { id: 1, building: 'A', firstName: 'Alice', lastName: 'Smith', position: 'Manager', salary: 5000 },
-    { id: 2, building: 'B', firstName: 'Bob', lastName: 'Johnson', position: 'Engineer', salary: 4000 },
-    { id: 3, building: 'A', firstName: 'Charlie', lastName: 'Brown', position: 'Technician', salary: 3000 }
-  ]);
-  const [filter, setFilter] = useState('');
-  const [showForm, setShowForm] = useState(false);
-  const [previewMode, setPreviewMode] = useState(false);
-  const [formData, setFormData] = useState(initialFormData);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [availabilityFilter, setAvailabilityFilter] = useState('all'); // 'all', 'available', 'unavailable'
+  const [staffList, setStaffList] = useState([]);
+  const [formData, setFormData] = useState({
+    firstName: "",
+    lastName: "",
+    building: "",
+    position: "",
+    salary: "",
+    gender: "",
+    age: "",
+    dateOfBirth: "",
+    firstDayOfWork: "",
+    lineId: "",
+    phone: "",
+  });
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingStaffId, setEditingStaffId] = useState(null);
 
-  const handleAddStaff = () => {
-    setShowForm(true);
-    setPreviewMode(false);
-  };
+  useEffect(() => {
+    fetchStaff();
+  }, []);
 
-  const handleDeleteStaff = (id) => {
-    setStaffList(staffList.filter(staff => staff.id !== id));
-  };
-
-  const handleEditStaff = (id) => {
-    // Logic to edit staff details
-  };
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    setPreviewMode(true);
-  };
-
-  const handleConfirm = () => {
-    setStaffList([...staffList, { ...formData, id: staffList.length + 1 }]);
-    setShowForm(false);
-    setPreviewMode(false);
-    setActiveView("overview");
-    setFormData(initialFormData);
-  };
-
-  const filteredStaffList = staffList.filter(staff =>
-    staff.firstName.toLowerCase().includes(filter.toLowerCase()) ||
-    staff.lastName.toLowerCase().includes(filter.toLowerCase()) ||
-    staff.building.toLowerCase().includes(filter.toLowerCase()) ||
-    staff.position.toLowerCase().includes(filter.toLowerCase())
-  );
-
-  // Data for overview cards
-  const overviewStaffCards = [
-    {
-      title: "Total Staff",
-      value: "90",
-      iconBg: "bg-blue-100",
-      icon: <Users className="text-blue-500 w-6 h-6" />,
-      view: "overview"
-    },
-    {
-      title: "Staff Overview",
-      value: "Overview",
-      iconBg: "bg-green-100",
-      icon: <Users className="text-green-500 w-6 h-6" />,
-      view: "overview"
-    },
-    {
-      title: "Shift Information",
-      value: "Details",
-      iconBg: "bg-yellow-100",
-      icon: <Clock className="text-yellow-500 w-6 h-6" />,
-      view: "details"
-    },
-    {
-      title: "Staff Management",
-      value: "Manage",
-      iconBg: "bg-red-100",
-      icon: <Wrench className="text-red-500 w-6 h-6" />,
-      view: "management"
+  // Fetch staff data
+  const fetchStaff = async () => {
+    try {
+      const res = await fetch("/api/staff");
+      if (!res.ok) throw new Error("Failed to fetch staff");
+      const data = await res.json();
+      setStaffList(data);
+    } catch (error) {
+      console.error(error.message);
     }
-  ];
-
-  const staffOverviewPieData = [
-    { name: 'Housekeepers', value: 30, color: '#4CAF50' },
-    { name: 'Electricians', value: 20, color: '#FFA726' },
-    { name: 'Plumbers', value: 15, color: '#42A5F5' },
-    { name: 'Managers', value: 10, color: '#FF7043' },
-    { name: 'Technicians', value: 15, color: '#AB47BC' }
-  ];
-
-  const staffSalaryPieData = [
-    { name: 'Housekeepers', value: 30000, color: '#4CAF50' },
-    { name: 'Electricians', value: 40000, color: '#FFA726' },
-    { name: 'Plumbers', value: 35000, color: '#42A5F5' },
-    { name: 'Managers', value: 50000, color: '#FF7043' },
-    { name: 'Technicians', value: 45000, color: '#AB47BC' }
-  ];
-
-  const staffDetails = [
-    { name: 'John Doe', role: 'Housekeeper', available: true },
-    { name: 'Jane Smith', role: 'Housekeeper', available: false },
-    { name: 'Mike Johnson', role: 'Electrician', available: true },
-    { name: 'Emily Davis', role: 'Electrician', available: false },
-  ];
-
-  // PieChart Component
-  const PieChartComponent = ({ data, title }) => {
-    return (
-      <Card className="p-4">
-        <CardHeader>
-          <CardTitle className="text-lg font-semibold">{title}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={data}
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                  label={({name, value}) => `${name}: ${value}`}
-                >
-                  {data.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend verticalAlign="bottom" height={36} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
-    );
   };
 
-  const renderOverview = () => (
-    <div>
-      <div className="grid grid-cols-4 gap-4 mb-8">
-        {overviewStaffCards.map((stat, index) => (
-          <Card
-            key={index}
-            onClick={() => setActiveView(stat.view)}
-            className={`flex justify-between items-center p-4 cursor-pointer transition-all 
-              ${activeView === stat.view 
-                ? "border-blue-500 border-2 scale-105" 
-                : "hover:border-gray-300"}`}
-          >
-            <div>
-              <h3 className="text-sm text-gray-500">{stat.title}</h3>
-              <p className="text-2xl font-bold">{stat.value}</p>
-            </div>
-            <div className={`w-10 h-10 flex items-center justify-center rounded-lg ${stat.iconBg}`}>
-              {stat.icon}
-            </div>
-          </Card>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-2 gap-4 mb-6">
-        <PieChartComponent
-          data={staffOverviewPieData}
-          title="Staff Overview by Role"
-        />
-        <PieChartComponent
-          data={staffSalaryPieData}
-          title="Staff Salaries by Role"
-        />
-      </div>
-    </div>
-  );
-
-  
-
-  const renderDetails = () => {
-    const housekeepers = staffDetails.filter(staff => staff.role === 'Housekeeper');
-    const electricians = staffDetails.filter(staff => staff.role === 'Electrician');
-  
-    const filterStaff = (staff) => {
-      const matchesSearch = staff.name.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesAvailability = 
-        availabilityFilter === 'all' ? true :
-        availabilityFilter === 'available' ? staff.available :
-        !staff.available;
-      
-      return matchesSearch && matchesAvailability;
-    };
-  
-    const filteredElectricians = electricians.filter(filterStaff);
-    const filteredHousekeepers = housekeepers.filter(filterStaff);
-  
-    return (
-      <div className="w-full">
-        <div className="flex items-center mb-4">
-          <button 
-            onClick={() => setActiveView("overview")} 
-            className="flex items-center text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg px-4 py-2"
-          >
-            <ArrowLeft className="mr-2" /> Back to Overview
-          </button>
-        </div>
-        <Card className="p-6 shadow-lg rounded-lg bg-white">
-          <CardContent>
-            {/* Filter Controls */}
-            <div className="mb-6 space-y-4">
-              <div className="flex gap-4 items-center">
-                <input
-                  type="text"
-                  placeholder="Search staff by name..."
-                  className="flex-1 p-2 border rounded-lg"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-                <select
-                  className="p-2 border rounded-lg"
-                  value={availabilityFilter}
-                  onChange={(e) => setAvailabilityFilter(e.target.value)}
-                >
-                  <option value="all">All Staff</option>
-                  <option value="available">Available</option>
-                  <option value="unavailable">Unavailable</option>
-                </select>
-              </div>
-            </div>
-  
-            {/* Electricians Section */}
-            <div className="mb-8">
-              <div className="bg-orange-50 p-6 rounded-lg">
-                <h3 className="text-xl font-semibold mb-4 text-orange-800">
-                  Electricians ({filteredElectricians.length})
-                </h3>
-                <div className="space-y-3">
-                  {filteredElectricians.map((staff, index) => (
-                    <div key={index} className="flex justify-between items-center p-4 border rounded-lg shadow-sm bg-white">
-                      <div>
-                        <p className="text-lg font-medium">{staff.name}</p>
-                        <p className="text-gray-600">{staff.role}</p>
-                      </div>
-                      <span className={`px-3 py-1 rounded-full text-white ${staff.available ? 'bg-green-500' : 'bg-red-500'}`}>
-                        {staff.available ? 'Available' : 'Unavailable'}
-                      </span>
-                    </div>
-                  ))}
-                  {filteredElectricians.length === 0 && (
-                    <p className="text-gray-500 text-center py-4">No electricians match the filters</p>
-                  )}
-                </div>
-              </div>
-            </div>
-  
-            {/* Housekeepers Section */}
-            <div>
-              <div className="bg-green-50 p-6 rounded-lg">
-                <h3 className="text-xl font-semibold mb-4 text-green-800">
-                  Housekeepers ({filteredHousekeepers.length})
-                </h3>
-                <div className="space-y-3">
-                  {filteredHousekeepers.map((staff, index) => (
-                    <div key={index} className="flex justify-between items-center p-4 border rounded-lg shadow-sm bg-white">
-                      <div>
-                        <p className="text-lg font-medium">{staff.name}</p>
-                        <p className="text-gray-600">{staff.role}</p>
-                      </div>
-                      <span className={`px-3 py-1 rounded-full text-white ${staff.available ? 'bg-green-500' : 'bg-red-500'}`}>
-                        {staff.available ? 'Available' : 'Unavailable'}
-                      </span>
-                    </div>
-                  ))}
-                  {filteredHousekeepers.length === 0 && (
-                    <p className="text-gray-500 text-center py-4">No housekeepers match the filters</p>
-                  )}
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
+  // Add new staff
+  const handleAddStaff = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await fetch("/api/staff", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+      if (!res.ok) throw new Error("Failed to add staff");
+      fetchStaff();
+      setFormData({
+        firstName: "",
+        lastName: "",
+        building: "",
+        position: "",
+        salary: "",
+        gender: "",
+        age: "",
+        dateOfBirth: "",
+        firstDayOfWork: "",
+        lineId: "",
+        phone: "",
+      });
+    } catch (error) {
+      console.error(error.message);
+    }
   };
-  
-  
+
+  // Edit existing staff
+  const handleEditStaff = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await fetch("/api/staff", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: editingStaffId, updates: formData }),
+      });
+      if (!res.ok) throw new Error("Failed to update staff");
+      fetchStaff();
+      setIsEditing(false);
+      setEditingStaffId(null);
+      setFormData({
+        firstName: "",
+        lastName: "",
+        building: "",
+        position: "",
+        salary: "",
+        gender: "",
+        age: "",
+        dateOfBirth: "",
+        firstDayOfWork: "",
+        lineId: "",
+        phone: "",
+      });
+    } catch (error) {
+      console.error(error.message);
+    }
+  };
+
+  // Delete staff
+  const handleDeleteStaff = async (id) => {
+    try {
+      const res = await fetch("/api/staff", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: [id] }),
+      });
+      if (!res.ok) throw new Error("Failed to delete staff");
+      fetchStaff();
+    } catch (error) {
+      console.error(error.message);
+    }
+  };
 
   return (
-    <div className="flex flex-col items-center min-h-screen bg-[#F5F5F5]">
+    <div className="flex flex-col items-center min-h-screen bg-gray-100">
       <div className="w-full max-w-6xl p-5">
-        <div className={`flex justify-between items-center mb-6 p-4 rounded-lg shadow-md ${activeView === "overview" ? "bg-white" : "bg-gray-100"}`}>
-          <h1 className="text-3xl font-semibold">
-            {activeView === "overview" 
-              ? "Staff Overview" 
-              : activeView === "management" 
-                ? "Staff Management" 
-                : "Staff Details"}
-          </h1>
-        </div>
-
         {activeView === "overview" && (
-          <div className="bg-white p-4 rounded-lg shadow-md">
-            {renderOverview()}
+          <div>
+            <h1 className="text-3xl font-semibold mb-6">Staff Overview</h1>
+            <div>
+              <button onClick={() => setActiveView("add")} className="p-2 bg-blue-500 text-white rounded">
+                Add Staff
+              </button>
+              <div className="grid grid-cols-3 gap-4 mt-4">
+                {staffList.map((staff) => (
+                  <div key={staff._id} className="p-4 bg-white rounded shadow">
+                    <h3 className="font-semibold">
+                      {staff.firstName} {staff.lastName}
+                    </h3>
+                    <p>{staff.position}</p>
+                    <p>{staff.building}</p>
+                    <p>Salary: ${staff.salary}</p>
+                    <div className="flex space-x-2 mt-2">
+                      <button
+                        onClick={() => {
+                          setFormData(staff);
+                          setIsEditing(true);
+                          setEditingStaffId(staff._id);
+                          setActiveView("add");
+                        }}
+                        className="p-2 bg-yellow-500 text-white rounded"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDeleteStaff(staff._id)}
+                        className="p-2 bg-red-500 text-white rounded"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
-        {activeView === "details" && renderDetails()}
+        {activeView === "add" && (
+          <form onSubmit={isEditing ? handleEditStaff : handleAddStaff} className="p-4 bg-white rounded shadow">
+            <h2 className="text-2xl font-semibold mb-4">{isEditing ? "Edit Staff" : "Add Staff"}</h2>
+            <input
+              type="text"
+              name="firstName"
+              placeholder="First Name"
+              value={formData.firstName}
+              onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+              className="w-full p-2 mb-4 border rounded"
+            />
+            <input
+              type="text"
+              name="lastName"
+              placeholder="Last Name"
+              value={formData.lastName}
+              onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+              className="w-full p-2 mb-4 border rounded"
+            />
+            <input
+              type="text"
+              name="building"
+              placeholder="Building"
+              value={formData.building}
+              onChange={(e) => setFormData({ ...formData, building: e.target.value })}
+              className="w-full p-2 mb-4 border rounded"
+            />
+            <input
+              type="text"
+              name="position"
+              placeholder="Position"
+              value={formData.position}
+              onChange={(e) => setFormData({ ...formData, position: e.target.value })}
+              className="w-full p-2 mb-4 border rounded"
+            />
+            <input
+              type="number"
+              name="salary"
+              placeholder="Salary"
+              value={formData.salary}
+              onChange={(e) => setFormData({ ...formData, salary: e.target.value })}
+              className="w-full p-2 mb-4 border rounded"
+            />
+            <div className="flex space-x-4">
+              <button type="submit" className="p-2 bg-green-500 text-white rounded">
+                {isEditing ? "Save Changes" : "Add Staff"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveView("overview")}
+                className="p-2 bg-gray-500 text-white rounded"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   );
