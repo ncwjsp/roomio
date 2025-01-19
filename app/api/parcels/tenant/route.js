@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import Tenant from "@/app/models/Tenant";
 import Parcel from "@/app/models/Parcel";
+import Room from "@/app/models/Room";
+import Floor from "@/app/models/Floor";
+import Building from "@/app/models/Building";
 
 export async function GET(request) {
   try {

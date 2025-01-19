@@ -1,4 +1,6 @@
 import mongoose from "mongoose";
+import Floor from "./Floor"; // Import related models
+import Tenant from "./Tenant";
 
 const RoomSchema = new mongoose.Schema(
   {
