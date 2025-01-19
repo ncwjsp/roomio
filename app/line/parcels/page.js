@@ -1,87 +1,231 @@
 "use client";
-import React, { useState } from "react";
-import Head from "next/head";
+import { useState, useEffect } from "react";
+import {
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  IconButton,
+} from "@mui/material";
+import { ArrowUpward, ArrowDownward } from "@mui/icons-material";
 
 const ParcelsPage = () => {
-  const [buildingNo, setBuildingNo] = useState("");
-  const [roomNo, setRoomNo] = useState("");
+  const [userId, setUserId] = useState("");
+  const [parcels, setParcels] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [sortOrder, setSortOrder] = useState("desc");
+  const [isFetching, setIsFetching] = useState(false);
+  const [tenantInfo, setTenantInfo] = useState(null);
 
-  // Mock data for parcel status
-  const parcels = [
-    {
-      id: "TH372480845392",
-      name: "Nine",
-      room: "101",
-      status: "Uncollected",
-      date: "Today",
-    },
-    {
-      id: "TH372480845392",
-      name: "Nine",
-      room: "101",
-      status: "Uncollected",
-      date: "21/02/23",
-    },
-    {
-      id: "TH372480390192",
-      name: "Nine",
-      room: "101",
-      status: "Collected",
-      date: "History",
-    },
-    {
-      id: "TH945755873223",
-      name: "Nine",
-      room: "101",
-      status: "Collected",
-      date: "History",
-    },
-  ];
+  useEffect(() => {
+    const initializeLiff = async () => {
+      try {
+        const liff = (await import("@line/liff")).default;
+        await liff.init({
+          liffId: process.env.NEXT_PUBLIC_LIFF_ID,
+        });
+
+        if (liff.isLoggedIn()) {
+          const profile = await liff.getProfile();
+          setUserId(profile.userId);
+          // Fetch parcels using LINE ID
+          fetchParcelsByLineId(profile.userId);
+        } else {
+          await liff.login();
+        }
+      } catch (error) {
+        console.error("Failed to initialize LIFF:", error);
+        setError("Failed to initialize LINE login");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    initializeLiff();
+  }, []);
+
+  const fetchParcelsByLineId = async (lineId) => {
+    setIsFetching(true);
+    try {
+      const response = await fetch(`/api/parcels/tenant?lineId=${lineId}`);
+      if (!response.ok) throw new Error("Failed to fetch parcels");
+
+      const data = await response.json();
+      console.log("Fetched data:", data);
+      setParcels(data.parcels);
+
+      // Set tenant info from the first parcel if available
+      if (data.parcels && data.parcels.length > 0) {
+        const firstParcel = data.parcels[0];
+        console.log("First parcel:", firstParcel);
+
+        setTenantInfo({
+          roomNo: firstParcel.room?.roomNumber || firstParcel.roomNo,
+          building:
+            firstParcel.room?.floor?.building?.name || firstParcel.building,
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching parcels:", error);
+      setError("Failed to load your parcels");
+    } finally {
+      setIsFetching(false);
+    }
+  };
+
+  const getSortedAndFilteredParcels = () => {
+    let filtered = [...parcels];
+
+    if (statusFilter !== "all") {
+      filtered = filtered.filter((parcel) =>
+        statusFilter === "collected"
+          ? parcel.status === "collected"
+          : parcel.status === "uncollected"
+      );
+    }
+
+    // Only sort by arrival date (createdAt)
+    filtered.sort((a, b) => {
+      const dateA = new Date(a.createdAt);
+      const dateB = new Date(b.createdAt);
+      return sortOrder === "desc" ? dateB - dateA : dateA - dateB;
+    });
+
+    return filtered;
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return <div className="p-4 text-center text-red-500">{error}</div>;
+  }
 
   return (
-    <>
-      <Head>
-        <title>Parcels</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      </Head>
-      <div className="p-5 bg-gray-100 font-sans">
-        <header className="text-2xl font-bold mb-5">Parcels</header>
-
-        <div className="flex gap-2 mb-5">
-          <input
-            type="text"
-            placeholder="Enter parcel tracking number"
-            value={buildingNo}
-            onChange={(e) => setBuildingNo(e.target.value)}
-            className="flex-1 p-2 border border-gray-300 rounded-md text-lg"
-          />
+    <div className="p-4 min-h-screen">
+      <h1 className="text-2xl font-semibold mb-2">My Parcels</h1>
+      {tenantInfo && (tenantInfo.roomNo || tenantInfo.building) && (
+        <div className="mb-4 text-gray-600">
+          {tenantInfo.roomNo && `Room ${tenantInfo.roomNo}`}
+          {tenantInfo.roomNo && tenantInfo.building && ` • `}
+          {tenantInfo.building && `Building ${tenantInfo.building}`}
         </div>
+      )}
 
-        <div className="flex flex-col gap-4">
-          {parcels.map((parcel, index) => (
-            <div key={index} className="bg-white p-4 rounded-lg shadow-md">
-              {index === 0 || parcels[index - 1].date !== parcel.date ? (
-                <div className="font-bold mb-2">{parcel.date}</div>
-              ) : null}
-              <div className="flex flex-col gap-2">
-                <div className="font-bold text-lg">{parcel.id}</div>
-                <div>Name: {parcel.name}</div>
-                <div>Room no. {parcel.room}</div>
-                <div
-                  className={
-                    parcel.status === "Collected"
-                      ? "bg-green-500 text-white rounded-md px-3 py-1 inline-block"
-                      : "bg-red-500 text-white rounded-md px-3 py-1 inline-block"
-                  }
-                >
-                  {parcel.status}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+      <div className="flex flex-wrap gap-4 mb-4">
+        <FormControl size="small" sx={{ width: "150px" }}>
+          <InputLabel>Status</InputLabel>
+          <Select
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+            }}
+            label="Status"
+          >
+            <MenuItem value="all">All Status</MenuItem>
+            <MenuItem value="collected">Collected</MenuItem>
+            <MenuItem value="uncollected">Not Collected</MenuItem>
+          </Select>
+        </FormControl>
+
+        <IconButton
+          onClick={() =>
+            setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))
+          }
+          size="small"
+          sx={{
+            mt: 0.5,
+            width: "40px",
+            height: "40px",
+          }}
+        >
+          {sortOrder === "asc" ? <ArrowUpward /> : <ArrowDownward />}
+        </IconButton>
       </div>
-    </>
+
+      {isLoading ? (
+        <div className="flex justify-center items-center min-h-[60vh]">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+        </div>
+      ) : error ? (
+        <div className="p-4 text-center text-red-500">{error}</div>
+      ) : (
+        <>
+          {isFetching ? (
+            <div className="flex justify-center items-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+            </div>
+          ) : getSortedAndFilteredParcels().length === 0 ? (
+            <div className="text-center text-gray-500 py-8">
+              No parcels found
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {getSortedAndFilteredParcels().map((parcel) => (
+                <div
+                  key={parcel._id}
+                  className={`p-4 rounded-lg shadow ${
+                    parcel.status === "uncollected"
+                      ? "bg-white border-l-4 border-red-500"
+                      : "bg-white border-l-4 border-green-500"
+                  }`}
+                >
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="font-medium">{parcel.trackingNumber}</p>
+                    </div>
+                    <span
+                      className={`px-2 py-1 text-sm rounded ${
+                        parcel.status === "uncollected"
+                          ? "bg-red-100 text-red-800"
+                          : "bg-green-100 text-green-800"
+                      }`}
+                    >
+                      {parcel.status === "uncollected"
+                        ? "Not Collected"
+                        : "Collected"}
+                    </span>
+                  </div>
+                  <div className="mt-2 text-sm text-gray-500">
+                    <div>
+                      Arrived:{" "}
+                      {new Date(parcel.createdAt).toLocaleString("en-US", {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: true,
+                      })}
+                    </div>
+                    {parcel.status === "collected" && (
+                      <div>
+                        Received:{" "}
+                        {new Date(parcel.updatedAt).toLocaleString("en-US", {
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          hour12: true,
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </div>
   );
 };
 

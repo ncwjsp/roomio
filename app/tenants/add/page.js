@@ -114,18 +114,27 @@ const AddTenant = () => {
         throw new Error("Please fill in all required fields");
       }
 
+      // Get the selected friend's LINE user ID
+      const lineUserId = selectedFriend?.userId;
+      if (!lineUserId) {
+        throw new Error("No LINE contact selected");
+      }
+
       const tenantPayload = {
         owner: session?.user?.id,
         name: tenantData.name,
         email: tenantData.email,
         phone: tenantData.phone,
         lineId: tenantData.lineId,
+        lineUserId: lineUserId, // Add LINE user ID
         pfp: tenantData.pfp,
         room: selectedRoom._id,
         leaseStartDate: fromDate,
         leaseEndDate: toDate,
         depositAmount: Number(tenantData.depositAmount),
       };
+
+      console.log("Sending tenant payload:", tenantPayload); // Debug log
 
       const response = await fetch("/api/tenant", {
         method: "POST",
@@ -138,7 +147,9 @@ const AddTenant = () => {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || "Failed to add tenant");
+        // Log the error details
+        console.error("Server response:", data);
+        throw new Error(data.error || data.message || "Failed to add tenant");
       }
 
       // Success - redirect to tenants page
@@ -185,6 +196,7 @@ const AddTenant = () => {
     setTenantData((prev) => ({
       ...prev,
       pfp: friend.pfp || "",
+      lineId: friend.lineId || "", // Set LINE ID from friend
     }));
     setOpenFriendModal(false);
   };

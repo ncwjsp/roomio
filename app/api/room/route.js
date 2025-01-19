@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import Room from "@/app/models/Room";
+import Floor from "@/app/models/Floor";
+import Building from "@/app/models/Building";
 
 export async function POST(request) {
   try {

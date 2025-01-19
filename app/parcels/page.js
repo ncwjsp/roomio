@@ -25,6 +25,8 @@ import {
   FormControl,
   InputLabel,
   Grid,
+  Autocomplete,
+  TablePagination,
 } from "@mui/material";
 import {
   LocalShipping,
@@ -40,20 +42,26 @@ const ParcelsPage = () => {
   const [filteredParcels, setFilteredParcels] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedBuilding, setSelectedBuilding] = useState("all");
+  const [selectedFilterBuilding, setSelectedFilterBuilding] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [buildings, setBuildings] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newParcel, setNewParcel] = useState({
-    roomNo: "",
-    name: "",
+    room: "",
+    tenant: "",
+    recipient: "",
     trackingNumber: "",
-    building: "",
+    status: "uncollected",
   });
   const [isEditing, setIsEditing] = useState(false);
   const [editingParcel, setEditingParcel] = useState(null);
   const [trackingNumbersToDelete, setTrackingNumbersToDelete] = useState([]);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [availableRooms, setAvailableRooms] = useState([]);
+  const [selectedRoom, setSelectedRoom] = useState("");
+  const [selectedModalBuilding, setSelectedModalBuilding] = useState("");
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   // Fetch parcels
   useEffect(() => {
@@ -65,9 +73,20 @@ const ParcelsPage = () => {
       .then((data) => {
         setParcels(data);
         setFilteredParcels(data);
-        // Extract unique buildings
-        const uniqueBuildings = [...new Set(data.map((p) => p.building))];
+
+        // Get unique buildings using Set
+        const uniqueBuildingsMap = new Map();
+        data.forEach((parcel) => {
+          const building = parcel.room?.floor?.building;
+          if (building && building._id) {
+            uniqueBuildingsMap.set(building._id, building);
+          }
+        });
+
+        // Convert Map values to array
+        const uniqueBuildings = Array.from(uniqueBuildingsMap.values());
         setBuildings(uniqueBuildings);
+
         setLoading(false);
       })
       .catch((error) => {
@@ -84,17 +103,19 @@ const ParcelsPage = () => {
     if (searchQuery) {
       result = result.filter(
         (parcel) =>
-          parcel.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          parcel.roomNo.toString().includes(searchQuery) ||
+          parcel.recipient?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          parcel.room?.roomNumber?.toString().includes(searchQuery) ||
           parcel.trackingNumber
-            .toLowerCase()
+            ?.toLowerCase()
             .includes(searchQuery.toLowerCase())
       );
     }
 
     // Filter by building
-    if (selectedBuilding !== "all") {
-      result = result.filter((parcel) => parcel.building === selectedBuilding);
+    if (selectedFilterBuilding !== "all") {
+      result = result.filter(
+        (parcel) => parcel.room?.floor?.building?._id === selectedFilterBuilding
+      );
     }
 
     // Filter by status
@@ -103,29 +124,130 @@ const ParcelsPage = () => {
     }
 
     setFilteredParcels(result);
-  }, [searchQuery, selectedBuilding, selectedStatus, parcels]);
+  }, [searchQuery, selectedFilterBuilding, selectedStatus, parcels]);
 
-  const handleAddParcel = () => {
-    fetch("/api/parcels", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(newParcel),
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to add parcel");
-        return res.json();
-      })
-      .then((data) => {
-        setParcels((prev) => [...prev, data]);
-        setNewParcel({
-          roomNo: "",
-          name: "",
-          trackingNumber: "",
-          building: "",
-        });
-        setShowAddForm(false);
-      })
-      .catch((error) => console.error("Error adding parcel:", error));
+  // Fetch buildings when modal opens
+  useEffect(() => {
+    if (showAddForm) {
+      fetchBuildings();
+    }
+  }, [showAddForm]);
+
+  // Fetch rooms when building is selected
+  useEffect(() => {
+    if (selectedModalBuilding) {
+      fetchRoomsByBuilding(selectedModalBuilding);
+    } else {
+      setAvailableRooms([]);
+      setSelectedRoom("");
+    }
+  }, [selectedModalBuilding]);
+
+  const fetchBuildings = async () => {
+    try {
+      const response = await fetch("/api/building");
+      if (!response.ok) throw new Error("Failed to fetch buildings");
+      const data = await response.json();
+      console.log("Buildings data:", data);
+      setBuildings(data.buildings || []);
+    } catch (error) {
+      console.error("Error fetching buildings:", error);
+    }
+  };
+
+  const fetchRoomsByBuilding = async (buildingId) => {
+    try {
+      console.log("Fetching rooms for building:", buildingId);
+
+      // Update the API endpoint to include building ID directly in query
+      const response = await fetch(
+        `/api/room?buildingId=${buildingId}&status=Occupied`
+      );
+      if (!response.ok) throw new Error("Failed to fetch rooms");
+
+      const data = await response.json();
+      console.log("Raw rooms data:", data);
+
+      // Ensure we're setting an array of rooms
+      if (!data || !data.rooms) {
+        console.log("No rooms data received");
+        setAvailableRooms([]);
+        return;
+      }
+
+      // Filter rooms to only show occupied rooms with tenants
+      const occupiedRooms = data.rooms.filter((room) => {
+        console.log("Checking room:", room);
+        return room.status === "Occupied" && room.tenant;
+      });
+
+      console.log("Filtered occupied rooms:", occupiedRooms);
+      setAvailableRooms(occupiedRooms);
+    } catch (error) {
+      console.error("Error fetching rooms:", error);
+      setAvailableRooms([]);
+    }
+  };
+
+  // Fetch available rooms when modal opens
+  useEffect(() => {
+    if (showAddForm) {
+      fetchAvailableRooms();
+    }
+  }, [showAddForm]);
+
+  const fetchAvailableRooms = async () => {
+    try {
+      const response = await fetch("/api/room?status=Occupied");
+      if (!response.ok) throw new Error("Failed to fetch rooms");
+      const data = await response.json();
+      setAvailableRooms(data);
+    } catch (error) {
+      console.error("Error fetching rooms:", error);
+    }
+  };
+
+  // Handle room selection
+  const handleRoomSelect = (roomId) => {
+    const selectedRoom = availableRooms.find((room) => room._id === roomId);
+    if (selectedRoom) {
+      setNewParcel({
+        ...newParcel,
+        room: selectedRoom._id,
+        tenant: selectedRoom.tenant?._id || "",
+        recipient: selectedRoom.tenant?.name || "",
+      });
+      setSelectedRoom(roomId);
+    }
+  };
+
+  const handleAddParcel = async () => {
+    try {
+      const response = await fetch("/api/parcels", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newParcel),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to add parcel");
+      }
+
+      const data = await response.json();
+      setParcels((prev) => [...prev, data]);
+      setNewParcel({
+        room: "",
+        tenant: "",
+        recipient: "",
+        trackingNumber: "",
+        status: "uncollected",
+      });
+      setShowAddForm(false);
+    } catch (error) {
+      console.error("Error adding parcel:", error);
+      // You might want to show an error message to the user here
+    }
   };
 
   const handleEditParcel = () => {
@@ -159,13 +281,19 @@ const ParcelsPage = () => {
       .catch((error) => console.error("Error editing parcel:", error));
   };
 
-  const handleMarkAsCollected = (trackingNumber) => {
+  const handleToggleStatus = (parcel) => {
+    const newStatus =
+      parcel.status === "uncollected" ? "collected" : "uncollected";
+
     fetch("/api/parcels", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        trackingNumber,
-        updates: { status: "collected" },
+        trackingNumber: parcel.trackingNumber,
+        updates: {
+          status: newStatus,
+          collectedAt: newStatus === "collected" ? new Date() : null,
+        },
       }),
     })
       .then((res) => {
@@ -176,10 +304,10 @@ const ParcelsPage = () => {
       })
       .then((updatedParcel) =>
         setParcels((prev) =>
-          prev.map((parcel) =>
-            parcel.trackingNumber === updatedParcel.trackingNumber
+          prev.map((p) =>
+            p.trackingNumber === updatedParcel.trackingNumber
               ? updatedParcel
-              : parcel
+              : p
           )
         )
       )
@@ -200,6 +328,50 @@ const ParcelsPage = () => {
     );
     setTrackingNumbersToDelete([]);
     setIsDeleting(false);
+  };
+
+  const handleBuildingSelect = (buildingId) => {
+    console.log("Selected building:", buildingId);
+    setSelectedRoom("");
+    setNewParcel({
+      ...newParcel,
+      room: "",
+      tenant: "",
+      recipient: "",
+    });
+
+    if (buildingId) {
+      fetchRoomsByBuilding(buildingId);
+    } else {
+      setAvailableRooms([]);
+    }
+  };
+
+  const handleCloseModal = () => {
+    setShowAddForm(false);
+    setSelectedModalBuilding("");
+    setSelectedRoom("");
+    setNewParcel({
+      room: "",
+      tenant: "",
+      recipient: "",
+      trackingNumber: "",
+      status: "uncollected",
+    });
+  };
+
+  useEffect(() => {
+    console.log("Current buildings state:", buildings);
+  }, [buildings]);
+
+  // Add pagination handlers
+  const handleChangePage = (event, newPage) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
   };
 
   if (loading) {
@@ -261,16 +433,27 @@ const ParcelsPage = () => {
         <FormControl size="small" sx={{ minWidth: 120 }}>
           <InputLabel>Building</InputLabel>
           <Select
-            value={selectedBuilding}
-            onChange={(e) => setSelectedBuilding(e.target.value)}
+            value={selectedFilterBuilding}
+            onChange={(e) => setSelectedFilterBuilding(e.target.value)}
             label="Building"
           >
-            <MenuItem value="all">All Buildings</MenuItem>
-            {buildings.map((building) => (
-              <MenuItem key={building} value={building}>
-                {building}
+            <MenuItem key="filter-all-buildings" value="all">
+              All Buildings
+            </MenuItem>
+            {buildings && buildings.length > 0 ? (
+              buildings.map((building, index) => (
+                <MenuItem
+                  key={`filter-building-${building._id}-${index}`}
+                  value={building._id}
+                >
+                  {building.name}
+                </MenuItem>
+              ))
+            ) : (
+              <MenuItem key="filter-no-buildings" disabled>
+                No buildings available
               </MenuItem>
-            ))}
+            )}
           </Select>
         </FormControl>
         <FormControl size="small" sx={{ minWidth: 120 }}>
@@ -280,9 +463,15 @@ const ParcelsPage = () => {
             onChange={(e) => setSelectedStatus(e.target.value)}
             label="Status"
           >
-            <MenuItem value="all">All Status</MenuItem>
-            <MenuItem value="haven't collected">Not Collected</MenuItem>
-            <MenuItem value="collected">Collected</MenuItem>
+            <MenuItem key="all-status" value="all">
+              All Status
+            </MenuItem>
+            <MenuItem key="uncollected" value="uncollected">
+              Not Collected
+            </MenuItem>
+            <MenuItem key="collected" value="collected">
+              Collected
+            </MenuItem>
           </Select>
         </FormControl>
       </Box>
@@ -301,77 +490,104 @@ const ParcelsPage = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {filteredParcels.map((parcel) => (
-              <TableRow key={parcel.trackingNumber}>
-                <TableCell>{parcel.roomNo}</TableCell>
-                <TableCell>{parcel.building}</TableCell>
-                <TableCell>{parcel.name}</TableCell>
-                <TableCell>{parcel.trackingNumber}</TableCell>
-                <TableCell>
-                  <Chip
-                    label={
-                      parcel.status === "haven't collected"
-                        ? "Not Collected"
-                        : "Collected"
-                    }
-                    color={
-                      parcel.status === "haven't collected"
-                        ? "error"
-                        : "success"
-                    }
-                    size="small"
-                  />
-                </TableCell>
-                <TableCell align="right">
-                  <Box display="flex" gap={1} justifyContent="flex-end">
-                    {parcel.status === "haven't collected" && (
+            {filteredParcels
+              .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+              .map((parcel) => (
+                <TableRow key={parcel._id}>
+                  <TableCell>{parcel.room?.roomNumber}</TableCell>
+                  <TableCell>{parcel.room?.floor?.building?.name}</TableCell>
+                  <TableCell>{parcel.recipient}</TableCell>
+                  <TableCell>{parcel.trackingNumber}</TableCell>
+                  <TableCell>
+                    <Chip
+                      label={
+                        parcel.status === "uncollected"
+                          ? "Uncollected"
+                          : "Collected"
+                      }
+                      color={
+                        parcel.status === "uncollected" ? "error" : "success"
+                      }
+                      size="small"
+                      sx={{
+                        color: "white",
+                        "& .MuiChip-label": {
+                          color: "white",
+                        },
+                      }}
+                    />
+                  </TableCell>
+                  <TableCell align="right">
+                    <Box display="flex" gap={1} justifyContent="flex-end">
                       <Button
                         size="small"
                         variant="contained"
-                        startIcon={<CheckCircle />}
-                        onClick={() =>
-                          handleMarkAsCollected(parcel.trackingNumber)
+                        startIcon={
+                          parcel.status === "uncollected" ? (
+                            <CheckCircle />
+                          ) : (
+                            <LocalShipping />
+                          )
                         }
-                        sx={{ backgroundColor: "#4CAF50" }}
+                        onClick={() => handleToggleStatus(parcel)}
+                        sx={{
+                          backgroundColor:
+                            parcel.status === "uncollected"
+                              ? "#4CAF50"
+                              : "#FF9800",
+                        }}
                       >
-                        Collect
+                        {parcel.status === "uncollected"
+                          ? "Mark Collected"
+                          : "Mark Uncollected"}
                       </Button>
-                    )}
-                    <Button
-                      size="small"
-                      variant="contained"
-                      startIcon={<Edit />}
-                      onClick={() => {
-                        setIsEditing(true);
-                        setEditingParcel(parcel);
-                      }}
-                      sx={{ backgroundColor: "#FFA000" }}
-                    >
-                      Edit
-                    </Button>
-                    <Button
-                      size="small"
-                      variant="contained"
-                      startIcon={<Delete />}
-                      onClick={() =>
-                        setTrackingNumbersToDelete([parcel.trackingNumber])
-                      }
-                      color="error"
-                    >
-                      Delete
-                    </Button>
-                  </Box>
-                </TableCell>
-              </TableRow>
-            ))}
+                      <Button
+                        size="small"
+                        variant="contained"
+                        startIcon={<Edit />}
+                        onClick={() => {
+                          setIsEditing(true);
+                          setEditingParcel(parcel);
+                        }}
+                        sx={{ backgroundColor: "#FFA000" }}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="contained"
+                        startIcon={<Delete />}
+                        onClick={() =>
+                          setTrackingNumbersToDelete([parcel.trackingNumber])
+                        }
+                        color="error"
+                      >
+                        Delete
+                      </Button>
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              ))}
           </TableBody>
         </Table>
+        <TablePagination
+          rowsPerPageOptions={[5, 10, 25, 50]}
+          component="div"
+          count={filteredParcels.length}
+          rowsPerPage={rowsPerPage}
+          page={page}
+          onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          sx={{
+            borderTop: "1px solid rgba(224, 224, 224, 1)",
+          }}
+        />
       </TableContainer>
 
       {/* Add Parcel Dialog */}
       <Dialog
         open={showAddForm}
-        onClose={() => setShowAddForm(false)}
+        onClose={handleCloseModal}
         maxWidth="sm"
         fullWidth
       >
@@ -379,23 +595,97 @@ const ParcelsPage = () => {
         <DialogContent>
           <Box sx={{ pt: 2 }}>
             <Grid container spacing={2}>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Room No"
-                  value={newParcel.roomNo}
-                  onChange={(e) =>
-                    setNewParcel({ ...newParcel, roomNo: e.target.value })
-                  }
-                />
+              <Grid item xs={12}>
+                <FormControl fullWidth>
+                  <InputLabel>Building</InputLabel>
+                  <Select
+                    value={selectedModalBuilding}
+                    onChange={(e) => {
+                      setSelectedModalBuilding(e.target.value);
+                      handleBuildingSelect(e.target.value);
+                    }}
+                    label="Building"
+                  >
+                    <MenuItem key="modal-select-building" value="">
+                      Select Building
+                    </MenuItem>
+                    {buildings && buildings.length > 0 ? (
+                      buildings.map((building, index) => (
+                        <MenuItem
+                          key={`modal-building-${building._id}-${index}`}
+                          value={building._id}
+                        >
+                          {building?.name || "Unnamed Building"}
+                        </MenuItem>
+                      ))
+                    ) : (
+                      <MenuItem key="modal-no-buildings" disabled>
+                        No buildings available
+                      </MenuItem>
+                    )}
+                  </Select>
+                </FormControl>
               </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Building"
-                  value={newParcel.building}
-                  onChange={(e) =>
-                    setNewParcel({ ...newParcel, building: e.target.value })
+              <Grid item xs={12}>
+                <Autocomplete
+                  disabled={!selectedModalBuilding}
+                  value={
+                    selectedRoom && Array.isArray(availableRooms)
+                      ? availableRooms.find(
+                          (room) => room._id === selectedRoom
+                        ) || null
+                      : null
+                  }
+                  onChange={(event, newValue) => {
+                    handleRoomSelect(newValue?._id || "");
+                  }}
+                  options={Array.isArray(availableRooms) ? availableRooms : []}
+                  getOptionLabel={(option) => {
+                    console.log("Option in getOptionLabel:", option);
+                    return option
+                      ? `Room ${option.roomNumber} - ${
+                          option.tenant?.name || "No tenant"
+                        }`
+                      : "";
+                  }}
+                  renderOption={(props, option) => {
+                    console.log("Rendering option:", option);
+                    const uniqueKey = `room-${option._id}-${option.roomNumber}`;
+                    return (
+                      <li {...props} key={uniqueKey}>
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            width: "100%",
+                          }}
+                        >
+                          <span>Room {option.roomNumber}</span>
+                          <span style={{ color: "gray" }}>
+                            {option.tenant?.name || "No tenant"}
+                          </span>
+                        </div>
+                      </li>
+                    );
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Select Room"
+                      placeholder={
+                        !selectedModalBuilding
+                          ? "Select a building first"
+                          : "Type to search rooms"
+                      }
+                    />
+                  )}
+                  noOptionsText={
+                    !selectedModalBuilding
+                      ? "Select a building first"
+                      : "No rooms found"
+                  }
+                  isOptionEqualToValue={(option, value) =>
+                    option._id === value._id
                   }
                 />
               </Grid>
@@ -403,10 +693,11 @@ const ParcelsPage = () => {
                 <TextField
                   fullWidth
                   label="Recipient Name"
-                  value={newParcel.name}
+                  value={newParcel.recipient}
                   onChange={(e) =>
-                    setNewParcel({ ...newParcel, name: e.target.value })
+                    setNewParcel({ ...newParcel, recipient: e.target.value })
                   }
+                  required
                 />
               </Grid>
               <Grid item xs={12}>
@@ -420,16 +711,22 @@ const ParcelsPage = () => {
                       trackingNumber: e.target.value,
                     })
                   }
+                  required
                 />
               </Grid>
             </Grid>
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowAddForm(false)}>Cancel</Button>
+          <Button onClick={handleCloseModal}>Cancel</Button>
           <Button
             onClick={handleAddParcel}
             variant="contained"
+            disabled={
+              !newParcel.room ||
+              !newParcel.recipient ||
+              !newParcel.trackingNumber
+            }
             sx={{ backgroundColor: "#4CAF50" }}
           >
             Add Parcel
@@ -454,6 +751,22 @@ const ParcelsPage = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Empty state message when no parcels */}
+      {filteredParcels.length === 0 && (
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "center",
+            p: 3,
+            bgcolor: "background.paper",
+            borderRadius: 1,
+            mt: 2,
+          }}
+        >
+          <Typography color="text.secondary">No parcels found</Typography>
+        </Box>
+      )}
     </Container>
   );
 };

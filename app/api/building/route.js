@@ -3,6 +3,7 @@ import dbConnect from "@/lib/mongodb";
 import Building from "@/app/models/Building";
 import Floor from "@/app/models/Floor";
 import Room from "@/app/models/Room";
+import Tenant from "@/app/models/Tenant";
 
 export async function POST(request) {
   try {
@@ -95,48 +96,39 @@ export async function GET(request) {
   try {
     await dbConnect();
 
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get("id");
+    // Log the query process
+    console.log("Fetching buildings...");
 
-    const query = userId ? { createdBy: userId } : {};
-
-    // Fetch buildings with populated floors and rooms
-    const buildings = await Building.find(query).populate({
+    const buildings = await Building.find({}).populate({
       path: "floors",
       populate: {
         path: "rooms",
         populate: {
           path: "tenant",
-          select: "name email phone lineId",
         },
       },
     });
 
-    // Extract all rooms from all floors of all buildings
-    const rooms = buildings.reduce((allRooms, building) => {
-      const buildingRooms = building.floors.reduce((floorRooms, floor) => {
-        return [
-          ...floorRooms,
-          ...floor.rooms.map((room) => ({
-            ...room.toObject(),
-            building: {
-              _id: building._id,
-              name: building.name,
-            },
-          })),
-        ];
-      }, []);
-      return [...allRooms, ...buildingRooms];
-    }, []);
+    // Log the results
+    console.log("Found buildings:", buildings);
+
+    if (!buildings || buildings.length === 0) {
+      console.log("No buildings found in database");
+    }
 
     return NextResponse.json({
-      buildings,
-      rooms,
+      success: true,
+      buildings: buildings,
+      count: buildings.length,
     });
   } catch (error) {
-    console.error("Error fetching buildings:", error);
+    console.error("Error in building API:", error);
     return NextResponse.json(
-      { error: "Failed to fetch buildings" },
+      {
+        success: false,
+        error: "Failed to fetch buildings",
+        details: error.message,
+      },
       { status: 500 }
     );
   }

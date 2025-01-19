@@ -2,71 +2,112 @@ import { NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import Tenant from "@/app/models/Tenant";
 import Room from "@/app/models/Room";
+import LineContact from "@/app/models/LineContact";
 
 export async function POST(request) {
   try {
+    const body = await request.json();
     await dbConnect();
-    const data = await request.json();
-    console.log("Received tenant data:", data); // Debug log
+
+    console.log("Received body:", body); // Debug log
+
+    // Find the LINE contact
+    const lineContact = await LineContact.findOne({ userId: body.lineUserId });
+    console.log("Found LINE contact:", lineContact); // Debug log
+
+    if (!lineContact) {
+      console.log("No LINE contact found for userId:", body.lineUserId); // Debug log
+      return NextResponse.json(
+        {
+          error: "LINE contact not found",
+          receivedId: body.lineUserId,
+          body: body, // Include the full body for debugging
+        },
+        { status: 404 }
+      );
+    }
 
     // Validate required fields
-    if (
-      !data.room ||
-      !data.leaseStartDate ||
-      !data.leaseEndDate ||
-      !data.depositAmount
-    ) {
+    const requiredFields = [
+      "name",
+      "email",
+      "phone",
+      "lineId",
+      "room",
+      "depositAmount",
+      "leaseStartDate",
+      "leaseEndDate",
+    ];
+
+    const missingFields = requiredFields.filter((field) => !body[field]);
+    if (missingFields.length > 0) {
       return NextResponse.json(
-        { error: "Missing required fields" },
+        {
+          error: "Missing required fields",
+          missingFields,
+        },
         { status: 400 }
       );
     }
 
-    // Find and update room status
-    const room = await Room.findById(data.room);
+    // Create new tenant with LINE user ID
+    const tenantData = {
+      name: body.name,
+      email: body.email,
+      phone: body.phone,
+      lineId: body.lineId,
+      lineUserId: lineContact.userId,
+      room: body.room,
+      depositAmount: body.depositAmount,
+      leaseStartDate: body.leaseStartDate,
+      leaseEndDate: body.leaseEndDate,
+      pfp: body.pfp || lineContact.pfp,
+    };
+
+    console.log("Creating tenant with data:", tenantData); // Debug log
+
+    // Verify room exists and is available
+    const room = await Room.findById(body.room);
     if (!room) {
       return NextResponse.json({ error: "Room not found" }, { status: 404 });
     }
 
-    if (room.status === "Occupied") {
-      return NextResponse.json(
-        { error: "Room is already occupied" },
-        { status: 400 }
-      );
-    }
-
     // Create tenant
-    const tenant = new Tenant({
-      name: data.name,
-      email: data.email,
-      phone: data.phone,
-      lineId: data.lineId,
-      depositAmount: data.depositAmount,
-      leaseStartDate: data.leaseStartDate,
-      leaseEndDate: data.leaseEndDate,
-      room: data.room,
-      owner: data.owner,
+    const newTenant = new Tenant(tenantData);
+    await newTenant.save();
+
+    // Update the LINE contact
+    await LineContact.findByIdAndUpdate(lineContact._id, {
+      isTenant: true,
+      tenantId: newTenant._id,
     });
 
-    // Save tenant
-    await tenant.save();
-    console.log("Tenant saved:", tenant); // Debug log
-
-    // Update room status and tenant reference
-    room.status = "Occupied";
-    room.tenant = tenant._id;
-    await room.save();
-    console.log("Room updated:", room); // Debug log
-
-    return NextResponse.json({
-      success: true,
-      tenant,
-      room,
+    // Update room with new tenant and status
+    await Room.findByIdAndUpdate(body.room, {
+      tenant: newTenant._id,
+      status: "Occupied", // Update room status to Occupied
     });
+
+    // Populate and return
+    const populatedTenant = await Tenant.findById(newTenant._id).populate({
+      path: "room",
+      populate: {
+        path: "floor",
+        populate: {
+          path: "building",
+        },
+      },
+    });
+
+    return NextResponse.json(populatedTenant, { status: 201 });
   } catch (error) {
     console.error("Error creating tenant:", error);
     return NextResponse.json(
-      { error: "Failed to create tenant", details: error.message },
+      {
+        error: "Failed to create tenant",
+        details: error.message,
+        stack: error.stack,
+      },
       { status: 500 }
     );
   }
