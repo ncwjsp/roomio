@@ -1,6 +1,6 @@
-import { Schema, models, model } from "mongoose";
+import mongoose from "mongoose";
 
-const TenantSchema = new Schema(
+const TenantSchema = new mongoose.Schema(
   {
     name: {
       type: String,
@@ -33,7 +33,7 @@ const TenantSchema = new Schema(
       trim: true,
     },
     room: {
-      type: Schema.Types.ObjectId,
+      type: mongoose.Schema.Types.ObjectId,
       ref: "Room",
       required: true,
     },
@@ -53,12 +53,15 @@ const TenantSchema = new Schema(
       type: Boolean,
       default: true,
     },
+    landlordId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
   },
   {
     timestamps: true,
   }
 );
 
-const Tenant = models.Tenant || model("Tenant", TenantSchema);
-
-export default Tenant;
+export default mongoose.models.Tenant || mongoose.model("Tenant", TenantSchema);

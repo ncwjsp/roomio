@@ -50,7 +50,7 @@ export async function POST(request) {
       );
     }
 
-    // Create new tenant with LINE user ID
+    // Create new tenant with LINE user ID and landlordId
     const tenantData = {
       name: body.name,
       email: body.email,
@@ -62,6 +62,7 @@ export async function POST(request) {
       leaseStartDate: body.leaseStartDate,
       leaseEndDate: body.leaseEndDate,
       pfp: body.pfp || lineContact.pfp,
+      landlordId: body.owner,
     };
 
     console.log("Creating tenant with data:", tenantData); // Debug log

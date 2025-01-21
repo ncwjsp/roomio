@@ -6,6 +6,7 @@ import Floor from "@/app/models/Floor";
 import Building from "@/app/models/Building";
 import { NextResponse } from "next/server";
 import { Client } from "@line/bot-sdk";
+import User from "@/app/models/User";
 
 // Configure LINE client
 const lineConfig = {
@@ -15,26 +16,72 @@ const lineConfig = {
 
 const client = new Client(lineConfig);
 
-export async function GET() {
+export async function GET(request) {
   try {
     await dbConnect();
-    const parcels = await Parcel.find({})
-      .populate({
-        path: "room",
-        populate: {
-          path: "floor",
+    const { searchParams } = new URL(request.url);
+    const lineUserId = searchParams.get("lineUserId");
+    const landlordPublicId = searchParams.get("landlordPublicId");
+    const landlordId = searchParams.get("landlordId");
+
+    // Admin panel request
+    if (landlordId) {
+      console.log("Fetching parcels for landlordId:", landlordId);
+      const parcels = await Parcel.find({ landlordId })
+        .populate("tenant", "name email phone") // Using 'tenant' instead of 'tenantId'
+        .populate({
+          path: "room",
           populate: {
-            path: "building",
+            path: "floor",
+            populate: {
+              path: "building",
+            },
           },
-        },
-      })
-      .populate("tenant")
-      .sort({ createdAt: -1 });
-    return NextResponse.json(parcels);
+        })
+        .sort({ createdAt: -1 });
+
+      console.log("Found parcels:", parcels.length);
+      return NextResponse.json(parcels);
+    }
+
+    // LINE app request
+    if (lineUserId && landlordPublicId) {
+      const landlord = await User.findOne({ publicId: landlordPublicId });
+      if (!landlord) {
+        return NextResponse.json(
+          { error: "Landlord not found" },
+          { status: 404 }
+        );
+      }
+
+      const tenant = await Tenant.findOne({
+        lineUserId: lineUserId,
+        landlordId: landlord._id,
+      });
+
+      if (!tenant) {
+        return NextResponse.json(
+          { error: "Tenant not found" },
+          { status: 404 }
+        );
+      }
+
+      const parcels = await Parcel.find({
+        tenant: tenant._id, // Using 'tenant' instead of 'tenantId'
+        landlordId: landlord._id,
+      }).sort({ createdAt: -1 });
+
+      return NextResponse.json({ parcels });
+    }
+
+    return NextResponse.json(
+      { error: "Invalid request parameters" },
+      { status: 400 }
+    );
   } catch (error) {
     console.error("Error fetching parcels:", error);
     return NextResponse.json(
-      { error: "Failed to fetch parcels" },
+      { error: "Failed to fetch parcels: " + error.message },
       { status: 500 }
     );
   }
@@ -43,47 +90,29 @@ export async function GET() {
 export async function POST(request) {
   try {
     const body = await request.json();
-    await dbConnect();
+    console.log("Received parcel data:", body);
 
-    // Find the room and tenant
-    const room = await Room.findById(body.room);
-    if (!room) {
-      return NextResponse.json({ error: "Room not found" }, { status: 404 });
+    if (!body.landlordId) {
+      return NextResponse.json(
+        { error: "landlordId is required" },
+        { status: 400 }
+      );
     }
 
-    const tenant = await Tenant.findById(body.tenant);
-    if (!tenant) {
-      return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
-    }
-
-    // Create new parcel with required fields
-    const parcelData = {
-      room: room._id,
-      tenant: tenant._id,
+    const parcel = await Parcel.create({
+      tenant: body.tenant,
+      landlordId: body.landlordId,
+      room: body.room,
       recipient: body.recipient,
       trackingNumber: body.trackingNumber,
-      status: "uncollected",
-    };
+      status: body.status || "uncollected",
+    });
 
-    const newParcel = new Parcel(parcelData);
-    await newParcel.save();
-
-    // Send LINE notification if tenant has lineUserId
-    if (tenant.lineUserId) {
-      try {
-        await client.pushMessage(tenant.lineUserId, {
-          type: "text",
-          text: `📦 You have a new parcel!\n\nTracking Number: ${body.trackingNumber}\nRoom: ${room.roomNumber}\n\nPlease collect it from the office during business hours.`,
-        });
-        console.log("LINE notification sent successfully");
-      } catch (lineError) {
-        console.error("Error sending LINE notification:", lineError);
-        // Continue execution even if LINE notification fails
-      }
-    }
-
-    // Populate the saved parcel with all references
-    const populatedParcel = await Parcel.findById(newParcel._id)
+    const populatedParcel = await Parcel.findById(parcel._id)
+      .populate({
+        path: "tenant",
+        select: "name email phone",
+      })
       .populate({
         path: "room",
         populate: {
@@ -92,8 +121,7 @@ export async function POST(request) {
             path: "building",
           },
         },
-      })
-      .populate("tenant");
+      });
 
     return NextResponse.json(populatedParcel, { status: 201 });
   } catch (error) {
@@ -108,14 +136,21 @@ export async function POST(request) {
 export async function PUT(request) {
   try {
     const body = await request.json();
-    await dbConnect();
+    console.log("Updating parcel:", body);
 
-    const { trackingNumber, updates } = body;
+    if (!body.trackingNumber) {
+      return NextResponse.json(
+        { error: "Tracking number is required" },
+        { status: 400 }
+      );
+    }
+
     const updatedParcel = await Parcel.findOneAndUpdate(
-      { trackingNumber },
-      updates,
+      { trackingNumber: body.trackingNumber },
+      body.updates,
       { new: true }
     )
+      .populate("tenant", "name email phone")
       .populate({
         path: "room",
         populate: {
@@ -124,8 +159,7 @@ export async function PUT(request) {
             path: "building",
           },
         },
-      })
-      .populate("tenant");
+      });
 
     if (!updatedParcel) {
       return NextResponse.json({ error: "Parcel not found" }, { status: 404 });
@@ -144,12 +178,29 @@ export async function PUT(request) {
 export async function DELETE(request) {
   try {
     const body = await request.json();
-    await dbConnect();
+    console.log("Deleting parcels:", body);
 
-    const { trackingNumbers } = body;
-    await Parcel.deleteMany({ trackingNumber: { $in: trackingNumbers } });
+    if (!body.trackingNumbers || !body.trackingNumbers.length) {
+      return NextResponse.json(
+        { error: "Tracking numbers are required" },
+        { status: 400 }
+      );
+    }
 
-    return NextResponse.json({ message: "Parcels deleted successfully" });
+    const result = await Parcel.deleteMany({
+      trackingNumber: { $in: body.trackingNumbers },
+    });
+
+    if (result.deletedCount === 0) {
+      return NextResponse.json(
+        { error: "No parcels found to delete" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({
+      message: `Successfully deleted ${result.deletedCount} parcels`,
+    });
   } catch (error) {
     console.error("Error deleting parcels:", error);
     return NextResponse.json(

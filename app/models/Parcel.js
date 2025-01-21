@@ -1,17 +1,17 @@
-import { Schema, models, model } from "mongoose";
+import mongoose from "mongoose";
 
-const ParcelSchema = new Schema(
+const ParcelSchema = new mongoose.Schema(
   {
     // Room reference
     room: {
-      type: Schema.Types.ObjectId,
+      type: mongoose.Schema.Types.ObjectId,
       ref: "Room",
       required: true,
     },
 
     // Tenant reference
     tenant: {
-      type: Schema.Types.ObjectId,
+      type: mongoose.Schema.Types.ObjectId,
       ref: "Tenant",
       required: true,
     },
@@ -58,6 +58,13 @@ const ParcelSchema = new Schema(
       type: Date,
       default: Date.now,
     },
+
+    // Add this field if it's missing
+    landlordId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
   },
   {
     timestamps: true, // This will automatically handle createdAt and updatedAt
@@ -70,6 +77,4 @@ ParcelSchema.virtual("location").get(function () {
   return `Room ${this.room?.roomNumber}, ${this.room?.floor?.building?.name}`;
 });
 
-const Parcel = models.Parcel || model("Parcel", ParcelSchema);
-
-export default Parcel;
+export default mongoose.models.Parcel || mongoose.model("Parcel", ParcelSchema);

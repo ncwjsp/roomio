@@ -109,9 +109,6 @@ export async function GET(request) {
       },
     });
 
-    // Log the results
-    console.log("Found buildings:", buildings);
-
     if (!buildings || buildings.length === 0) {
       console.log("No buildings found in database");
     }

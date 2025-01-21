@@ -36,8 +36,10 @@ import {
   Add as AddIcon,
   Search as SearchIcon,
 } from "@mui/icons-material";
+import { useSession } from "next-auth/react";
 
 const ParcelsPage = () => {
+  const { data: session } = useSession();
   const [parcels, setParcels] = useState([]);
   const [filteredParcels, setFilteredParcels] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -65,12 +67,14 @@ const ParcelsPage = () => {
 
   // Fetch parcels
   useEffect(() => {
-    fetch("/api/parcels")
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to fetch parcels");
-        return res.json();
-      })
-      .then((data) => {
+    const fetchParcels = async () => {
+      try {
+        if (!session?.user?.id) return;
+        const response = await fetch(
+          `/api/parcels?landlordId=${session.user.id}`
+        );
+        if (!response.ok) throw new Error("Failed to fetch parcels");
+        const data = await response.json();
         setParcels(data);
         setFilteredParcels(data);
 
@@ -83,17 +87,17 @@ const ParcelsPage = () => {
           }
         });
 
-        // Convert Map values to array
         const uniqueBuildings = Array.from(uniqueBuildingsMap.values());
         setBuildings(uniqueBuildings);
-
-        setLoading(false);
-      })
-      .catch((error) => {
+      } catch (error) {
         console.error("Error fetching parcels:", error);
+      } finally {
         setLoading(false);
-      });
-  }, []);
+      }
+    };
+
+    fetchParcels();
+  }, [session]);
 
   // Filter parcels
   useEffect(() => {
@@ -148,7 +152,6 @@ const ParcelsPage = () => {
       const response = await fetch("/api/building");
       if (!response.ok) throw new Error("Failed to fetch buildings");
       const data = await response.json();
-      console.log("Buildings data:", data);
       setBuildings(data.buildings || []);
     } catch (error) {
       console.error("Error fetching buildings:", error);
@@ -223,10 +226,23 @@ const ParcelsPage = () => {
 
   const handleAddParcel = async () => {
     try {
+      if (!session?.user?.id) {
+        console.error("No session found");
+        return;
+      }
+
+      console.log("Sending parcel data:", {
+        ...newParcel,
+        landlordId: session.user.id,
+      });
+
       const response = await fetch("/api/parcels", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newParcel),
+        body: JSON.stringify({
+          ...newParcel,
+          landlordId: session.user.id,
+        }),
       });
 
       if (!response.ok) {
@@ -246,39 +262,42 @@ const ParcelsPage = () => {
       setShowAddForm(false);
     } catch (error) {
       console.error("Error adding parcel:", error);
-      // You might want to show an error message to the user here
     }
   };
 
-  const handleEditParcel = () => {
-    fetch("/api/parcels", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        trackingNumber: editingParcel.trackingNumber,
-        updates: editingParcel,
-      }),
-    })
-      .then((res) => {
-        if (!res.ok) {
-          throw new Error("Failed to edit parcel");
-        }
-        return res.json();
-      })
-      .then((updatedParcel) =>
-        setParcels((prev) =>
-          prev.map((parcel) =>
-            parcel.trackingNumber === updatedParcel.trackingNumber
-              ? updatedParcel
-              : parcel
-          )
+  const handleEditParcel = async () => {
+    try {
+      if (!editingParcel) {
+        console.error("Editing parcel is not set");
+        return;
+      }
+
+      const response = await fetch("/api/parcels", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          trackingNumber: editingParcel.trackingNumber,
+          updates: editingParcel,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to edit parcel");
+      }
+
+      const updatedParcel = await response.json();
+      setParcels((prev) =>
+        prev.map((parcel) =>
+          parcel.trackingNumber === updatedParcel.trackingNumber
+            ? updatedParcel
+            : parcel
         )
-      )
-      .finally(() => {
-        setIsEditing(false);
-        setEditingParcel(null);
-      })
-      .catch((error) => console.error("Error editing parcel:", error));
+      );
+      setIsEditing(false);
+      setEditingParcel(null);
+    } catch (error) {
+      console.error("Error editing parcel:", error);
+    }
   };
 
   const handleToggleStatus = (parcel) => {
@@ -331,7 +350,6 @@ const ParcelsPage = () => {
   };
 
   const handleBuildingSelect = (buildingId) => {
-    console.log("Selected building:", buildingId);
     setSelectedRoom("");
     setNewParcel({
       ...newParcel,
@@ -361,7 +379,6 @@ const ParcelsPage = () => {
   };
 
   useEffect(() => {
-    console.log("Current buildings state:", buildings);
   }, [buildings]);
 
   // Add pagination handlers
@@ -372,6 +389,18 @@ const ParcelsPage = () => {
   const handleChangeRowsPerPage = (event) => {
     setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
+  };
+
+  // Edit button click handler
+  const handleEditClick = (parcel) => {
+    setIsEditing(true);
+    setEditingParcel(parcel);
+  };
+
+  // Delete button click handler
+  const handleDeleteClick = (trackingNumber) => {
+    setTrackingNumbersToDelete([trackingNumber]);
+    setIsDeleting(true);
   };
 
   if (loading) {
@@ -545,10 +574,7 @@ const ParcelsPage = () => {
                         size="small"
                         variant="contained"
                         startIcon={<Edit />}
-                        onClick={() => {
-                          setIsEditing(true);
-                          setEditingParcel(parcel);
-                        }}
+                        onClick={() => handleEditClick(parcel)}
                         sx={{ backgroundColor: "#FFA000" }}
                       >
                         Edit
@@ -557,9 +583,7 @@ const ParcelsPage = () => {
                         size="small"
                         variant="contained"
                         startIcon={<Delete />}
-                        onClick={() =>
-                          setTrackingNumbersToDelete([parcel.trackingNumber])
-                        }
+                        onClick={() => handleDeleteClick(parcel.trackingNumber)}
                         color="error"
                       >
                         Delete
@@ -641,7 +665,6 @@ const ParcelsPage = () => {
                   }}
                   options={Array.isArray(availableRooms) ? availableRooms : []}
                   getOptionLabel={(option) => {
-                    console.log("Option in getOptionLabel:", option);
                     return option
                       ? `Room ${option.roomNumber} - ${
                           option.tenant?.name || "No tenant"
@@ -649,7 +672,6 @@ const ParcelsPage = () => {
                       : "";
                   }}
                   renderOption={(props, option) => {
-                    console.log("Rendering option:", option);
                     const uniqueKey = `room-${option._id}-${option.roomNumber}`;
                     return (
                       <li {...props} key={uniqueKey}>
@@ -734,14 +756,84 @@ const ParcelsPage = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={isDeleting} onClose={() => setIsDeleting(false)}>
-        <DialogTitle>Confirm Delete</DialogTitle>
+      {/* Edit Dialog */}
+      <Dialog
+        open={isEditing}
+        onClose={() => {
+          setIsEditing(false);
+          setEditingParcel(null);
+        }}
+      >
+        <DialogTitle>Edit Parcel</DialogTitle>
         <DialogContent>
-          Are you sure you want to delete the selected parcels?
+          {editingParcel && (
+            <Box sx={{ pt: 2 }}>
+              <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Recipient Name"
+                    value={editingParcel.recipient}
+                    onChange={(e) =>
+                      setEditingParcel({
+                        ...editingParcel,
+                        recipient: e.target.value,
+                      })
+                    }
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Tracking Number"
+                    value={editingParcel.trackingNumber}
+                    disabled
+                  />
+                </Grid>
+              </Grid>
+            </Box>
+          )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setIsDeleting(false)}>Cancel</Button>
+          <Button
+            onClick={() => {
+              setIsEditing(false);
+              setEditingParcel(null);
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleEditParcel}
+            variant="contained"
+            color="primary"
+          >
+            Save Changes
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={isDeleting}
+        onClose={() => {
+          setIsDeleting(false);
+          setTrackingNumbersToDelete([]);
+        }}
+      >
+        <DialogTitle>Confirm Delete</DialogTitle>
+        <DialogContent>
+          Are you sure you want to delete the selected parcel?
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setIsDeleting(false);
+              setTrackingNumbersToDelete([]);
+            }}
+          >
+            Cancel
+          </Button>
           <Button
             onClick={handleDeleteParcels}
             color="error"

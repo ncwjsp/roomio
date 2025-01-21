@@ -22,19 +22,38 @@ const ParcelsPage = () => {
   useEffect(() => {
     const initializeLiff = async () => {
       try {
+        const { searchParams } = new URL(window.location.href);
+        const publicId = searchParams.get("publicId"); // landlord's publicId
+
+        if (!publicId) {
+          throw new Error("Public ID not provided in URL");
+        }
+
+        // Get the parcels-specific LIFF ID for this landlord
+        const response = await fetch(
+          `/api/user/line-config?publicId=${publicId}&feature=parcels`
+        );
+        const data = await response.json();
+
+        if (!data.liffId) {
+          throw new Error("LIFF ID not configured for parcels feature");
+        }
+
         const liff = (await import("@line/liff")).default;
         await liff.init({
-          liffId: process.env.NEXT_PUBLIC_LIFF_ID,
+          liffId: data.liffId,
         });
 
-        if (liff.isLoggedIn()) {
-          const profile = await liff.getProfile();
-          setUserId(profile.userId);
-          // Fetch parcels using LINE ID
-          fetchParcelsByLineId(profile.userId);
-        } else {
+        if (!liff.isLoggedIn()) {
           await liff.login();
+          return;
         }
+
+        const profile = await liff.getProfile();
+        setUserId(profile.userId);
+
+        // Modified to fetch parcels for specific landlord
+        fetchParcelsByLineIdAndLandlord(profile.userId, publicId);
       } catch (error) {
         console.error("Failed to initialize LIFF:", error);
         setError("Failed to initialize LINE login");
@@ -43,37 +62,24 @@ const ParcelsPage = () => {
       }
     };
 
+    const fetchParcelsByLineIdAndLandlord = async (
+      lineUserId,
+      landlordPublicId
+    ) => {
+      try {
+        const response = await fetch(
+          `/api/parcels?lineUserId=${lineUserId}&landlordPublicId=${landlordPublicId}`
+        );
+        const data = await response.json();
+        setParcels(data.parcels);
+      } catch (error) {
+        console.error("Failed to fetch parcels:", error);
+        setError("Failed to load parcels");
+      }
+    };
+
     initializeLiff();
   }, []);
-
-  const fetchParcelsByLineId = async (lineId) => {
-    setIsFetching(true);
-    try {
-      const response = await fetch(`/api/parcels/tenant?lineId=${lineId}`);
-      if (!response.ok) throw new Error("Failed to fetch parcels");
-
-      const data = await response.json();
-      console.log("Fetched data:", data);
-      setParcels(data.parcels);
-
-      // Set tenant info from the first parcel if available
-      if (data.parcels && data.parcels.length > 0) {
-        const firstParcel = data.parcels[0];
-        console.log("First parcel:", firstParcel);
-
-        setTenantInfo({
-          roomNo: firstParcel.room?.roomNumber || firstParcel.roomNo,
-          building:
-            firstParcel.room?.floor?.building?.name || firstParcel.building,
-        });
-      }
-    } catch (error) {
-      console.error("Error fetching parcels:", error);
-      setError("Failed to load your parcels");
-    } finally {
-      setIsFetching(false);
-    }
-  };
 
   const getSortedAndFilteredParcels = () => {
     let filtered = [...parcels];
