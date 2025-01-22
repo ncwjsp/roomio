@@ -20,6 +20,8 @@ export default function Navbar() {
     "/line/report",
     "/line/housekeeper/schedule",
     "/line/housekeeper/task",
+    "/line/technician/schedule",
+    "/line/technician/task",
   ];
 
   // Check if the current path is in the "hideNavbarRoutes" list
