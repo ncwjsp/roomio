@@ -18,6 +18,7 @@ export default function Navbar() {
     "/line/parcels",
     "/line/payment",
     "/line/report",
+    "/line/security",
     "/line/housekeeper/schedule",
     "/line/housekeeper/task",
     "/line/technician/schedule",
