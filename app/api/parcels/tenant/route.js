@@ -13,6 +13,8 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const lineUserId = searchParams.get("lineId");
 
+    console.log("Searching for tenant with lineUserId:", lineUserId);
+
     if (!lineUserId) {
       return NextResponse.json(
         { error: "LINE user ID is required" },
@@ -22,6 +24,7 @@ export async function GET(request) {
 
     // Find tenant by LINE user ID
     const tenant = await Tenant.findOne({ lineUserId });
+    console.log("Found tenant:", tenant); // Debug log
 
     if (!tenant) {
       console.log("No tenant found for LINE user ID:", lineUserId);

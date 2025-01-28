@@ -20,11 +20,6 @@ const UserSchema = new Schema(
       type: String,
       required: true,
     },
-    publicId: {
-      type: String,
-      unique: true,
-      default: () => crypto.randomBytes(16).toString("hex"),
-    },
     lineConfig: {
       channelAccessToken: String,
       channelSecret: String,

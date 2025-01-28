@@ -9,17 +9,14 @@ export async function GET(request) {
   try {
     await dbConnect();
     const { searchParams } = new URL(request.url);
-    const publicId = searchParams.get("publicId");
+    const id = searchParams.get("id");
     const feature = searchParams.get("feature");
 
-    if (!publicId) {
+    if (!id) {
       return NextResponse.json({ error: "ID is required" }, { status: 400 });
     }
 
-    // Try to find user by either publicId or _id
-    const user = await User.findOne({
-      $or: [{ publicId: publicId }, { _id: publicId }],
-    });
+    const user = await User.findById(id);
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
@@ -31,13 +28,10 @@ export async function GET(request) {
       return NextResponse.json({ liffId });
     }
 
-    // Return full LINE configuration
-    console.log("Sending lineConfig:", user.lineConfig); // Debug log
     return NextResponse.json({
       lineConfig: {
         channelAccessToken: user.lineConfig?.channelAccessToken || "",
         channelSecret: user.lineConfig?.channelSecret || "",
-        publicId: user.publicId,
         liffIds: user.lineConfig?.liffIds || {},
       },
     });

@@ -71,7 +71,7 @@ const LiffSettings = () => {
   const fetchConfig = async (userId) => {
     console.log("Fetching config for user ID:", userId);
     try {
-      const response = await fetch(`/api/user/line-config?publicId=${userId}`);
+      const response = await fetch(`/api/user/line-config?id=${userId}`);
       if (!response.ok) {
         throw new Error("Failed to fetch configuration");
       }
@@ -234,7 +234,7 @@ const LiffSettings = () => {
             onClick={() =>
               handleCopy(
                 "webhook-url",
-                `${window.location.origin}/api/line?publicId=${
+                `${window.location.origin}/api/line?id=${
                   session?.user?.id || ""
                 }`
               )
@@ -268,7 +268,7 @@ const LiffSettings = () => {
                 <TextField
                   fullWidth
                   label={label}
-                  value={`${window.location.origin}/line/${key}?publicId=${
+                  value={`${window.location.origin}/line/${key}?id=${
                     session?.user?.id || ""
                   }`}
                   InputProps={{
@@ -280,7 +280,7 @@ const LiffSettings = () => {
                   onClick={() =>
                     handleCopy(
                       `url-${key}`,
-                      `${window.location.origin}/line/${key}?publicId=${
+                      `${window.location.origin}/line/${key}?id=${
                         session?.user?.id || ""
                       }`
                     )

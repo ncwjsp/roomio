@@ -13,8 +13,10 @@ export async function GET(request) {
     await dbConnect();
     const { searchParams } = new URL(request.url);
     const lineUserId = searchParams.get("lineUserId");
-    const landlordPublicId = searchParams.get("landlordPublicId");
     const landlordId = searchParams.get("landlordId");
+
+    console.log("lineUserId:", lineUserId);
+    console.log("landlordId:", landlordId);
 
     // Admin panel request
     if (landlordId) {
@@ -37,8 +39,8 @@ export async function GET(request) {
     }
 
     // LINE app request
-    if (lineUserId && landlordPublicId) {
-      const landlord = await User.findOne({ publicId: landlordPublicId });
+    if (lineUserId && landlordId) {
+      const landlord = await User.findById(landlordId);
       if (!landlord) {
         return NextResponse.json(
           { error: "Landlord not found" },
@@ -59,7 +61,7 @@ export async function GET(request) {
       }
 
       const parcels = await Parcel.find({
-        tenant: tenant._id, // Using 'tenant' instead of 'tenantId'
+        tenant: tenant._id,
         landlordId: landlord._id,
       }).sort({ createdAt: -1 });
 
@@ -73,7 +75,7 @@ export async function GET(request) {
   } catch (error) {
     console.error("Error fetching parcels:", error);
     return NextResponse.json(
-      { error: "Failed to fetch parcels: " + error.message },
+      { error: "Failed to fetch parcels" },
       { status: 500 }
     );
   }

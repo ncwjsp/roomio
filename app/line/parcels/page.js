@@ -11,7 +11,7 @@ import { ArrowUpward, ArrowDownward } from "@mui/icons-material";
 
 const ParcelsPage = () => {
   const [userId, setUserId] = useState("");
-  const [parcels, setParcels] = useState([]);
+  const [parcels, setParcels] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [statusFilter, setStatusFilter] = useState("all");
@@ -23,15 +23,15 @@ const ParcelsPage = () => {
     const initializeLiff = async () => {
       try {
         const { searchParams } = new URL(window.location.href);
-        const publicId = searchParams.get("publicId"); // landlord's publicId
+        const id = searchParams.get("id"); // landlord's id
 
-        if (!publicId) {
-          throw new Error("Public ID not provided in URL");
+        if (!id) {
+          throw new Error("ID not provided in URL");
         }
 
         // Get the parcels-specific LIFF ID for this landlord
         const response = await fetch(
-          `/api/user/line-config?publicId=${publicId}&feature=parcels`
+          `/api/user/line-config?id=${id}&feature=parcels`
         );
         const data = await response.json();
 
@@ -53,7 +53,7 @@ const ParcelsPage = () => {
         setUserId(profile.userId);
 
         // Modified to fetch parcels for specific landlord
-        fetchParcelsByLineIdAndLandlord(profile.userId, publicId);
+        fetchParcelsByLineIdAndLandlord(profile.userId, id);
       } catch (error) {
         console.error("Failed to initialize LIFF:", error);
         setError("Failed to initialize LINE login");
@@ -62,19 +62,20 @@ const ParcelsPage = () => {
       }
     };
 
-    const fetchParcelsByLineIdAndLandlord = async (
-      lineUserId,
-      landlordPublicId
-    ) => {
+    const fetchParcelsByLineIdAndLandlord = async (lineUserId, landlordId) => {
       try {
+        setIsLoading(true);
         const response = await fetch(
-          `/api/parcels?lineUserId=${lineUserId}&landlordPublicId=${landlordPublicId}`
+          `/api/parcels/tenant?lineId=${lineUserId}`
         );
         const data = await response.json();
+
         setParcels(data.parcels);
       } catch (error) {
         console.error("Failed to fetch parcels:", error);
         setError("Failed to load parcels");
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -82,6 +83,7 @@ const ParcelsPage = () => {
   }, []);
 
   const getSortedAndFilteredParcels = () => {
+    if (!parcels) return [];
     let filtered = [...parcels];
 
     if (statusFilter !== "all") {
@@ -92,7 +94,6 @@ const ParcelsPage = () => {
       );
     }
 
-    // Only sort by arrival date (createdAt)
     filtered.sort((a, b) => {
       const dateA = new Date(a.createdAt);
       const dateB = new Date(b.createdAt);
@@ -157,79 +158,73 @@ const ParcelsPage = () => {
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center items-center min-h-[60vh]">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+        <div className="flex justify-center items-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
         </div>
       ) : error ? (
         <div className="p-4 text-center text-red-500">{error}</div>
+      ) : parcels === null ? (
+        <div className="flex justify-center items-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+        </div>
+      ) : getSortedAndFilteredParcels().length === 0 ? (
+        <div className="text-center text-gray-500 py-8">No parcels found</div>
       ) : (
-        <>
-          {isFetching ? (
-            <div className="flex justify-center items-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-            </div>
-          ) : getSortedAndFilteredParcels().length === 0 ? (
-            <div className="text-center text-gray-500 py-8">
-              No parcels found
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {getSortedAndFilteredParcels().map((parcel) => (
-                <div
-                  key={parcel._id}
-                  className={`p-4 rounded-lg shadow ${
+        <div className="space-y-4">
+          {getSortedAndFilteredParcels().map((parcel) => (
+            <div
+              key={parcel._id}
+              className={`p-4 rounded-lg shadow ${
+                parcel.status === "uncollected"
+                  ? "bg-white border-l-4 border-red-500"
+                  : "bg-white border-l-4 border-green-500"
+              }`}
+            >
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="font-medium">{parcel.trackingNumber}</p>
+                </div>
+                <span
+                  className={`px-2 py-1 text-sm rounded ${
                     parcel.status === "uncollected"
-                      ? "bg-white border-l-4 border-red-500"
-                      : "bg-white border-l-4 border-green-500"
+                      ? "bg-red-100 text-red-800"
+                      : "bg-green-100 text-green-800"
                   }`}
                 >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-medium">{parcel.trackingNumber}</p>
-                    </div>
-                    <span
-                      className={`px-2 py-1 text-sm rounded ${
-                        parcel.status === "uncollected"
-                          ? "bg-red-100 text-red-800"
-                          : "bg-green-100 text-green-800"
-                      }`}
-                    >
-                      {parcel.status === "uncollected"
-                        ? "Not Collected"
-                        : "Collected"}
-                    </span>
-                  </div>
-                  <div className="mt-2 text-sm text-gray-500">
-                    <div>
-                      Arrived:{" "}
-                      {new Date(parcel.createdAt).toLocaleString("en-US", {
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        hour12: true,
-                      })}
-                    </div>
-                    {parcel.status === "collected" && (
-                      <div>
-                        Received:{" "}
-                        {new Date(parcel.updatedAt).toLocaleString("en-US", {
-                          year: "numeric",
-                          month: "short",
-                          day: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          hour12: true,
-                        })}
-                      </div>
-                    )}
-                  </div>
+                  {parcel.status === "uncollected"
+                    ? "Not Collected"
+                    : "Collected"}
+                </span>
+              </div>
+              <div className="mt-2 text-sm text-gray-500">
+                <div>
+                  Arrived:{" "}
+                  {new Date(parcel.createdAt).toLocaleString("en-US", {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    hour12: true,
+                  })}
                 </div>
-              ))}
+                {parcel.status === "collected" && (
+                  <div>
+                    Received:{" "}
+                    {new Date(parcel.updatedAt).toLocaleString("en-US", {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      hour12: true,
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
-          )}
-        </>
+          ))}
+        </div>
       )}
     </div>
   );

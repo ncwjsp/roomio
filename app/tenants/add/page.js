@@ -201,7 +201,6 @@ const AddTenant = () => {
     setTenantData((prev) => ({
       ...prev,
       pfp: contact.pfp || "",
-      lineId: contact.lineId || "",
     }));
     setOpenContactModal(false);
   };
