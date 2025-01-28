@@ -18,6 +18,19 @@ export async function POST(request) {
       );
     }
 
+    // Check if room number already exists in this building
+    const existingRoom = await Room.findOne({
+      building: data.buildingId,
+      roomNumber: data.roomNumber,
+    });
+
+    if (existingRoom) {
+      return NextResponse.json(
+        { message: `Room ${data.roomNumber} already exists in this building` },
+        { status: 400 }
+      );
+    }
+
     // Create room
     const room = await Room.create({
       building: data.buildingId,
@@ -41,38 +54,45 @@ export async function POST(request) {
 export async function GET(request) {
   try {
     await dbConnect();
+    const { searchParams } = new URL(request.url);
+    const buildingId = searchParams.get("buildingId");
+    const status = searchParams.get("status");
 
-    const rooms = await Room.find({})
+    console.log("Fetching rooms with params:", { buildingId, status }); // Debug log
+
+    if (!buildingId) {
+      return NextResponse.json(
+        { error: "Building ID is required" },
+        { status: 400 }
+      );
+    }
+
+    // Build query
+    const query = {
+      building: buildingId,
+    };
+
+    if (status) {
+      query.status = status;
+    }
+
+    console.log("Query:", query); // Debug log
+
+    const rooms = await Room.find(query)
+      .populate("tenant")
       .populate({
         path: "floor",
         populate: {
           path: "building",
           select: "name",
         },
-      })
-      .populate("tenant", "name")
-      .sort({ roomNumber: 1 });
+      });
 
-    // Transform the response to maintain compatibility
-    const formattedRooms = rooms.map((room) => ({
-      _id: room._id,
-      roomNumber: room.roomNumber,
-      floor: {
-        _id: room.floor._id,
-        floorNumber: room.floor.floorNumber,
-      },
-      building: {
-        _id: room.floor.building._id,
-        name: room.floor.building.name,
-      },
-      status: room.status,
-      price: room.price,
-      tenant: room.tenant,
-    }));
+    console.log("Found rooms:", rooms.length); // Debug log
 
-    return NextResponse.json({ rooms: formattedRooms });
+    return NextResponse.json({ rooms });
   } catch (error) {
-    console.error("Error fetching rooms:", error);
+    console.error("Error in room API:", error);
     return NextResponse.json(
       { error: "Failed to fetch rooms", details: error.message },
       { status: 500 }

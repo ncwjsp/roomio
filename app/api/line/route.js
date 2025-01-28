@@ -2,41 +2,79 @@ import * as line from "@line/bot-sdk";
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import LineContact from "@/app/models/LineContact";
+import User from "@/app/models/User";
 
 // const config = {
 //   channelSecret: process.env.CHANNEL_SECRET,
 // };
 
-const client = new line.messagingApi.MessagingApiClient({
-  channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN,
-  channelSecret: process.env.CHANNEL_SECRET,
-});
+async function getLineClient(id) {
+  await dbConnect();
+  const user = await User.findOne({
+    _id: id,
+  });
 
-async function handleLineContact(userId) {
+  if (!user || !user.lineConfig) {
+    throw new Error("LINE configuration not found for user");
+  }
+
+  console.log("LINE Config:", {
+    accessToken: user.lineConfig.channelAccessToken ? "exists" : "missing",
+    channelSecret: user.lineConfig.channelSecret ? "exists" : "missing",
+  });
+
+  return {
+    client: new line.messagingApi.MessagingApiClient({
+      channelAccessToken: user.lineConfig.accessToken,
+      channelSecret: user.lineConfig.channelSecret,
+    }),
+    userId: user._id,
+  };
+}
+
+async function handleLineContact(lineUserId, landlordId) {
   try {
+    const user = await User.findById(landlordId);
+    if (!user || !user.lineConfig) {
+      throw new Error("User or LINE configuration not found");
+    }
+
+    // Fetch LINE user profile
     const response = await fetch(
-      `https://api.line.me/v2/bot/profile/${userId}`,
+      `https://api.line.me/v2/bot/profile/${lineUserId}`,
       {
         method: "GET",
         headers: {
-          Authorization: `Bearer ${process.env.CHANNEL_ACCESS_TOKEN}`,
+          Authorization: `Bearer ${user.lineConfig.channelAccessToken}`,
         },
       }
     );
 
-    const user = await response.json();
+    if (!response.ok) {
+      throw new Error(`Failed to fetch LINE profile: ${response.statusText}`);
+    }
+
+    const lineUser = await response.json();
+    console.log("LINE user profile:", lineUser); // Debug log
+
+    // Validate required fields from LINE API
+    if (!lineUser.userId || !lineUser.displayName) {
+      throw new Error("Invalid LINE user profile data");
+    }
 
     const lineContactData = {
-      userId: user.userId,
-      name: user.displayName,
-      pfp: user.pictureUrl,
+      userId: lineUser.userId,
+      name: lineUser.displayName,
+      pfp: lineUser.pictureUrl || "", // Make optional since some users might not have profile pictures
       isTenant: false,
+      landlordId: landlordId,
     };
 
     await dbConnect();
 
     const existingContact = await LineContact.findOne({
       userId: lineContactData.userId,
+      landlordId: landlordId,
     });
 
     if (!existingContact) {
@@ -56,6 +94,16 @@ async function handleLineContact(userId) {
 
 export async function POST(req) {
   try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json(
+        { status: "error", message: "Missing id parameter" },
+        { status: 400 }
+      );
+    }
+
     const body = await req.json();
     if (!body || !body.events) {
       return NextResponse.json(
@@ -64,8 +112,11 @@ export async function POST(req) {
       );
     }
 
+    const { client, userId } = await getLineClient(id);
     const events = body.events;
-    await Promise.all(events.map(handleEvent));
+    await Promise.all(
+      events.map((event) => handleEvent(event, userId, client))
+    );
 
     return NextResponse.json({ status: "success" });
   } catch (err) {
@@ -77,12 +128,25 @@ export async function POST(req) {
   }
 }
 
-async function handleEvent(event) {
+async function handleEvent(event, landlordId, client) {
   console.log("Event received:", event);
+
+  // Initialize LINE client if not provided
+  if (!client) {
+    const user = await User.findById(landlordId);
+    if (!user || !user.lineConfig) {
+      throw new Error("LINE configuration not found for user");
+    }
+
+    client = new line.messagingApi.MessagingApiClient({
+      channelAccessToken: user.lineConfig.accessToken,
+      channelSecret: user.lineConfig.channelSecret,
+    });
+  }
 
   if (event.type === "follow") {
     try {
-      await handleLineContact(event.source.userId);
+      await handleLineContact(event.source.userId, landlordId);
     } catch (err) {
       console.error("Error in follow event:", err);
     }
@@ -105,9 +169,4 @@ async function handleEvent(event) {
       console.error("Error replying to message:", err);
     }
   }
-}
-
-async function getAllFriends() {
-  const friends = await Friend.find({});
-  return friends;
 }

@@ -1,70 +1,145 @@
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/authOptions";
 import dbConnect from "@/lib/mongodb";
 import Staff from "@/app/models/Staff";
+import User from "@/app/models/User";
+import { getLineClient } from "@/lib/line";
 
-export async function GET(req) {
-  await dbConnect();
+export async function GET(request) {
   try {
-    const role = req.nextUrl.searchParams.get("role");
-    const query = role ? { role } : {};
-    const staffList = await Staff.find(query);
-    return new Response(JSON.stringify(staffList), { status: 200 });
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    await dbConnect();
+    const { searchParams } = new URL(request.url);
+    const role = searchParams.get("role");
+
+    const query = {
+      landlordId: session.user.id,
+      ...(role && { role }),
+    };
+
+    const staff = await Staff.find(query).sort({ createdAt: -1 });
+    return NextResponse.json(staff);
   } catch (error) {
-    return new Response(JSON.stringify({ message: "Failed to fetch staff", error }), { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch staff" },
+      { status: 500 }
+    );
   }
 }
 
-export async function POST(req) {
-  await dbConnect();
+export async function POST(request) {
   try {
-    const body = await req.json();
-    const { firstName, lastName, building, position, salary, role } = body;
-
-    if (!firstName || !lastName || !building || !position || !salary || !role) {
-      return new Response(JSON.stringify({ message: "Missing required fields" }), { status: 400 });
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const newStaff = await Staff.create({
-      firstName,
-      lastName,
-      building,
-      position,
-      salary,
-      role,
+    await dbConnect();
+    const data = await request.json();
+
+    const staff = new Staff({
+      ...data,
+      landlordId: session.user.id,
     });
 
-    return new Response(JSON.stringify(newStaff), { status: 201 });
-  } catch (error) {
-    return new Response(JSON.stringify({ message: "Failed to add staff", error }), { status: 500 });
-  }
-}
+    await staff.save();
 
-export async function PUT(req) {
-  await dbConnect();
-  try {
-    const body = await req.json();
-    const { id, updates } = body;
+    // If staff is Housekeeper or Technician and has lineUserId, attach rich menu
+    if (
+      ["Housekeeper", "Technician"].includes(staff.role) &&
+      staff.lineUserId
+    ) {
+      try {
+        // Get LINE client and user config
+        const user = await User.findById(session.user.id);
+        const client = await getLineClient(session.user.id);
 
-    const updatedStaff = await Staff.findByIdAndUpdate(id, updates, { new: true });
+        // Get the appropriate rich menu ID based on role
+        const richMenuId = user.lineConfig?.staffRichMenuId;
 
-    if (!updatedStaff) {
-      return new Response(JSON.stringify({ message: "Staff member not found" }), { status: 404 });
+        if (!richMenuId) {
+          throw new Error(`${staff.role} rich menu ID not configured`);
+        }
+
+        await client.linkRichMenuToUser(staff.lineUserId, richMenuId);
+      } catch (error) {
+        console.error("Error with LINE operations:", error);
+      }
     }
 
-    return new Response(JSON.stringify(updatedStaff), { status: 200 });
+    return NextResponse.json(staff);
   } catch (error) {
-    return new Response(JSON.stringify({ message: "Failed to update staff", error }), { status: 500 });
+    console.error("Error in staff creation:", error);
+    return NextResponse.json(
+      { error: "Failed to add staff member", details: error.message },
+      { status: 500 }
+    );
   }
 }
 
-export async function DELETE(req) {
-  await dbConnect();
+export async function PUT(request) {
   try {
-    const body = await req.json();
-    const { ids } = body;
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    await Staff.deleteMany({ _id: { $in: ids } });
+    await dbConnect();
+    const data = await request.json();
+    const { id, updates } = data;
+
+    const staff = await Staff.findOneAndUpdate(
+      { _id: id, landlordId: session.user.id },
+      updates,
+      { new: true }
+    );
+
+    if (!staff) {
+      return NextResponse.json({ error: "Staff not found" }, { status: 404 });
+    }
+
+    return NextResponse.json(staff);
+  } catch (error) {
+    return NextResponse.json(
+      { error: "Failed to update staff member" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    await dbConnect();
+    const data = await request.json();
+    const { ids } = data;
+
+    const result = await Staff.deleteMany({
+      _id: { $in: ids },
+      landlordId: session.user.id,
+    });
+
+    if (result.deletedCount === 0) {
+      return NextResponse.json(
+        { error: "No staff members found to delete" },
+        { status: 404 }
+      );
+    }
+
     return new Response(null, { status: 204 });
   } catch (error) {
-    return new Response(JSON.stringify({ message: "Failed to delete staff", error }), { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to delete staff members" },
+      { status: 500 }
+    );
   }
 }

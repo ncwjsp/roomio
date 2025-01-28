@@ -2,35 +2,121 @@
 import Link from "next/link";
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  Container,
+  Paper,
+  Typography,
+  TextField,
+  Button,
+  Stepper,
+  Step,
+  StepLabel,
+  Grid,
+  Box,
+  Divider,
+} from "@mui/material";
 
 const Register = () => {
   const router = useRouter();
+  const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
     email: "",
     password: "",
     confirmPassword: "",
+    lineConfig: {
+      channelAccessToken: "",
+      channelSecret: "",
+      liffIds: {
+        parcels: "",
+        reports: "",
+        billing: "",
+        cleaning: "",
+        maintenance: "",
+        announcement: "",
+        schedule: "",
+        tasks: "",
+      },
+    },
   });
   const [error, setError] = useState(null);
 
+  const steps = ["Account Information", "LINE Configuration"];
+
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    if (name.startsWith("line.")) {
+      const [_, ...parts] = name.split(".");
+      if (parts.length === 1) {
+        setFormData((prev) => ({
+          ...prev,
+          lineConfig: {
+            ...prev.lineConfig,
+            [parts[0]]: value,
+          },
+        }));
+      } else if (parts.length === 2 && parts[0] === "liffIds") {
+        setFormData((prev) => ({
+          ...prev,
+          lineConfig: {
+            ...prev.lineConfig,
+            liffIds: {
+              ...prev.lineConfig.liffIds,
+              [parts[1]]: value,
+            },
+          },
+        }));
+      }
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: value,
+      }));
+    }
+  };
+
+  const handleNext = () => {
+    if (currentStep === 0) {
+      if (formData.password !== formData.confirmPassword) {
+        setError("Passwords do not match.");
+        return;
+      }
+      setCurrentStep(1);
+      setError(null);
+    }
+  };
+
+  const handleBack = () => {
+    setCurrentStep(0);
+    setError(null);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match.");
+    if (currentStep === 0) {
+      handleNext();
       return;
     }
 
     try {
+      // Create rich menus first
+      const richMenuResponse = await fetch("/api/richmenu", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          channelAccessToken: formData.lineConfig.channelAccessToken,
+          channelSecret: formData.lineConfig.channelSecret,
+          liffIds: formData.lineConfig.liffIds,
+        }),
+      });
+
+      const { tenantRichMenuId, staffRichMenuId } =
+        await richMenuResponse.json();
+
+      // Register user with rich menu IDs
       const response = await fetch("/api/auth/user", {
         method: "POST",
         headers: {
@@ -41,6 +127,11 @@ const Register = () => {
           lastName: formData.lastName,
           email: formData.email,
           password: formData.password,
+          lineConfig: {
+            ...formData.lineConfig,
+            tenantRichMenuId,
+            staffRichMenuId,
+          },
         }),
       });
 
@@ -49,7 +140,10 @@ const Register = () => {
       if (response.ok) {
         router.push("/login");
       } else {
-        setError(data.error || "An error occurred during registration.");
+        setError(data.error || "Failed to register");
+        if (data.error === "Email is already in use") {
+          setCurrentStep(0);
+        }
       }
     } catch (err) {
       setError("Failed to register. Please try again.");
@@ -57,77 +151,193 @@ const Register = () => {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen">
-      <div className="w-full max-w-md bg-white rounded-lg shadow-lg p-8 text-center">
-        <h1 className="text-3xl font-bold">
-          Room<span className="text-black">io</span>
-        </h1>
-        <h3 className="text-md font-semibold">Apartment Management System</h3>
-        <p className="text-sm text-gray-600 mt-4">Create your account</p>
-        {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
-        <form className="mt-6" onSubmit={handleSubmit}>
-          <div className="flex space-x-4 mb-4">
-            <input
-              type="text"
-              name="firstName"
-              placeholder="Firstname"
-              value={formData.firstName}
-              onChange={handleChange}
-              className="w-1/2 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2"
-            />
-            <input
-              type="text"
-              name="lastName"
-              placeholder="Lastname"
-              value={formData.lastName}
-              onChange={handleChange}
-              className="w-1/2 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2"
-            />
-          </div>
-          <input
-            type="email"
-            name="email"
-            placeholder="Email"
-            value={formData.email}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4 focus:outline-none focus:ring-2"
-          />
-          <input
-            type="password"
-            name="password"
-            placeholder="Password"
-            value={formData.password}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4 focus:outline-none focus:ring-2"
-          />
-          <input
-            type="password"
-            name="confirmPassword"
-            placeholder="Confirm Password"
-            value={formData.confirmPassword}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4 focus:outline-none focus:ring-2"
-          />
-          <button
-            type="submit"
-            className="w-full text-white"
-            style={{
-              backgroundColor: "#898f63",
-              padding: "0.5rem",
-              borderRadius: "0.5rem",
-            }}
-          >
-            Register
-          </button>
+    <Container
+      component="main"
+      maxWidth="lg"
+      sx={{
+        py: 4,
+        minHeight: "100vh", // Full viewport height
+        display: "flex",
+        alignItems: "center", // Vertical center
+        justifyContent: "center", // Horizontal center
+      }}
+    >
+      <Paper
+        elevation={3}
+        sx={{
+          p: 4,
+          borderRadius: 2,
+          width: "100%", // Take full width of container
+          maxWidth: "1000px", // Limit maximum width
+        }}
+      >
+        <Box sx={{ textAlign: "center", mb: 4 }}>
+          <Typography variant="h4" component="h1" gutterBottom>
+            Room<span style={{ color: "black" }}>io</span>
+          </Typography>
+          <Typography variant="subtitle1" color="textSecondary">
+            Apartment Management System
+          </Typography>
+        </Box>
+
+        <Stepper activeStep={currentStep} sx={{ mb: 4 }}>
+          {steps.map((label) => (
+            <Step key={label}>
+              <StepLabel>{label}</StepLabel>
+            </Step>
+          ))}
+        </Stepper>
+
+        {error && (
+          <Typography color="error" sx={{ mb: 2, textAlign: "center" }}>
+            {error}
+          </Typography>
+        )}
+
+        <form onSubmit={handleSubmit}>
+          {currentStep === 0 ? (
+            <Grid container spacing={3}>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="First Name"
+                  name="firstName"
+                  value={formData.firstName}
+                  onChange={handleChange}
+                  required
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Last Name"
+                  name="lastName"
+                  value={formData.lastName}
+                  onChange={handleChange}
+                  required
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Email"
+                  name="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  required
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Password"
+                  name="password"
+                  type="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  required
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Confirm Password"
+                  name="confirmPassword"
+                  type="password"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  required
+                />
+              </Grid>
+            </Grid>
+          ) : (
+            <Grid container spacing={3}>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="LINE Channel Access Token"
+                  name="line.channelAccessToken"
+                  value={formData.lineConfig.channelAccessToken}
+                  onChange={handleChange}
+                  required
+                  helperText="Found in LINE Developers Console → Messaging API → Channel access token"
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="LINE Channel Secret"
+                  name="line.channelSecret"
+                  value={formData.lineConfig.channelSecret}
+                  onChange={handleChange}
+                  required
+                  helperText="Found in LINE Developers Console → Basic settings → Channel secret"
+                />
+              </Grid>
+
+              <Grid item xs={12}>
+                <Divider sx={{ my: 2 }}>
+                  <Typography variant="subtitle2" color="textSecondary">
+                    LIFF IDs Configuration
+                  </Typography>
+                </Divider>
+              </Grid>
+
+              {Object.keys(formData.lineConfig.liffIds).map((key, index) => (
+                <Grid item xs={12} sm={6} key={key}>
+                  <TextField
+                    fullWidth
+                    label={`${
+                      key.charAt(0).toUpperCase() + key.slice(1)
+                    } LIFF ID`}
+                    name={`line.liffIds.${key}`}
+                    value={formData.lineConfig.liffIds[key]}
+                    onChange={handleChange}
+                    required
+                    helperText={`LIFF ID for ${
+                      key.charAt(0).toUpperCase() + key.slice(1)
+                    } feature`}
+                  />
+                </Grid>
+              ))}
+            </Grid>
+          )}
+
+          <Box sx={{ display: "flex", justifyContent: "space-between", mt: 4 }}>
+            {currentStep === 1 && (
+              <Button onClick={handleBack} variant="outlined">
+                Back
+              </Button>
+            )}
+            <Button
+              type="submit"
+              variant="contained"
+              sx={{
+                bgcolor: "#898f63",
+                "&:hover": { bgcolor: "#707454" },
+                ml: currentStep === 1 ? "auto" : 0,
+                width: currentStep === 0 ? "100%" : "auto",
+              }}
+            >
+              {currentStep === 0 ? "Next" : "Register"}
+            </Button>
+          </Box>
         </form>
-        <p className="text-sm text-gray-600 mt-6">
+
+        <Typography
+          variant="body2"
+          color="textSecondary"
+          align="center"
+          sx={{ mt: 3 }}
+        >
           Already have an account?{" "}
-          <Link href="/login" className="hover:underline">
+          <Link href="/login" style={{ color: "#898f63" }}>
             Login
           </Link>
-        </p>
-      </div>
-    </div>
+        </Typography>
+      </Paper>
+    </Container>
   );
 };
 

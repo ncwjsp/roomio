@@ -4,11 +4,14 @@ import Room from "@/app/models/Room";
 import Building from "@/app/models/Building";
 import Tenant from "@/app/models/Tenant";
 import mongoose from "mongoose";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/authOptions";
 
-export async function DELETE(req, { params }) {
+export async function DELETE(request, context) {
   try {
     await dbConnect();
-    const { id } = params;
+    const params = await context.params;
+    const id = params.id;
 
     const room = await Room.findById(id);
     if (!room) {
@@ -43,61 +46,49 @@ export async function DELETE(req, { params }) {
   }
 }
 
-export async function PUT(req, { params }) {
+export async function PUT(request, context) {
   try {
-    await dbConnect();
-    const { id } = params;
-    const data = await req.json();
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    // Check if room exists
-    const existingRoom = await Room.findById(id);
-    if (!existingRoom) {
+    await dbConnect();
+    const params = await context.params;
+    const roomId = params.id;
+    const updates = await request.json();
+
+    const room = await Room.findById(roomId).populate({
+      path: "floor",
+      populate: {
+        path: "building",
+        select: "createdBy",
+      },
+    });
+
+    if (!room) {
       return NextResponse.json({ error: "Room not found" }, { status: 404 });
     }
 
-    // Check if new room number already exists (excluding current room)
-    if (data.roomNumber !== existingRoom.roomNumber) {
-      const duplicateRoom = await Room.findOne({
-        roomNumber: data.roomNumber,
-        _id: { $ne: id },
-      });
-      if (duplicateRoom) {
-        return NextResponse.json(
-          { error: "Room number already exists" },
-          { status: 409 }
-        );
-      }
+    // Verify ownership
+    if (room.floor.building.createdBy.toString() !== session.user.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    // If building is being changed, update both old and new building's rooms arrays
-    if (data.building && data.building !== existingRoom.building.toString()) {
-      // Remove room from old building
-      await Building.findByIdAndUpdate(existingRoom.building, {
-        $pull: { rooms: existingRoom._id },
-      });
-
-      // Add room to new building
-      await Building.findByIdAndUpdate(data.building, {
-        $push: { rooms: existingRoom._id },
-      });
-    }
-
-    // Update room
     const updatedRoom = await Room.findByIdAndUpdate(
-      id,
-      {
-        roomNumber: data.roomNumber,
-        floor: data.floor,
-        status: data.status,
-        price: data.price,
-        building: data.building || existingRoom.building,
-      },
+      roomId,
+      { $set: updates },
       { new: true }
-    ).populate("building", "name");
+    ).populate({
+      path: "floor",
+      populate: {
+        path: "building",
+        select: "name",
+      },
+    });
 
-    return NextResponse.json(updatedRoom, { status: 200 });
+    return NextResponse.json(updatedRoom);
   } catch (error) {
-    console.error("Error updating room:", error);
     return NextResponse.json(
       { error: "Failed to update room" },
       { status: 500 }
@@ -105,53 +96,40 @@ export async function PUT(req, { params }) {
   }
 }
 
-export async function GET(req, { params }) {
+export async function GET(request, context) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     await dbConnect();
-    const { id } = params;
+    const params = await context.params;
+    const roomId = params.id;
 
-    // Log the room first to check the building reference
-    const rawRoom = await Room.findOne({ _id: id });
-    console.log("Building reference:", rawRoom?.building);
-
-    const room = await Room.findOne({ _id: id })
+    const room = await Room.findById(roomId)
       .populate({
-        path: "building",
-        select: "name",
+        path: "floor",
+        populate: {
+          path: "building",
+          select: "name createdBy electricityRate waterRate",
+        },
       })
-      .lean();
+      .populate("tenant", "name phone");
 
     if (!room) {
       return NextResponse.json({ error: "Room not found" }, { status: 404 });
     }
 
-    // Format the response with better null handling
-    const formattedRoom = {
-      _id: room._id,
-      roomNumber: room.roomNumber,
-      floor: room.floor,
-      status: room.status,
-      building: room.building
-        ? {
-            _id: room.building._id,
-            name: room.building.name,
-          }
-        : null, // Return null instead of empty object if no building
-      tenant: room.tenant,
-      price: room.price,
-      createdAt: room.createdAt,
-      updatedAt: room.updatedAt,
-    };
+    // Verify ownership
+    if (room.floor.building.createdBy.toString() !== session.user.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
 
-    return NextResponse.json(formattedRoom, { status: 200 });
+    return NextResponse.json(room);
   } catch (error) {
-    console.error("Full error:", error);
     return NextResponse.json(
-      {
-        error: "Failed to fetch room",
-        message: error.message,
-        params: params,
-      },
+      { error: "Failed to fetch room" },
       { status: 500 }
     );
   }

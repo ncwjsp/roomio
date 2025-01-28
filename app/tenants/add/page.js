@@ -39,6 +39,7 @@ import MeetingRoomIcon from "@mui/icons-material/MeetingRoom";
 import { useSession } from "next-auth/react";
 import Providers from "@/app/components/Providers";
 import { useRouter } from "next/navigation";
+import PersonIcon from "@mui/icons-material/Person";
 
 const AddTenant = () => {
   const { data: session, status } = useSession();
@@ -57,10 +58,10 @@ const AddTenant = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
-  const [openFriendModal, setOpenFriendModal] = useState(false);
-  const [friends, setFriends] = useState([]);
-  const [selectedFriend, setSelectedFriend] = useState(null);
-  const [loadingFriends, setLoadingFriends] = useState(false);
+  const [openContactModal, setOpenContactModal] = useState(false);
+  const [contacts, setContacts] = useState([]);
+  const [selectedContact, setSelectedContact] = useState(null);
+  const [loadingContacts, setLoadingContacts] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("name");
   const [sortOrder, setSortOrder] = useState("asc");
@@ -114,8 +115,8 @@ const AddTenant = () => {
         throw new Error("Please fill in all required fields");
       }
 
-      // Get the selected friend's LINE user ID
-      const lineUserId = selectedFriend?.userId;
+      // Get the selected contact's LINE user ID
+      const lineUserId = selectedContact?.userId;
       if (!lineUserId) {
         throw new Error("No LINE contact selected");
       }
@@ -149,7 +150,7 @@ const AddTenant = () => {
       if (!response.ok) {
         // Log the error details
         console.error("Server response:", data);
-        throw new Error(data.error || data.message || "Failed to add tenant");
+        throw new Error(data.error);
       }
 
       // Success - redirect to tenants page
@@ -162,51 +163,55 @@ const AddTenant = () => {
     }
   };
 
-  const handleOpenFriendModal = async () => {
-    setLoadingFriends(true);
+  const handleOpenContactModal = async () => {
+    if (!session?.user?.id) {
+      console.error("No session or user ID available");
+      return;
+    }
+
+    setLoadingContacts(true);
     try {
-      const response = await fetch("/api/linecontact");
+      const response = await fetch(`/api/linecontact?id=${session.user.id}`);
       const data = await response.json();
 
-      // Extract the lineContacts array from the data object
-      setFriends(Array.isArray(data.lineContacts) ? data.lineContacts : []);
+      setContacts(Array.isArray(data.lineContacts) ? data.lineContacts : []);
     } catch (error) {
       console.error("Error fetching LINE contacts:", error);
-      setFriends([]);
+      setContacts([]);
     } finally {
-      setLoadingFriends(false);
+      setLoadingContacts(false);
     }
-    setOpenFriendModal(true);
+    setOpenContactModal(true);
   };
 
-  const handleCloseFriendModal = () => {
-    setOpenFriendModal(false);
+  const handleCloseContactModal = () => {
+    setOpenContactModal(false);
   };
 
-  const handleDeselectFriend = () => {
-    setSelectedFriend(null);
+  const handleDeselectContact = () => {
+    setSelectedContact(null);
     setTenantData((prev) => ({
       ...prev,
       pfp: "",
     }));
   };
 
-  const handleSelectFriend = (friend) => {
-    setSelectedFriend(friend);
+  const handleSelectContact = (contact) => {
+    setSelectedContact(contact);
     setTenantData((prev) => ({
       ...prev,
-      pfp: friend.pfp || "",
-      lineId: friend.lineId || "", // Set LINE ID from friend
+      pfp: contact.pfp || "",
+      lineId: contact.lineId || "",
     }));
-    setOpenFriendModal(false);
+    setOpenContactModal(false);
   };
 
-  const getSortedAndFilteredFriends = () => {
-    return friends
+  const getSortedAndFilteredContacts = () => {
+    return contacts
       .filter(
-        (friend) =>
-          friend.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          friend.lineId.toLowerCase().includes(searchQuery.toLowerCase())
+        (contact) =>
+          contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          contact.lineId.toLowerCase().includes(searchQuery.toLowerCase())
       )
       .sort((a, b) => {
         if (sortBy === "name") {
@@ -221,15 +226,15 @@ const AddTenant = () => {
       });
   };
 
-  const getPaginatedFriends = () => {
-    const filteredFriends = getSortedAndFilteredFriends();
+  const getPaginatedContacts = () => {
+    const filteredContacts = getSortedAndFilteredContacts();
     const startIndex = (page - 1) * itemsPerPage;
     return {
-      paginatedFriends: filteredFriends.slice(
+      paginatedContacts: filteredContacts.slice(
         startIndex,
         startIndex + itemsPerPage
       ),
-      totalPages: Math.ceil(filteredFriends.length / itemsPerPage),
+      totalPages: Math.ceil(filteredContacts.length / itemsPerPage),
     };
   };
 
@@ -477,34 +482,34 @@ const AddTenant = () => {
                   display: "flex",
                   alignItems: "center",
                   gap: 2,
-                  mb: errors.friend ? 3 : 2,
+                  mb: errors.contact ? 3 : 2,
                 }}
               >
                 <Button
                   variant="outlined"
                   startIcon={<PersonAddIcon />}
-                  onClick={handleOpenFriendModal}
+                  onClick={handleOpenContactModal}
                   sx={{
                     borderRadius: 2,
                     py: 1.5,
                     px: 3,
-                    borderColor: errors.friend ? "error.main" : "primary.main",
-                    color: errors.friend ? "error.main" : "primary.main",
+                    borderColor: errors.contact ? "error.main" : "primary.main",
+                    color: errors.contact ? "error.main" : "primary.main",
                     "&:hover": {
-                      borderColor: errors.friend
+                      borderColor: errors.contact
                         ? "error.dark"
                         : "primary.dark",
-                      backgroundColor: errors.friend
+                      backgroundColor: errors.contact
                         ? "error.50"
                         : "primary.50",
                     },
                   }}
                 >
-                  {selectedFriend
+                  {selectedContact
                     ? "Change LINE Contact"
                     : "Select LINE Contact *"}
                 </Button>
-                {selectedFriend && (
+                {selectedContact && (
                   <Box
                     sx={{
                       display: "flex",
@@ -517,22 +522,22 @@ const AddTenant = () => {
                     }}
                   >
                     <Avatar
-                      src={selectedFriend.pfp}
-                      alt={selectedFriend.name}
+                      src={selectedContact.pfp}
+                      alt={selectedContact.name}
                       sx={{ width: 40, height: 40 }}
                     />
                     <Box>
                       <Typography variant="subtitle2">
-                        {selectedFriend.name}
+                        {selectedContact.name}
                       </Typography>
                       <Typography variant="caption" color="textSecondary">
                         Added:{" "}
-                        {dayjs(selectedFriend.createdAt).format("MMM D, YYYY")}
+                        {dayjs(selectedContact.createdAt).format("MMM D, YYYY")}
                       </Typography>
                     </Box>
                     <IconButton
                       size="small"
-                      onClick={handleDeselectFriend}
+                      onClick={handleDeselectContact}
                       sx={{
                         position: "absolute",
                         right: 8,
@@ -547,9 +552,9 @@ const AddTenant = () => {
                   </Box>
                 )}
               </Box>
-              {errors.friend && (
+              {errors.contact && (
                 <Typography color="error" variant="caption" sx={{ ml: 2 }}>
-                  {errors.friend}
+                  {errors.contact}
                 </Typography>
               )}
             </Grid>
@@ -704,7 +709,7 @@ const AddTenant = () => {
         newErrors.email = "Please enter a valid email address";
       }
       if (!tenantData.phone.trim()) newErrors.phone = "Phone is required";
-      if (!selectedFriend) newErrors.friend = "Please select a LINE friend";
+      if (!selectedContact) newErrors.contact = "Please select a LINE contact";
       if (!tenantData.lineId.trim()) newErrors.lineId = "LINE ID is required";
     }
 
@@ -713,31 +718,38 @@ const AddTenant = () => {
   };
 
   useEffect(() => {
-    const fetchRooms = async () => {
-      try {
-        if (!session?.user?.id) return;
-        setIsLoading(true);
+    if (status === "loading") return;
 
-        const response = await fetch(`/api/building?id=${session.user.id}`);
-        if (!response.ok) {
-          throw new Error("Failed to fetch buildings");
+    if (status === "unauthenticated") {
+      router.push("/auth/signin");
+      return;
+    }
+
+    // Only proceed if we have a valid session
+    if (session?.user?.id) {
+      const fetchRooms = async () => {
+        try {
+          setIsLoading(true);
+
+          const response = await fetch(`/api/building?id=${session.user.id}`);
+          if (!response.ok) {
+            throw new Error("Failed to fetch buildings");
+          }
+
+          const data = await response.json();
+          console.log("Fetched buildings data:", data); // Debug log
+
+          if (data.buildings) {
+            setBuildings(data.buildings);
+          }
+        } catch (error) {
+          console.error("Error fetching rooms:", error);
+          setErrorMessage("Failed to fetch buildings and rooms");
+        } finally {
+          setIsLoading(false);
         }
+      };
 
-        const data = await response.json();
-        console.log("Fetched buildings data:", data); // Debug log
-
-        if (data.buildings) {
-          setBuildings(data.buildings);
-        }
-      } catch (error) {
-        console.error("Error fetching rooms:", error);
-        setErrorMessage("Failed to fetch buildings and rooms");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    if (status !== "loading") {
       fetchRooms();
     }
   }, [session, status]);
@@ -802,9 +814,9 @@ const AddTenant = () => {
       />
 
       <Modal
-        open={openFriendModal}
-        onClose={handleCloseFriendModal}
-        aria-labelledby="friend-modal-title"
+        open={openContactModal}
+        onClose={handleCloseContactModal}
+        aria-labelledby="contact-modal-title"
       >
         <Box
           sx={{
@@ -822,18 +834,18 @@ const AddTenant = () => {
           }}
         >
           <Typography
-            id="friend-modal-title"
+            id="contact-modal-title"
             variant="h6"
             component="h2"
             gutterBottom
           >
-            Select Friend
+            Select LINE Contact
           </Typography>
 
           <Box sx={{ mb: 3, display: "flex", gap: 2 }}>
             <TextField
               size="small"
-              placeholder="Search friends..."
+              placeholder="Search LINE contacts..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               sx={{ flexGrow: 1 }}
@@ -866,17 +878,45 @@ const AddTenant = () => {
             </IconButton>
           </Box>
 
-          {loadingFriends ? (
+          {loadingContacts ? (
             <Box sx={{ display: "flex", justifyContent: "center", p: 2 }}>
               <CircularProgress />
+            </Box>
+          ) : getPaginatedContacts().paginatedContacts.length === 0 ? (
+            <Box
+              sx={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                py: 4,
+                px: 2,
+                bgcolor: "grey.50",
+                borderRadius: 1,
+              }}
+            >
+              <PersonIcon
+                sx={{ fontSize: 48, color: "text.secondary", mb: 2 }}
+              />
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                No LINE Contacts Found
+              </Typography>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                align="center"
+                sx={{ maxWidth: 300 }}
+              >
+                Add contacts by having them follow your LINE Official Account.
+              </Typography>
             </Box>
           ) : (
             <>
               <List sx={{ width: "100%", bgcolor: "background.paper" }}>
-                {getPaginatedFriends().paginatedFriends.map((friend) => (
+                {getPaginatedContacts().paginatedContacts.map((contact) => (
                   <ListItem
-                    key={friend._id}
-                    onClick={() => handleSelectFriend(friend)}
+                    key={contact._id}
+                    onClick={() => handleSelectContact(contact)}
                     sx={{
                       mb: 1,
                       border: "1px solid",
@@ -890,18 +930,18 @@ const AddTenant = () => {
                   >
                     <ListItemAvatar>
                       <Avatar
-                        src={friend.pfp}
-                        alt={friend.name}
+                        src={contact.pfp}
+                        alt={contact.name}
                         sx={{ width: 50, height: 50, mr: 2 }}
                       />
                     </ListItemAvatar>
                     <ListItemText
-                      primary={friend.name}
+                      primary={contact.name}
                       secondary={
                         <Typography component="span" variant="body2">
                           <Box component="span" display="block">
                             Added:{" "}
-                            {dayjs(friend.createdAt).format("MMM D, YYYY")}
+                            {dayjs(contact.createdAt).format("MMM D, YYYY")}
                           </Box>
                         </Typography>
                       }
@@ -910,20 +950,22 @@ const AddTenant = () => {
                 ))}
               </List>
 
-              <Box sx={{ mt: 2, display: "flex", justifyContent: "center" }}>
-                <Pagination
-                  count={getPaginatedFriends().totalPages}
-                  page={page}
-                  onChange={(e, newPage) => setPage(newPage)}
-                  color="primary"
-                  size="small"
-                />
-              </Box>
+              {getPaginatedContacts().totalPages > 1 && (
+                <Box sx={{ mt: 2, display: "flex", justifyContent: "center" }}>
+                  <Pagination
+                    count={getPaginatedContacts().totalPages}
+                    page={page}
+                    onChange={(e, newPage) => setPage(newPage)}
+                    color="primary"
+                    size="small"
+                  />
+                </Box>
+              )}
             </>
           )}
 
           <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}>
-            <Button onClick={handleCloseFriendModal}>Cancel</Button>
+            <Button onClick={handleCloseContactModal}>Cancel</Button>
           </Box>
         </Box>
       </Modal>

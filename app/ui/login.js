@@ -3,12 +3,23 @@ import Link from "next/link";
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
+import {
+  Container,
+  Paper,
+  Typography,
+  TextField,
+  Button,
+  Box,
+  FormControlLabel,
+  Checkbox,
+  Link as MuiLink,
+} from "@mui/material";
 
 const Login = () => {
   const router = useRouter();
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -21,66 +32,129 @@ const Login = () => {
       });
 
       if (res.error) {
+        setError("Invalid email or password");
         return;
       }
 
       router.push("/dashboard");
     } catch (error) {
       console.log(error);
-      return;
+      setError("An error occurred. Please try again.");
     }
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen">
-      <div className="w-full max-w-md bg-white rounded-lg shadow-lg p-8 text-center">
-        <h1 className="text-3xl font-bold">
-          Room<span className="text-black">io</span>
-        </h1>
-        <h3 className="text-md font-semibold">Apartment Management System</h3>
-        <p className="text-sm text-gray-600 mt-4">Please Login your account</p>
-        <form className="mt-6" onSubmit={handleSubmit}>
-          <input
+    <Container
+      component="main"
+      maxWidth="lg"
+      sx={{
+        py: 4,
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <Paper
+        elevation={3}
+        sx={{
+          p: 4,
+          borderRadius: 2,
+          width: "100%",
+          maxWidth: "450px",
+        }}
+      >
+        <Box sx={{ textAlign: "center", mb: 4 }}>
+          <Typography variant="h4" component="h1" gutterBottom>
+            Room<span style={{ color: "black" }}>io</span>
+          </Typography>
+          <Typography variant="subtitle1" color="textSecondary">
+            Apartment Management System
+          </Typography>
+          <Typography variant="body2" color="textSecondary" sx={{ mt: 2 }}>
+            Please login to your account
+          </Typography>
+        </Box>
+
+        {error && (
+          <Typography color="error" sx={{ mb: 2, textAlign: "center" }}>
+            {error}
+          </Typography>
+        )}
+
+        <form onSubmit={handleSubmit}>
+          <TextField
+            fullWidth
+            label="Email"
             type="email"
-            placeholder="Email"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4 focus:outline-none focus:ring-2"
+            margin="normal"
+            value={email}
             onChange={(e) => setEmail(e.target.value)}
+            required
           />
-          <input
+          <TextField
+            fullWidth
+            label="Password"
             type="password"
-            placeholder="Password"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4 focus:outline-none focus:ring-2"
+            margin="normal"
+            value={password}
             onChange={(e) => setPassword(e.target.value)}
+            required
           />
-          <div className="flex justify-between items-center mb-4">
-            <label className="flex items-center text-sm text-gray-600">
-              <input type="checkbox" className="mr-2" />
-              Remember me
-            </label>
-            <a href="#" className="text-sm hover:underline">
+
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              my: 2,
+            }}
+          >
+            <FormControlLabel
+              control={<Checkbox size="small" />}
+              label={
+                <Typography variant="body2" color="textSecondary">
+                  Remember me
+                </Typography>
+              }
+            />
+            <MuiLink
+              href="#"
+              variant="body2"
+              sx={{ color: "text.secondary", textDecoration: "none" }}
+            >
               Forgot Password?
-            </a>
-          </div>
-          <button
+            </MuiLink>
+          </Box>
+
+          <Button
             type="submit"
-            className="w-full text-white"
-            style={{
-              backgroundColor: "#898f63",
-              padding: "0.5rem",
-              borderRadius: "0.5rem",
+            fullWidth
+            variant="contained"
+            sx={{
+              mt: 2,
+              mb: 3,
+              bgcolor: "#898f63",
+              "&:hover": { bgcolor: "#707454" },
             }}
           >
             Log In
-          </button>
+          </Button>
         </form>
-        <p className="text-sm text-gray-600 mt-6">
+
+        <Typography
+          variant="body2"
+          color="textSecondary"
+          align="center"
+          sx={{ mt: 2 }}
+        >
           New member here?{" "}
-          <Link href="/register" className="hover:underline">
+          <Link href="/register" style={{ color: "#898f63" }}>
             Register Now
           </Link>
-        </p>
-      </div>
-    </div>
+        </Typography>
+      </Paper>
+    </Container>
   );
 };
 

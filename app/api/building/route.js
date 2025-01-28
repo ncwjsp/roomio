@@ -13,6 +13,7 @@ export async function POST(request) {
     // Check for existing rooms with similar numbers first
     const existingRooms = await Room.find({
       roomNumber: new RegExp(`^${data.name}\\d+`, "i"),
+      createdBy: data.userId,
     });
 
     if (existingRooms.length > 0) {
@@ -29,6 +30,8 @@ export async function POST(request) {
       name: data.name,
       createdBy: data.userId,
       floors: [],
+      electricityRate: data.electricityRate,
+      waterRate: data.waterRate,
     });
     await building.save();
 
@@ -58,6 +61,8 @@ export async function POST(request) {
               floor: floor._id,
               price: data.price,
               status: "Available", // Set default status
+              createdBy: data.userId,
+              building: building._id,
             });
 
             await room.save();
@@ -95,37 +100,35 @@ export async function POST(request) {
 export async function GET(request) {
   try {
     await dbConnect();
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get("id");
 
-    // Log the query process
-    console.log("Fetching buildings...");
-
-    const buildings = await Building.find({}).populate({
-      path: "floors",
-      populate: {
-        path: "rooms",
-        populate: {
-          path: "tenant",
-        },
-      },
-    });
-
-    if (!buildings || buildings.length === 0) {
-      console.log("No buildings found in database");
+    if (!userId) {
+      return NextResponse.json(
+        { error: "User ID is required" },
+        { status: 400 }
+      );
     }
 
-    return NextResponse.json({
-      success: true,
-      buildings: buildings,
-      count: buildings.length,
-    });
+    const buildings = await Building.find({ createdBy: userId })
+      .populate({
+        path: "floors",
+        populate: {
+          path: "rooms",
+          model: "Room",
+          populate: [
+            { path: "tenant", model: "Tenant" },
+            { path: "building", model: "Building" },
+          ],
+        },
+      })
+      .sort({ name: 1 });
+
+    return NextResponse.json({ buildings });
   } catch (error) {
-    console.error("Error in building API:", error);
+    console.error("Error fetching buildings:", error);
     return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to fetch buildings",
-        details: error.message,
-      },
+      { error: "Failed to fetch buildings" },
       { status: 500 }
     );
   }

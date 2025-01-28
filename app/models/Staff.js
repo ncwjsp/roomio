@@ -1,15 +1,52 @@
 import mongoose from "mongoose";
 
-const StaffSchema = new mongoose.Schema(
+const staffSchema = new mongoose.Schema(
   {
-    firstName: { type: String, required: true },
-    lastName: { type: String, required: true },
-    building: { type: String, required: true },
-    position: { type: String, required: true },
-    salary: { type: Number, required: true },
-    role: { type: String, required: true, enum: ["Housekeeper", "Electrician", "Plumber", "Manager", "Technician"] },
+    firstName: {
+      type: String,
+      required: true,
+    },
+    lastName: {
+      type: String,
+      required: true,
+    },
+    phone: {
+      type: String,
+      required: true,
+    },
+    lineId: {
+      type: String,
+      required: true,
+    },
+    lineUserId: {
+      type: String,
+      default: null,
+    },
+    role: {
+      type: String,
+      required: true,
+    },
+    specialization: {
+      type: String,
+      default: "",
+    },
+    salary: {
+      type: Number,
+      required: true,
+    },
+    startDate: {
+      type: Date,
+      required: true,
+    },
+    landlordId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  }
 );
 
-export default mongoose.models.Staff || mongoose.model("Staff", StaffSchema);
+export default mongoose.models.Staff || mongoose.model("Staff", staffSchema);

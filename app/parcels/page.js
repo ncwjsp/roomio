@@ -43,6 +43,8 @@ const ParcelsPage = () => {
   const [parcels, setParcels] = useState([]);
   const [filteredParcels, setFilteredParcels] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFilterBuilding, setSelectedFilterBuilding] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
@@ -66,38 +68,52 @@ const ParcelsPage = () => {
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
   // Fetch parcels
+  const fetchParcels = async () => {
+    try {
+      if (!session?.user?.id) return;
+
+      const response = await fetch(
+        `/api/parcels?landlordId=${session.user.id}`
+      );
+      if (!response.ok) throw new Error("Failed to fetch parcels");
+
+      const data = await response.json();
+      setParcels(data);
+      setFilteredParcels(data);
+      setHasLoaded(true);
+
+      // Get unique buildings using Set
+      const uniqueBuildingsMap = new Map();
+      data.forEach((parcel) => {
+        const building = parcel.room?.floor?.building;
+        if (building && building._id) {
+          uniqueBuildingsMap.set(building._id, building);
+        }
+      });
+
+      const uniqueBuildings = Array.from(uniqueBuildingsMap.values());
+      setBuildings(uniqueBuildings);
+    } catch (error) {
+      console.error("Error fetching parcels:", error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initial fetch
   useEffect(() => {
-    const fetchParcels = async () => {
-      try {
-        if (!session?.user?.id) return;
-        const response = await fetch(
-          `/api/parcels?landlordId=${session.user.id}`
-        );
-        if (!response.ok) throw new Error("Failed to fetch parcels");
-        const data = await response.json();
-        setParcels(data);
-        setFilteredParcels(data);
+    if (session?.user?.id && !hasLoaded) {
+      fetchParcels();
+    }
+  }, [session, hasLoaded]);
 
-        // Get unique buildings using Set
-        const uniqueBuildingsMap = new Map();
-        data.forEach((parcel) => {
-          const building = parcel.room?.floor?.building;
-          if (building && building._id) {
-            uniqueBuildingsMap.set(building._id, building);
-          }
-        });
-
-        const uniqueBuildings = Array.from(uniqueBuildingsMap.values());
-        setBuildings(uniqueBuildings);
-      } catch (error) {
-        console.error("Error fetching parcels:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchParcels();
-  }, [session]);
+  // Reset hasLoaded when session changes
+  useEffect(() => {
+    if (!session?.user?.id) {
+      setHasLoaded(false);
+    }
+  }, [session?.user?.id]);
 
   // Filter parcels
   useEffect(() => {
@@ -135,7 +151,7 @@ const ParcelsPage = () => {
     if (showAddForm) {
       fetchBuildings();
     }
-  }, [showAddForm]);
+  }, [showAddForm, session?.user?.id]);
 
   // Fetch rooms when building is selected
   useEffect(() => {
@@ -149,12 +165,23 @@ const ParcelsPage = () => {
 
   const fetchBuildings = async () => {
     try {
-      const response = await fetch("/api/building");
+      if (!session?.user?.id) return;
+
+      const response = await fetch(`/api/building?id=${session.user.id}`);
       if (!response.ok) throw new Error("Failed to fetch buildings");
+
       const data = await response.json();
-      setBuildings(data.buildings || []);
+      console.log("Fetched buildings:", data); // Debug log
+
+      if (data.buildings) {
+        setBuildings(data.buildings);
+      } else {
+        console.log("No buildings data in response");
+        setBuildings([]);
+      }
     } catch (error) {
       console.error("Error fetching buildings:", error);
+      setError("Failed to fetch buildings");
     }
   };
 
@@ -162,11 +189,12 @@ const ParcelsPage = () => {
     try {
       console.log("Fetching rooms for building:", buildingId);
 
-      // Update the API endpoint to include building ID directly in query
       const response = await fetch(
         `/api/room?buildingId=${buildingId}&status=Occupied`
       );
-      if (!response.ok) throw new Error("Failed to fetch rooms");
+      if (!response.ok) {
+        throw new Error("Failed to fetch rooms");
+      }
 
       const data = await response.json();
       console.log("Raw rooms data:", data);
@@ -188,6 +216,7 @@ const ParcelsPage = () => {
       setAvailableRooms(occupiedRooms);
     } catch (error) {
       console.error("Error fetching rooms:", error);
+      setError("Failed to fetch rooms: " + error.message);
       setAvailableRooms([]);
     }
   };
@@ -202,7 +231,6 @@ const ParcelsPage = () => {
   const fetchAvailableRooms = async () => {
     try {
       const response = await fetch("/api/room?status=Occupied");
-      if (!response.ok) throw new Error("Failed to fetch rooms");
       const data = await response.json();
       setAvailableRooms(data);
     } catch (error) {
@@ -226,19 +254,11 @@ const ParcelsPage = () => {
 
   const handleAddParcel = async () => {
     try {
-      if (!session?.user?.id) {
-        console.error("No session found");
-        return;
-      }
-
-      console.log("Sending parcel data:", {
-        ...newParcel,
-        landlordId: session.user.id,
-      });
-
       const response = await fetch("/api/parcels", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
           ...newParcel,
           landlordId: session.user.id,
@@ -251,17 +271,20 @@ const ParcelsPage = () => {
       }
 
       const data = await response.json();
-      setParcels((prev) => [...prev, data]);
-      setNewParcel({
-        room: "",
-        tenant: "",
-        recipient: "",
-        trackingNumber: "",
-        status: "uncollected",
-      });
-      setShowAddForm(false);
+      setParcels((prevParcels) => [data, ...prevParcels]);
+      setFilteredParcels((prevParcels) => [data, ...prevParcels]);
+
+      // Reset modal and form
+      handleCloseModal();
+
+      // Show success message if you have one
+      // setSuccessMessage("Parcel added successfully");
+      // setShowNotification(true);
     } catch (error) {
       console.error("Error adding parcel:", error);
+      // Handle error notification if you have one
+      // setErrorMessage(error.message);
+      // setShowNotification(true);
     }
   };
 
@@ -359,6 +382,7 @@ const ParcelsPage = () => {
     });
 
     if (buildingId) {
+      console.log("Selected building ID:", buildingId);
       fetchRoomsByBuilding(buildingId);
     } else {
       setAvailableRooms([]);
@@ -376,10 +400,10 @@ const ParcelsPage = () => {
       trackingNumber: "",
       status: "uncollected",
     });
+    setAvailableRooms([]);
   };
 
-  useEffect(() => {
-  }, [buildings]);
+  useEffect(() => {}, [buildings]);
 
   // Add pagination handlers
   const handleChangePage = (event, newPage) => {
@@ -630,22 +654,15 @@ const ParcelsPage = () => {
                     }}
                     label="Building"
                   >
-                    <MenuItem key="modal-select-building" value="">
-                      Select Building
-                    </MenuItem>
+                    <MenuItem value="">Select Building</MenuItem>
                     {buildings && buildings.length > 0 ? (
-                      buildings.map((building, index) => (
-                        <MenuItem
-                          key={`modal-building-${building._id}-${index}`}
-                          value={building._id}
-                        >
-                          {building?.name || "Unnamed Building"}
+                      buildings.map((building) => (
+                        <MenuItem key={building._id} value={building._id}>
+                          {building.name || "Unnamed Building"}
                         </MenuItem>
                       ))
                     ) : (
-                      <MenuItem key="modal-no-buildings" disabled>
-                        No buildings available
-                      </MenuItem>
+                      <MenuItem disabled>No buildings available</MenuItem>
                     )}
                   </Select>
                 </FormControl>

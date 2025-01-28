@@ -12,47 +12,92 @@ import {
 import EditIcon from "@mui/icons-material/Edit";
 import SaveIcon from "@mui/icons-material/Save";
 import CancelIcon from "@mui/icons-material/Cancel";
+import { useSession } from "next-auth/react";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import CheckIcon from "@mui/icons-material/Check";
 
 const LiffSettings = () => {
+  const { data: session, status } = useSession();
+  console.log("Session status:", status);
+  console.log("Full session object:", session);
+  console.log("User data:", session?.user);
+
   const [config, setConfig] = useState({
     channelAccessToken: "",
     channelSecret: "",
     liffIds: {
-      parcels: "",
-      reports: "",
-      billing: "",
       cleaning: "",
       maintenance: "",
+      reports: "",
+      parcels: "",
+      billing: "",
+      announcement: "",
+      schedule: "",
+      tasks: "",
     },
   });
+
   const [editMode, setEditMode] = useState({
     channel: false,
-    parcels: false,
-    reports: false,
-    billing: false,
     cleaning: false,
     maintenance: false,
+    reports: false,
+    parcels: false,
+    billing: false,
+    announcement: false,
+    schedule: false,
+    tasks: false,
   });
+
   const [tempValues, setTempValues] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const [errors, setErrors] = useState({});
   const [successes, setSuccesses] = useState({});
+  const [copySuccess, setCopySuccess] = useState({});
 
   useEffect(() => {
-    fetchConfig();
-  }, []);
+    if (status === "loading") return;
 
-  const fetchConfig = async () => {
+    if (session?.user?.id) {
+      console.log("Using user ID:", session.user.id);
+      fetchConfig(session.user.id);
+    } else {
+      console.log("No user ID found in session");
+      setIsLoading(false);
+      setErrors((prev) => ({ ...prev, fetch: "Not authenticated" }));
+    }
+  }, [session, status]);
+
+  const fetchConfig = async (userId) => {
+    console.log("Fetching config for user ID:", userId);
     try {
-      const response = await fetch("/api/user/line-config");
+      const response = await fetch(`/api/user/line-config?publicId=${userId}`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch configuration");
+      }
+
       const data = await response.json();
       if (data.lineConfig) {
-        setConfig(data.lineConfig);
+        setConfig({
+          channelAccessToken: data.lineConfig.channelAccessToken || "",
+          channelSecret: data.lineConfig.channelSecret || "",
+          liffIds: {
+            cleaning: data.lineConfig.liffIds?.cleaning || "",
+            maintenance: data.lineConfig.liffIds?.maintenance || "",
+            reports: data.lineConfig.liffIds?.reports || "",
+            parcels: data.lineConfig.liffIds?.parcels || "",
+            billing: data.lineConfig.liffIds?.billing || "",
+            announcement: data.lineConfig.liffIds?.announcement || "",
+            schedule: data.lineConfig.liffIds?.schedule || "",
+            tasks: data.lineConfig.liffIds?.tasks || "",
+          },
+        });
       }
     } catch (error) {
+      console.error("Fetch error:", error);
       setErrors((prev) => ({
         ...prev,
-        fetch: "Failed to load LINE configuration",
+        fetch: error.message || "Failed to load LINE configuration",
       }));
     } finally {
       setIsLoading(false);
@@ -156,10 +201,106 @@ const LiffSettings = () => {
     }
   };
 
+  const handleCopy = (key, url) => {
+    navigator.clipboard.writeText(url);
+    setCopySuccess((prev) => ({ ...prev, [key]: true }));
+    setTimeout(() => {
+      setCopySuccess((prev) => ({ ...prev, [key]: false }));
+    }, 3000);
+  };
+
   if (isLoading) return <div>Loading...</div>;
 
   return (
     <div className="space-y-6">
+      {/* Webhook URL */}
+      <Paper className="p-6 mb-6">
+        <Typography variant="h6" className="mb-4">
+          Webhook URL
+        </Typography>
+        <div className="flex items-center space-x-2">
+          <TextField
+            fullWidth
+            label="Webhook URL"
+            value={`${window.location.origin}/api/line?id=${
+              session?.user?.id || ""
+            }`}
+            InputProps={{
+              readOnly: true,
+            }}
+          />
+          <Button
+            variant="outlined"
+            onClick={() =>
+              handleCopy(
+                "webhook-url",
+                `${window.location.origin}/api/line?publicId=${
+                  session?.user?.id || ""
+                }`
+              )
+            }
+            startIcon={
+              copySuccess["webhook-url"] ? <CheckIcon /> : <ContentCopyIcon />
+            }
+          >
+            {copySuccess["webhook-url"] ? "Copied!" : "Copy"}
+          </Button>
+        </div>
+      </Paper>
+      {/* LIFF URLs */}
+      <Paper className="p-6 mb-6">
+        <Typography variant="h6" className="mb-4">
+          LIFF URLs
+        </Typography>
+        <Grid container spacing={3}>
+          {[
+            { key: "cleaning", label: "Cleaning URL" },
+            { key: "maintenance", label: "Maintenance URL" },
+            { key: "reports", label: "Reports URL" },
+            { key: "parcels", label: "Parcels URL" },
+            { key: "billing", label: "Billing URL" },
+            { key: "announcement", label: "Announcement URL" },
+            { key: "schedule", label: "Schedule URL" },
+            { key: "tasks", label: "Tasks URL" },
+          ].map(({ key, label }) => (
+            <Grid item xs={12} key={key}>
+              <div className="flex items-center space-x-2">
+                <TextField
+                  fullWidth
+                  label={label}
+                  value={`${window.location.origin}/line/${key}?publicId=${
+                    session?.user?.id || ""
+                  }`}
+                  InputProps={{
+                    readOnly: true,
+                  }}
+                />
+                <Button
+                  variant="outlined"
+                  onClick={() =>
+                    handleCopy(
+                      `url-${key}`,
+                      `${window.location.origin}/line/${key}?publicId=${
+                        session?.user?.id || ""
+                      }`
+                    )
+                  }
+                  startIcon={
+                    copySuccess[`url-${key}`] ? (
+                      <CheckIcon />
+                    ) : (
+                      <ContentCopyIcon />
+                    )
+                  }
+                >
+                  {copySuccess[`url-${key}`] ? "Copied!" : "Copy"}
+                </Button>
+              </div>
+            </Grid>
+          ))}
+        </Grid>
+      </Paper>
+
       {/* Channel Configuration */}
       <Paper className="p-6">
         <div className="flex justify-between items-center mb-4">
@@ -243,9 +384,7 @@ const LiffSettings = () => {
                 <div className="flex items-end space-x-2">
                   <TextField
                     fullWidth
-                    label={`${
-                      key.charAt(0).toUpperCase() + key.slice(1)
-                    } LIFF ID`}
+                    label={`${key.charAt(0).toUpperCase() + key.slice(1)}`}
                     value={value || ""}
                     onChange={(e) =>
                       setConfig({
@@ -257,6 +396,9 @@ const LiffSettings = () => {
                       })
                     }
                     disabled={!editMode[key]}
+                    helperText={`ID for ${key
+                      .replace(/([A-Z])/g, " $1")
+                      .toLowerCase()}`}
                   />
                   {!editMode[key] ? (
                     <Button
@@ -294,7 +436,7 @@ const LiffSettings = () => {
                 )}
                 {successes[key] && (
                   <Alert severity="success" className="mt-1">
-                    {key.charAt(0).toUpperCase() + key.slice(1)} LIFF ID updated
+                    {key.charAt(0).toUpperCase() + key.slice(1)} updated
                     successfully
                   </Alert>
                 )}

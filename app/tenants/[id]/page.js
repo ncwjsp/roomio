@@ -2,22 +2,42 @@
 
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { useSession } from "next-auth/react";
+import { LocalizationProvider } from "@mui/x-date-pickers";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import { DatePicker } from "@mui/x-date-pickers";
+import dayjs from "dayjs";
 import {
   Container,
+  Grid,
   Card,
   CardContent,
   Typography,
-  Box,
-  Grid,
   Button,
-  IconButton,
-  Alert,
-  Skeleton,
+  Box,
+  Avatar,
+  Chip,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
+  TextField,
+  Divider,
+  IconButton,
+  Alert,
+  Skeleton,
+  Modal,
+  List,
+  ListItem,
+  ListItemAvatar,
+  ListItemText,
+  CircularProgress,
+  Pagination,
+  InputAdornment,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from "@mui/material";
 import {
   ArrowBack as ArrowBackIcon,
@@ -27,17 +47,43 @@ import {
   Phone as PhoneIcon,
   Email as EmailIcon,
   Home as HomeIcon,
-  CalendarMonth as CalendarIcon,
+  CalendarToday as CalendarIcon,
   AttachMoney as MoneyIcon,
+  Chat as ChatIcon,
+  PersonAdd as PersonAddIcon,
+  Search as SearchIcon,
 } from "@mui/icons-material";
 
 export default function TenantDetails({ params }) {
   const router = useRouter();
+  const tenantId = use(params).id;
   const [tenant, setTenant] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const tenantId = use(params).id;
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [lineUserIdDialogOpen, setLineUserIdDialogOpen] = useState(false);
+  const [editData, setEditData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    lineId: "",
+    lineUserId: "",
+    depositAmount: "",
+    leaseStartDate: null,
+    leaseEndDate: null,
+  });
+  const { data: session } = useSession();
+  const [openContactModal, setOpenContactModal] = useState(false);
+  const [contacts, setContacts] = useState([]);
+  const [loadingContacts, setLoadingContacts] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState("name");
+  const [sortOrder, setSortOrder] = useState("asc");
+  const [page, setPage] = useState(1);
+  const itemsPerPage = 5;
+  const [selectedContact, setSelectedContact] = useState(null);
+  const [currentLineContact, setCurrentLineContact] = useState(null);
 
   useEffect(() => {
     fetchTenant();
@@ -53,6 +99,29 @@ export default function TenantDetails({ params }) {
       }
 
       setTenant(data.tenant);
+      setEditData({
+        name: data.tenant.name || "",
+        email: data.tenant.email || "",
+        phone: data.tenant.phone || "",
+        lineId: data.tenant.lineId || "",
+        depositAmount: data.tenant.depositAmount || "",
+        leaseStartDate: data.tenant.leaseStartDate
+          ? dayjs(data.tenant.leaseStartDate)
+          : null,
+        leaseEndDate: data.tenant.leaseEndDate
+          ? dayjs(data.tenant.leaseEndDate)
+          : null,
+      });
+
+      if (data.tenant.lineUserId) {
+        const lineContactResponse = await fetch(
+          `/api/linecontact/${data.tenant.lineUserId}`
+        );
+        const lineContactData = await lineContactResponse.json();
+        if (lineContactResponse.ok) {
+          setCurrentLineContact(lineContactData.lineContact);
+        }
+      }
     } catch (error) {
       console.error("Error fetching tenant:", error);
       setError(error.message);
@@ -79,128 +148,630 @@ export default function TenantDetails({ params }) {
     }
   };
 
+  const handleUpdateTenant = async () => {
+    try {
+      const response = await fetch(`/api/tenant/${tenantId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(editData),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update tenant");
+      }
+
+      await fetchTenant();
+      setEditDialogOpen(false);
+    } catch (error) {
+      console.error("Error updating tenant:", error);
+      setError(error.message);
+    }
+  };
+
+  const handleUpdateLineUserId = async () => {
+    try {
+      const response = await fetch(`/api/tenant/${tenantId}/line-user`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ lineUserId: editData.lineUserId }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update LINE User ID");
+      }
+
+      await fetchTenant();
+      setLineUserIdDialogOpen(false);
+    } catch (error) {
+      console.error("Error updating LINE User ID:", error);
+      setError(error.message);
+    }
+  };
+
+  const handleOpenContactModal = async () => {
+    if (!session?.user?.id) {
+      console.error("No session or user ID available");
+      return;
+    }
+
+    setLoadingContacts(true);
+    try {
+      const response = await fetch(`/api/linecontact?id=${session.user.id}`);
+      const data = await response.json();
+      setContacts(Array.isArray(data.lineContacts) ? data.lineContacts : []);
+    } catch (error) {
+      console.error("Error fetching LINE contacts:", error);
+      setContacts([]);
+    } finally {
+      setLoadingContacts(false);
+    }
+    setOpenContactModal(true);
+  };
+
+  const handleSelectContact = async (contact) => {
+    try {
+      const response = await fetch(`/api/tenant/${tenantId}/line-user`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          lineUserId: contact.userId, // Only send the LINE User ID
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to update LINE contact");
+      }
+
+      await fetchTenant();
+      setSelectedContact(contact);
+      setOpenContactModal(false);
+    } catch (error) {
+      console.error("Error updating LINE contact:", error);
+      setError(error.message);
+    }
+  };
+
+  const getSortedAndFilteredContacts = () => {
+    return contacts
+      .filter(
+        (contact) =>
+          contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          contact.lineId?.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+      .sort((a, b) => {
+        if (sortBy === "name") {
+          return sortOrder === "asc"
+            ? a.name.localeCompare(b.name)
+            : b.name.localeCompare(a.name);
+        } else {
+          return sortOrder === "asc"
+            ? new Date(a.createdAt) - new Date(b.createdAt)
+            : new Date(b.createdAt) - new Date(a.createdAt);
+        }
+      });
+  };
+
+  const getPaginatedContacts = () => {
+    const filteredContacts = getSortedAndFilteredContacts();
+    const startIndex = (page - 1) * itemsPerPage;
+    return {
+      paginatedContacts: filteredContacts.slice(
+        startIndex,
+        startIndex + itemsPerPage
+      ),
+      totalPages: Math.ceil(filteredContacts.length / itemsPerPage),
+    };
+  };
+
+  const handleCloseContactModal = () => {
+    setOpenContactModal(false);
+    setSearchQuery("");
+    setPage(1);
+  };
+
+  const getRemainingDays = (endDate) => {
+    if (!endDate) return 0;
+    const end = dayjs(endDate);
+    const now = dayjs();
+    const days = end.diff(now, "day");
+    return days >= 0 ? days : 0;
+  };
+
   if (loading) {
     return (
-      <Container maxWidth="lg" sx={{ py: 4 }}>
-        <Skeleton variant="rectangular" height={400} />
-      </Container>
+      <LocalizationProvider dateAdapter={AdapterDayjs}>
+        <Container maxWidth="lg" sx={{ py: 4 }}>
+          <Skeleton
+            variant="rectangular"
+            height={400}
+            sx={{ borderRadius: 2 }}
+          />
+        </Container>
+      </LocalizationProvider>
     );
   }
 
   if (error) {
     return (
-      <Container maxWidth="lg" sx={{ py: 4 }}>
-        <Alert severity="error">{error}</Alert>
-      </Container>
+      <LocalizationProvider dateAdapter={AdapterDayjs}>
+        <Container maxWidth="lg" sx={{ py: 4 }}>
+          <Alert severity="error">{error}</Alert>
+        </Container>
+      </LocalizationProvider>
     );
   }
 
   if (!tenant) {
     return (
-      <Container maxWidth="lg" sx={{ py: 4 }}>
-        <Alert severity="error">Tenant not found</Alert>
-      </Container>
+      <LocalizationProvider dateAdapter={AdapterDayjs}>
+        <Container maxWidth="lg" sx={{ py: 4 }}>
+          <Alert severity="error">Tenant not found</Alert>
+        </Container>
+      </LocalizationProvider>
     );
   }
 
+  // Get building name and room number safely
+  const buildingName = tenant?.room?.floor?.building?.name;
+  const roomNumber = tenant?.room?.roomNumber || "Unknown Room";
+
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Card elevation={3}>
-        <CardContent>
-          <Box sx={{ display: "flex", alignItems: "center", mb: 3 }}>
-            <IconButton onClick={() => router.push("/tenants")} sx={{ mr: 2 }}>
-              <ArrowBackIcon />
-            </IconButton>
-            <Typography variant="h4" component="h1">
-              {tenant.name}
-            </Typography>
-          </Box>
-
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
-              <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-                <HomeIcon sx={{ mr: 2, color: "primary.main" }} />
-                <Typography>
-                  <strong>Room:</strong> {tenant.room.roomNumber}
+    <LocalizationProvider dateAdapter={AdapterDayjs}>
+      <Container maxWidth="lg" sx={{ py: 4 }}>
+        <Card elevation={2} sx={{ borderRadius: 2 }}>
+          <CardContent>
+            {/* Header with Edit Button */}
+            <Box sx={{ display: "flex", alignItems: "center", mb: 4 }}>
+              <IconButton
+                onClick={() => router.push("/tenants")}
+                sx={{ mr: 2 }}
+              >
+                <ArrowBackIcon />
+              </IconButton>
+              <Avatar src={tenant.pfp} sx={{ width: 80, height: 80, mr: 3 }}>
+                {tenant.name?.charAt(0) || "?"}
+              </Avatar>
+              <Box sx={{ flexGrow: 1 }}>
+                <Typography variant="h4" sx={{ fontWeight: "bold", mb: 1 }}>
+                  {tenant.name || "Unknown Tenant"}
                 </Typography>
+                <Chip
+                  icon={<HomeIcon />}
+                  label={`Building ${buildingName} - Room ${roomNumber}`}
+                  color="primary"
+                  variant="outlined"
+                />
               </Box>
-              <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-                <PersonIcon sx={{ mr: 2, color: "primary.main" }} />
-                <Typography>
-                  <strong>Line ID:</strong> {tenant.lineId}
-                </Typography>
-              </Box>
-              <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-                <PhoneIcon sx={{ mr: 2, color: "primary.main" }} />
-                <Typography>
-                  <strong>Tel:</strong> {tenant.phone}
-                </Typography>
-              </Box>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-                <EmailIcon sx={{ mr: 2, color: "primary.main" }} />
-                <Typography>
-                  <strong>Email:</strong> {tenant.email}
-                </Typography>
-              </Box>
-              <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-                <CalendarIcon sx={{ mr: 2, color: "primary.main" }} />
-                <Typography>
-                  <strong>Lease Period:</strong>{" "}
-                  {new Date(tenant.leaseStartDate).toLocaleDateString()} -{" "}
-                  {new Date(tenant.leaseEndDate).toLocaleDateString()}
-                </Typography>
-              </Box>
-              <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-                <MoneyIcon sx={{ mr: 2, color: "primary.main" }} />
-                <Typography>
-                  <strong>Deposit Amount:</strong> ฿{tenant.depositAmount}
-                </Typography>
-              </Box>
-            </Grid>
-          </Grid>
-
-          <Box sx={{ mt: 4, display: "flex", gap: 2 }}>
-            <Link href={`/tenants/${tenant._id}/edit`} passHref>
               <Button
                 variant="contained"
-                color="primary"
                 startIcon={<EditIcon />}
+                onClick={() => setEditDialogOpen(true)}
+                sx={{ borderRadius: 2 }}
               >
-                Edit
+                Edit Details
               </Button>
-            </Link>
-            <Button
-              variant="contained"
-              color="error"
-              startIcon={<DeleteIcon />}
-              onClick={() => setDeleteDialogOpen(true)}
+            </Box>
+
+            <Divider sx={{ my: 3 }} />
+
+            {/* Tenant Information */}
+            <Grid container spacing={4}>
+              <Grid item xs={12} md={6}>
+                <Typography variant="h6" sx={{ mb: 2, fontWeight: "bold" }}>
+                  Contact Information
+                </Typography>
+                <Box sx={{ mb: 4 }}>
+                  <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+                    <EmailIcon sx={{ mr: 2, color: "primary.main" }} />
+                    <Typography>{tenant?.email}</Typography>
+                  </Box>
+
+                  <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+                    <PhoneIcon sx={{ mr: 2, color: "primary.main" }} />
+                    <Typography>{tenant?.phone}</Typography>
+                  </Box>
+
+                  <Box sx={{ display: "flex", alignItems: "center", mb: 3 }}>
+                    <ChatIcon sx={{ mr: 2, color: "primary.main" }} />
+                    <Typography>{tenant?.lineId || "Not set"}</Typography>
+                  </Box>
+
+                  <Typography variant="subtitle1" sx={{ mt: 3, mb: 2 }}>
+                    LINE Contact
+                  </Typography>
+
+                  {currentLineContact ? (
+                    <Box
+                      sx={{ display: "flex", alignItems: "flex-start", mb: 2 }}
+                    >
+                      <Avatar
+                        src={currentLineContact.pfp}
+                        sx={{ width: 48, height: 48, mr: 2 }}
+                      />
+                      <Box sx={{ flexGrow: 1 }}>
+                        <Typography variant="subtitle1">
+                          {currentLineContact.name}
+                        </Typography>
+
+                        <Typography variant="body2" color="text.secondary">
+                          Connected since:{" "}
+                          {dayjs(currentLineContact.createdAt).format(
+                            "MMM D, YYYY"
+                          )}
+                        </Typography>
+                      </Box>
+                      <Button
+                        startIcon={<PersonAddIcon />}
+                        onClick={handleOpenContactModal}
+                        variant="outlined"
+                        size="small"
+                      >
+                        Change LINE Contact
+                      </Button>
+                    </Box>
+                  ) : (
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                      }}
+                    >
+                      <Typography color="text.secondary">
+                        No LINE contact connected
+                      </Typography>
+                      <Button
+                        startIcon={<PersonAddIcon />}
+                        onClick={handleOpenContactModal}
+                        variant="outlined"
+                        size="small"
+                      >
+                        Select LINE Contact
+                      </Button>
+                    </Box>
+                  )}
+                </Box>
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <Typography variant="h6" sx={{ mb: 2, fontWeight: "bold" }}>
+                  Lease Information
+                </Typography>
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  <Box sx={{ display: "flex", alignItems: "center" }}>
+                    <CalendarIcon sx={{ mr: 2, color: "primary.main" }} />
+                    <Typography>
+                      {tenant.leaseStartDate
+                        ? new Date(tenant.leaseStartDate).toLocaleDateString()
+                        : "No start date"}{" "}
+                      -{" "}
+                      {tenant.leaseEndDate
+                        ? new Date(tenant.leaseEndDate).toLocaleDateString()
+                        : "No end date"}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: "flex", alignItems: "center" }}>
+                    <MoneyIcon sx={{ mr: 2, color: "primary.main" }} />
+                    <Typography>
+                      Deposit: ฿{(tenant.depositAmount || 0).toLocaleString()}
+                    </Typography>
+                  </Box>
+                </Box>
+              </Grid>
+            </Grid>
+
+            <Divider sx={{ my: 3 }} />
+
+            {/* Actions */}
+            <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
+              <Button
+                variant="contained"
+                color="error"
+                startIcon={<DeleteIcon />}
+                onClick={() => setDeleteDialogOpen(true)}
+                sx={{ borderRadius: 2 }}
+              >
+                Delete Tenant
+              </Button>
+            </Box>
+
+            {/* Edit Dialog */}
+            <Dialog
+              open={editDialogOpen}
+              onClose={() => setEditDialogOpen(false)}
+              maxWidth="md"
+              fullWidth
             >
+              <DialogTitle>Edit Tenant Details</DialogTitle>
+              <DialogContent>
+                <Grid container spacing={2} sx={{ mt: 1 }}>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      label="Name"
+                      value={editData.name}
+                      onChange={(e) =>
+                        setEditData({ ...editData, name: e.target.value })
+                      }
+                      sx={{ mb: 2 }}
+                    />
+                    <TextField
+                      fullWidth
+                      label="Email"
+                      type="email"
+                      value={editData.email}
+                      onChange={(e) =>
+                        setEditData({ ...editData, email: e.target.value })
+                      }
+                      sx={{ mb: 2 }}
+                    />
+                    <TextField
+                      fullWidth
+                      label="Phone"
+                      value={editData.phone}
+                      onChange={(e) =>
+                        setEditData({ ...editData, phone: e.target.value })
+                      }
+                      sx={{ mb: 2 }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      label="LINE ID"
+                      value={editData.lineId}
+                      onChange={(e) =>
+                        setEditData({ ...editData, lineId: e.target.value })
+                      }
+                      sx={{ mb: 2 }}
+                    />
+                    <TextField
+                      fullWidth
+                      label="Deposit Amount"
+                      type="number"
+                      value={editData.depositAmount}
+                      onChange={(e) =>
+                        setEditData({
+                          ...editData,
+                          depositAmount: e.target.value,
+                        })
+                      }
+                      sx={{ mb: 2 }}
+                    />
+                    <DatePicker
+                      label="Lease Start Date"
+                      value={editData.leaseStartDate}
+                      onChange={(newValue) =>
+                        setEditData({ ...editData, leaseStartDate: newValue })
+                      }
+                      sx={{ mb: 2, width: "100%" }}
+                    />
+                    <DatePicker
+                      label="Lease End Date"
+                      value={editData.leaseEndDate}
+                      onChange={(newValue) =>
+                        setEditData({ ...editData, leaseEndDate: newValue })
+                      }
+                      sx={{ width: "100%" }}
+                    />
+                  </Grid>
+                </Grid>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => setEditDialogOpen(false)}>Cancel</Button>
+                <Button
+                  onClick={handleUpdateTenant}
+                  variant="contained"
+                  color="primary"
+                >
+                  Save Changes
+                </Button>
+              </DialogActions>
+            </Dialog>
+
+            {/* LINE Contact Selection Modal */}
+            <Modal
+              open={openContactModal}
+              onClose={handleCloseContactModal}
+              aria-labelledby="contact-modal-title"
+            >
+              <Box
+                sx={{
+                  position: "absolute",
+                  top: "50%",
+                  left: "50%",
+                  transform: "translate(-50%, -50%)",
+                  width: 500,
+                  maxHeight: "80vh",
+                  bgcolor: "background.paper",
+                  boxShadow: 24,
+                  p: 4,
+                  borderRadius: 1,
+                  overflow: "auto",
+                }}
+              >
+                <Typography
+                  id="contact-modal-title"
+                  variant="h6"
+                  component="h2"
+                  gutterBottom
+                >
+                  Select LINE Contact
+                </Typography>
+
+                <Box sx={{ mb: 3, display: "flex", gap: 2 }}>
+                  <TextField
+                    size="small"
+                    placeholder="Search LINE contacts..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    sx={{ flexGrow: 1 }}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchIcon />
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                  <FormControl size="small" sx={{ minWidth: 120 }}>
+                    <InputLabel>Sort by</InputLabel>
+                    <Select
+                      value={sortBy}
+                      label="Sort by"
+                      onChange={(e) => setSortBy(e.target.value)}
+                    >
+                      <MenuItem value="name">Name</MenuItem>
+                      <MenuItem value="date">Date Added</MenuItem>
+                    </Select>
+                  </FormControl>
+                  <IconButton
+                    onClick={() =>
+                      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))
+                    }
+                    size="small"
+                  >
+                    {sortOrder === "asc" ? "↑" : "↓"}
+                  </IconButton>
+                </Box>
+
+                {loadingContacts ? (
+                  <Box sx={{ display: "flex", justifyContent: "center", p: 2 }}>
+                    <CircularProgress />
+                  </Box>
+                ) : getPaginatedContacts().paginatedContacts.length === 0 ? (
+                  <Box
+                    sx={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      py: 4,
+                      px: 2,
+                      bgcolor: "grey.50",
+                      borderRadius: 1,
+                    }}
+                  >
+                    <PersonIcon
+                      sx={{ fontSize: 48, color: "text.secondary", mb: 2 }}
+                    />
+                    <Typography
+                      variant="h6"
+                      color="text.secondary"
+                      gutterBottom
+                    >
+                      No LINE Contacts Found
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      align="center"
+                      sx={{ maxWidth: 300 }}
+                    >
+                      Add contacts by having them follow your LINE Official
+                      Account.
+                    </Typography>
+                  </Box>
+                ) : (
+                  <>
+                    <List sx={{ width: "100%", bgcolor: "background.paper" }}>
+                      {getPaginatedContacts().paginatedContacts.map(
+                        (contact) => (
+                          <ListItem
+                            key={contact._id}
+                            onClick={() => handleSelectContact(contact)}
+                            sx={{
+                              mb: 1,
+                              border: "1px solid",
+                              borderColor: "divider",
+                              borderRadius: 1,
+                              cursor: "pointer",
+                              "&:hover": {
+                                backgroundColor: "action.hover",
+                              },
+                            }}
+                          >
+                            <ListItemAvatar>
+                              <Avatar
+                                src={contact.pfp}
+                                alt={contact.name}
+                                sx={{ width: 50, height: 50, mr: 2 }}
+                              />
+                            </ListItemAvatar>
+                            <ListItemText
+                              primary={contact.name}
+                              secondary={
+                                <Typography component="span" variant="body2">
+                                  <Box component="span" display="block">
+                                    Added:{" "}
+                                    {dayjs(contact.createdAt).format(
+                                      "MMM D, YYYY"
+                                    )}
+                                  </Box>
+                                </Typography>
+                              }
+                            />
+                          </ListItem>
+                        )
+                      )}
+                    </List>
+
+                    {getPaginatedContacts().totalPages > 1 && (
+                      <Box
+                        sx={{
+                          mt: 2,
+                          display: "flex",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <Pagination
+                          count={getPaginatedContacts().totalPages}
+                          page={page}
+                          onChange={(e, newPage) => setPage(newPage)}
+                          color="primary"
+                          size="small"
+                        />
+                      </Box>
+                    )}
+                  </>
+                )}
+
+                <Box
+                  sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}
+                >
+                  <Button onClick={handleCloseContactModal}>Cancel</Button>
+                </Box>
+              </Box>
+            </Modal>
+          </CardContent>
+        </Card>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog
+          open={deleteDialogOpen}
+          onClose={() => setDeleteDialogOpen(false)}
+        >
+          <DialogTitle>Confirm Deletion</DialogTitle>
+          <DialogContent>
+            Are you sure you want to delete this tenant? This action cannot be
+            undone.
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleDelete} color="error" autoFocus>
               Delete
             </Button>
-          </Box>
-        </CardContent>
-      </Card>
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog
-        open={deleteDialogOpen}
-        onClose={() => setDeleteDialogOpen(false)}
-        aria-labelledby="delete-dialog-title"
-      >
-        <DialogTitle id="delete-dialog-title">Confirm Deletion</DialogTitle>
-        <DialogContent>
-          Are you sure you want to delete this tenant? This action cannot be
-          undone.
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleDelete} color="error" autoFocus>
-            Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Container>
+          </DialogActions>
+        </Dialog>
+      </Container>
+    </LocalizationProvider>
   );
 }

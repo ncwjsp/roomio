@@ -5,15 +5,16 @@ import { useSession } from "next-auth/react";
 import Notification from "@/app/ui/notification";
 import { CircularProgress } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
+import { useRouter } from "next/navigation";
 
 const Units = () => {
   const { data: session, status } = useSession();
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
   const id = session?.user?.id;
   const ROOMS_PER_PAGE = 18;
 
   const [showNotification, setShowNotification] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
   const [buildings, setBuildings] = useState([]);
@@ -25,7 +26,7 @@ const Units = () => {
   const [showModal, setShowModal] = useState(false);
   const [newBuilding, setNewBuilding] = useState("");
   const [newPrice, setNewPrice] = useState(5000);
-  const [numFloors, setNumFloors] = useState(3);
+  const [numFloors, setNumFloors] = useState(4);
   const [roomsPerFloor, setRoomsPerFloor] = useState(10);
 
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -37,44 +38,58 @@ const Units = () => {
   const [roomPrice, setRoomPrice] = useState(5000);
   const [selectedBuildingData, setSelectedBuildingData] = useState(null);
 
+  const [hasLoaded, setHasLoaded] = useState(false);
+
+  const router = useRouter();
+
+  // Add new state variables for utility rates
+  const [electricityRate, setElectricityRate] = useState(0);
+  const [waterRate, setWaterRate] = useState(0);
+
   const resetForm = () => {
     setNewBuilding("");
     setNewPrice(5000);
-    setNumFloors(3);
+    setNumFloors(4);
     setRoomsPerFloor(10);
+    setElectricityRate(0);
+    setWaterRate(0);
   };
-
-  useEffect(() => {
-    fetchBuildings();
-  }, []);
 
   const fetchBuildings = async () => {
     try {
-      if (!session?.user?.id) return;
-      setIsLoading(true);
+      if (!session?.user?.id) {
+        console.log("No session or user ID, skipping fetch");
+        return;
+      }
 
+      setIsLoading(true);
+      setError(null);
+
+      console.log("Fetching buildings for user:", session.user.id);
       const response = await fetch(`/api/building?id=${session.user.id}`);
+
       if (!response.ok) {
         throw new Error("Failed to fetch buildings");
       }
 
       const data = await response.json();
+      console.log("Buildings data received:", data);
 
       if (data.buildings) {
-        // Transform the data to include floor information
         const transformedBuildings = data.buildings.map((building) => ({
           ...building,
-          name: building.name,
           floors: building.floors.map((floor) => ({
             ...floor,
-            floorNumber: floor.floorNumber,
-            rooms: floor.rooms,
+            rooms: floor.rooms.map((room) => ({
+              ...room,
+              buildingName: building.name,
+              floorNumber: floor.floorNumber,
+            })),
           })),
         }));
 
         setBuildings(transformedBuildings);
 
-        // Transform rooms to include floor and building info
         const allRooms = transformedBuildings.reduce((acc, building) => {
           const buildingRooms = building.floors.reduce((floorAcc, floor) => {
             const roomsWithInfo = floor.rooms.map((room) => ({
@@ -93,18 +108,39 @@ const Units = () => {
           return [...acc, ...buildingRooms];
         }, []);
 
+        console.log("Total rooms transformed:", allRooms.length);
         setRoomCards(allRooms);
+        setHasLoaded(true);
       }
     } catch (error) {
-      console.error("Error fetching rooms:", error);
-      setErrorMessage("Failed to fetch buildings and rooms");
-      setShowNotification(true);
+      console.error("Error fetching buildings:", error);
+      setError(error.message || "Failed to fetch buildings");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const refreshData = () => {
+  useEffect(() => {
+    if (status === "loading") {
+      setIsLoading(true);
+      return;
+    }
+
+    if (status === "unauthenticated") {
+      setError("Please sign in to view units");
+      setIsLoading(false);
+      return;
+    }
+
+    if (status === "authenticated" && session?.user?.id && !hasLoaded) {
+      fetchBuildings();
+    } else if (status === "authenticated" && hasLoaded) {
+      setIsLoading(false);
+    }
+  }, [status, session, hasLoaded]);
+
+  const handleRefresh = () => {
+    setHasLoaded(false);
     fetchBuildings();
   };
 
@@ -133,7 +169,9 @@ const Units = () => {
       const matchesBuilding = selectedBuilding
         ? room.building.name === selectedBuilding
         : true;
-      const matchesStatus = filterStatus ? room.status === filterStatus : true;
+      const matchesStatus = filterStatus
+        ? room.status === filterStatus // This will now match "Unavailable" correctly
+        : true;
       const matchesSearch = searchQuery
         ? room.roomNumber.toLowerCase().includes(searchQuery.toLowerCase())
         : true;
@@ -176,6 +214,8 @@ const Units = () => {
             price: Number(newPrice),
             totalFloors: Number(numFloors),
             roomsPerFloor: Number(roomsPerFloor),
+            electricityRate: Number(electricityRate),
+            waterRate: Number(waterRate),
             userId: session?.user?.id,
           }),
         });
@@ -187,7 +227,7 @@ const Units = () => {
 
         setSuccessMessage(`Building ${newBuilding} was successfully created!`);
         setShowNotification(true);
-        refreshData();
+        handleRefresh();
         setShowModal(false);
         resetForm();
 
@@ -197,11 +237,11 @@ const Units = () => {
           setShowNotification(false);
         }, 3000);
       } catch (error) {
-        setErrorMessage(error.message);
+        setError(error.message);
         setShowNotification(true);
       }
     } else {
-      setErrorMessage("Building name is required");
+      setError("Building name is required");
       setShowNotification(true);
     }
   };
@@ -238,10 +278,10 @@ const Units = () => {
       }
 
       setShowAddRoomModal(false);
-      refreshData();
+      handleRefresh();
       resetRoomForm();
     } catch (error) {
-      setErrorMessage(error.message);
+      setError(error.message);
       setShowNotification(true);
     }
   };
@@ -286,6 +326,10 @@ const Units = () => {
     return rangeWithDots;
   };
 
+  const handleRoomClick = (room) => {
+    router.push(`/units/${room._id}`);
+  };
+
   return (
     <div className="flex flex-col items-center min-h-screen bg-[#EBECE1]">
       <div className="container px-4 py-8">
@@ -294,7 +338,7 @@ const Units = () => {
           <div className="flex gap-2">
             <button
               className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 flex items-center"
-              onClick={refreshData}
+              onClick={handleRefresh}
             >
               <svg
                 className="w-4 h-4 mr-2"
@@ -327,14 +371,14 @@ const Units = () => {
         </div>
 
         {/* Notification Component */}
-        {showNotification && (successMessage || errorMessage) && (
+        {showNotification && (successMessage || error) && (
           <Notification
-            message={successMessage || errorMessage}
+            message={successMessage || error}
             duration={3000}
             onClose={() => {
               setShowNotification(false);
               setSuccessMessage("");
-              setErrorMessage("");
+              setError("");
             }}
             type={successMessage ? "good" : "bad"}
           />
@@ -345,7 +389,19 @@ const Units = () => {
             <CircularProgress size={40} sx={{ color: "#898F63" }} />
             <p className="mt-4 text-gray-600">Loading units...</p>
           </div>
-        ) : buildings.length > 0 ? (
+        ) : error ? (
+          <div className="text-red-500 text-center py-4">{error}</div>
+        ) : roomCards.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-gray-600">No units found</p>
+            <button
+              onClick={handleRefresh}
+              className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            >
+              Retry
+            </button>
+          </div>
+        ) : (
           <>
             {/* Filter Section */}
             <div className="p-6 rounded-lg shadow-sm mb-6 bg-[#898F63] text-white">
@@ -394,6 +450,7 @@ const Units = () => {
                 >
                   <option value="">All Status</option>
                   <option value="Available">Available</option>
+                  <option value="Unavailable">Unavailable</option>
                   <option value="Occupied">Occupied</option>
                 </select>
 
@@ -415,14 +472,18 @@ const Units = () => {
               {paginatedRooms.map((room) => (
                 <div
                   key={room._id}
-                  className={`p-4 rounded-lg text-center cursor-pointer ${
+                  onClick={() => handleRoomClick(room)}
+                  className={`p-4 rounded-lg text-center cursor-pointer transition-all hover:scale-105 ${
                     room.status === "Available"
-                      ? "bg-[#898F63] text-white"
-                      : "bg-white text-gray-800 border border-gray-200"
+                      ? "bg-[#898F63] text-white hover:bg-[#6B7355]"
+                      : room.status === "Unavailable"
+                      ? "bg-red-500 text-white hover:bg-red-600"
+                      : "bg-white text-gray-800 border border-gray-200 hover:border-[#898F63]"
                   }`}
                 >
                   <h5 className="text-lg font-semibold">{room.roomNumber}</h5>
                   <p className="text-sm">{room.status}</p>
+                  <p className="text-sm mt-1">฿{room.price.toLocaleString()}</p>
                 </div>
               ))}
             </div>
@@ -480,16 +541,6 @@ const Units = () => {
               </div>
             )}
           </>
-        ) : (
-          <div className="text-center py-12">
-            <div className="mb-4 text-gray-600">
-              You don't have any buildings yet
-            </div>
-            <div className="text-sm text-gray-500">
-              Click the "Add Building" button above to create your first
-              building
-            </div>
-          </div>
         )}
       </div>
 
@@ -562,6 +613,43 @@ const Units = () => {
                   />
                 </div>
 
+                {/* New Utility Rate Fields */}
+                <div className="border-t pt-4">
+                  <h6 className="text-sm font-medium text-gray-700 mb-3">
+                    Utility Rates
+                  </h6>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
+                        Electricity Rate (฿/unit)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        className="w-full p-2 border rounded"
+                        value={electricityRate}
+                        onChange={(e) => setElectricityRate(e.target.value)}
+                        required
+                        placeholder="e.g., 8.00"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
+                        Water Rate (฿/unit)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        className="w-full p-2 border rounded"
+                        value={waterRate}
+                        onChange={(e) => setWaterRate(e.target.value)}
+                        required
+                        placeholder="e.g., 18.00"
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 {newBuilding && (
                   <div className="mt-4 p-4 bg-gray-50 rounded">
                     <div className="mb-2">
@@ -608,9 +696,9 @@ const Units = () => {
               </div>
             </div>
           </div>
-          {showNotification && errorMessage && (
+          {showNotification && error && (
             <Notification
-              message={errorMessage}
+              message={error}
               duration={3000}
               onClose={() => setShowNotification(false)}
               type="bad"

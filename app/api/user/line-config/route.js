@@ -13,13 +13,14 @@ export async function GET(request) {
     const feature = searchParams.get("feature");
 
     if (!publicId) {
-      return NextResponse.json(
-        { error: "Public ID is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "ID is required" }, { status: 400 });
     }
 
-    const user = await User.findOne({ publicId });
+    // Try to find user by either publicId or _id
+    const user = await User.findOne({
+      $or: [{ publicId: publicId }, { _id: publicId }],
+    });
+
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
@@ -31,7 +32,15 @@ export async function GET(request) {
     }
 
     // Return full LINE configuration
-    return NextResponse.json({ lineConfig: user.lineConfig });
+    console.log("Sending lineConfig:", user.lineConfig); // Debug log
+    return NextResponse.json({
+      lineConfig: {
+        channelAccessToken: user.lineConfig?.channelAccessToken || "",
+        channelSecret: user.lineConfig?.channelSecret || "",
+        publicId: user.publicId,
+        liffIds: user.lineConfig?.liffIds || {},
+      },
+    });
   } catch (error) {
     console.error("Error fetching LINE config:", error);
     return NextResponse.json(

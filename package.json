@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.734.0",
     "@babel/preset-env": "^7.26.0",
     "@babel/preset-react": "^7.25.9",
     "@date-io/dayjs": "^3.2.0",
@@ -19,6 +20,7 @@
     "@mui/icons-material": "^6.3.1",
     "@mui/material": "^6.4.0",
     "@mui/system": "^6.4.0",
+    "@mui/x-data-grid": "^7.24.1",
     "@mui/x-date-pickers": "^7.23.6",
     "auth": "^1.2.3",
     "axios": "^1.7.9",

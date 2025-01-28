@@ -44,12 +44,12 @@ export default function Navbar() {
                 { name: "Dashboard", route: "/dashboard" },
                 { name: "Units", route: "/units" },
                 { name: "Tenants", route: "/tenants" },
-                { name: "Utility Usage", route: "/utility-usage" },
-                // { name: "Billing", route: "/billing" },
+                { name: "Billings", route: "/billings" },
                 { name: "Cleaning", route: "/cleaning" },
                 { name: "Maintenance", route: "/maintenance" },
                 { name: "Staffs", route: "/staffs" },
                 { name: "Parcels", route: "/parcels" },
+                { name: "Announcements", route: "/announcements" },
               ].map((link) => (
                 <li className="mb-2" key={link.route}>
                   <Link

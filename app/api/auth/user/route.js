@@ -5,27 +5,34 @@ import User from "@/app/models/User";
 
 export async function POST(req) {
   try {
-    const { firstName, lastName, email, password } = await req.json();
+    const { firstName, lastName, email, password, lineConfig } =
+      await req.json();
 
     await dbConnect();
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return NextResponse.json(
-        { message: "Email is already in use" },
+        { error: "Email is already in use" },
         { status: 409 }
       );
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    await User.create({ firstName, lastName, email, password: hashedPassword });
+    await User.create({
+      firstName,
+      lastName,
+      email,
+      password: hashedPassword,
+      lineConfig,
+    });
 
     return NextResponse.json({ message: "User registered" }, { status: 201 });
   } catch (error) {
     console.error("Error in POST request:", error);
     return NextResponse.json(
-      { message: "An error occurred while registering" },
+      { error: "An error occurred while registering" },
       { status: 500 }
     );
   }

@@ -8,14 +8,6 @@ import { NextResponse } from "next/server";
 import { Client } from "@line/bot-sdk";
 import User from "@/app/models/User";
 
-// Configure LINE client
-const lineConfig = {
-  channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN,
-  channelSecret: process.env.CHANNEL_SECRET,
-};
-
-const client = new Client(lineConfig);
-
 export async function GET(request) {
   try {
     await dbConnect();
@@ -89,12 +81,48 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
+    await dbConnect();
     const body = await request.json();
     console.log("Received parcel data:", body);
 
     if (!body.landlordId) {
       return NextResponse.json(
         { error: "landlordId is required" },
+        { status: 400 }
+      );
+    }
+
+    // Get landlord's LINE configuration
+    const landlord = await User.findById(body.landlordId);
+    if (
+      !landlord?.lineConfig?.channelAccessToken ||
+      !landlord?.lineConfig?.channelSecret
+    ) {
+      console.log("LINE configuration not found for landlord");
+      return NextResponse.json(
+        { error: "LINE configuration not found" },
+        { status: 400 }
+      );
+    }
+
+    // Configure LINE client with landlord's credentials
+    const lineConfig = {
+      channelAccessToken: landlord.lineConfig.channelAccessToken,
+      channelSecret: landlord.lineConfig.channelSecret,
+    };
+    const client = new Client(lineConfig);
+
+    // Check for duplicate tracking number
+    const existingParcel = await Parcel.findOne({
+      trackingNumber: body.trackingNumber,
+      landlordId: body.landlordId,
+    });
+
+    if (existingParcel) {
+      return NextResponse.json(
+        {
+          error: `Parcel with tracking number ${body.trackingNumber} already exists`,
+        },
         { status: 400 }
       );
     }
@@ -108,10 +136,194 @@ export async function POST(request) {
       status: body.status || "uncollected",
     });
 
+    // Fetch tenant details with populated data
+    const tenant = await Tenant.findById(body.tenant).populate({
+      path: "room",
+      populate: {
+        path: "floor",
+        populate: {
+          path: "building",
+        },
+      },
+    });
+
+    if (tenant?.lineUserId) {
+      try {
+        const message = {
+          type: "flex",
+          altText: "New Parcel Arrived",
+          contents: {
+            type: "bubble",
+            size: "mega",
+            header: {
+              type: "box",
+              layout: "vertical",
+              contents: [
+                {
+                  type: "box",
+                  layout: "vertical",
+                  contents: [
+                    {
+                      type: "text",
+                      text: "📦 NEW PARCEL ARRIVED",
+                      color: "#ffffff",
+                      size: "lg",
+                      flex: 4,
+                      weight: "bold",
+                      align: "center",
+                    },
+                  ],
+                },
+              ],
+              paddingAll: "20px",
+              backgroundColor: "#3b82f6",
+              spacing: "md",
+              height: "60px",
+              paddingTop: "22px",
+            },
+            body: {
+              type: "box",
+              layout: "vertical",
+              contents: [
+                {
+                  type: "box",
+                  layout: "horizontal",
+                  contents: [
+                    {
+                      type: "text",
+                      text: "Name",
+                      size: "sm",
+                      color: "#8C8C8C",
+                      flex: 1,
+                    },
+                    {
+                      type: "text",
+                      text: tenant.name || "N/A",
+                      size: "sm",
+                      color: "#000000",
+                      flex: 2,
+                      wrap: true,
+                    },
+                  ],
+                  spacing: "md",
+                  paddingAll: "12px",
+                },
+                {
+                  type: "box",
+                  layout: "horizontal",
+                  contents: [
+                    {
+                      type: "text",
+                      text: "Room",
+                      size: "sm",
+                      color: "#8C8C8C",
+                      flex: 1,
+                    },
+                    {
+                      type: "text",
+                      text: tenant.room?.roomNumber || "N/A",
+                      size: "sm",
+                      color: "#000000",
+                      flex: 2,
+                      wrap: true,
+                    },
+                  ],
+                  spacing: "md",
+                  paddingAll: "12px",
+                },
+                {
+                  type: "box",
+                  layout: "horizontal",
+                  contents: [
+                    {
+                      type: "text",
+                      text: "Building",
+                      size: "sm",
+                      color: "#8C8C8C",
+                      flex: 1,
+                    },
+                    {
+                      type: "text",
+                      text: tenant.room?.floor?.building?.name || "N/A",
+                      size: "sm",
+                      color: "#000000",
+                      flex: 2,
+                      wrap: true,
+                    },
+                  ],
+                  spacing: "md",
+                  paddingAll: "12px",
+                },
+                {
+                  type: "box",
+                  layout: "horizontal",
+                  contents: [
+                    {
+                      type: "text",
+                      text: "Tracking",
+                      size: "sm",
+                      color: "#8C8C8C",
+                      flex: 1,
+                    },
+                    {
+                      type: "text",
+                      text: body.trackingNumber || "N/A",
+                      size: "sm",
+                      color: "#000000",
+                      flex: 2,
+                      wrap: true,
+                    },
+                  ],
+                  spacing: "md",
+                  paddingAll: "12px",
+                },
+              ],
+            },
+            footer: {
+              type: "box",
+              layout: "vertical",
+              contents: [
+                {
+                  type: "text",
+                  text: "Please collect your parcel at the office",
+                  color: "#8C8C8C",
+                  size: "xs",
+                  align: "center",
+                  wrap: true,
+                },
+              ],
+              paddingAll: "20px",
+            },
+            styles: {
+              footer: {
+                separator: true,
+              },
+            },
+          },
+        };
+
+        console.log("Sending LINE notification to:", tenant.lineUserId);
+        console.log("Message payload:", JSON.stringify(message, null, 2));
+
+        await client.pushMessage(tenant.lineUserId, message);
+        console.log("LINE notification sent successfully");
+      } catch (lineError) {
+        console.error("Failed to send LINE notification:", lineError);
+        if (lineError.response?.data) {
+          console.error("LINE API Error details:", lineError.response.data);
+        }
+        console.error("Error message:", lineError.message);
+        console.error("Full error object:", JSON.stringify(lineError, null, 2));
+      }
+    } else {
+      console.log("No LINE userId found for tenant:", tenant?._id);
+    }
+
+    // Return populated parcel data
     const populatedParcel = await Parcel.findById(parcel._id)
       .populate({
         path: "tenant",
-        select: "name email phone",
+        select: "name email phone lineUserId",
       })
       .populate({
         path: "room",
@@ -128,7 +340,7 @@ export async function POST(request) {
     console.error("Error adding parcel:", error);
     return NextResponse.json(
       { error: "Failed to add parcel: " + error.message },
-      { status: 500 }
+      { status: 400 }
     );
   }
 }

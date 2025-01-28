@@ -17,6 +17,14 @@ const BuildingSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    waterRate: {
+      type: Number,
+      default: 0,
+    },
+    electricityRate: {
+      type: Number,
+      default: 0,
+    },
   },
   { timestamps: true }
 );

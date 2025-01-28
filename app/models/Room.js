@@ -4,10 +4,14 @@ import Tenant from "./Tenant";
 
 const RoomSchema = new mongoose.Schema(
   {
+    building: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Building",
+      required: true,
+    },
     roomNumber: {
       type: String,
       required: true,
-      unique: true,
     },
     floor: {
       type: mongoose.Schema.Types.ObjectId,
@@ -16,21 +20,34 @@ const RoomSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["Available", "Unavailable", "Occupied"],
+      enum: ["Available", "Occupied", "Maintenance"],
       default: "Available",
     },
     tenant: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Tenant",
-      default: null,
     },
     price: {
       type: Number,
+      required: true,
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
       required: true,
     },
   },
   { timestamps: true }
 );
 
-const Room = mongoose.models.Room || mongoose.model("Room", RoomSchema);
+// Create compound index for unique room numbers per building and user
+RoomSchema.index(
+  { roomNumber: 1, building: 1, createdBy: 1 },
+  { unique: true }
+);
+
+// Force model recreation
+mongoose.models = {};
+
+const Room = mongoose.model("Room", RoomSchema);
 export default Room;

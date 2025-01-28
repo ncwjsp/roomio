@@ -23,38 +23,22 @@ const UserSchema = new Schema(
     publicId: {
       type: String,
       unique: true,
-      default: () => crypto.randomBytes(16).toString("hex"), // generates a 32-character random string
+      default: () => crypto.randomBytes(16).toString("hex"),
     },
     lineConfig: {
-      channelAccessToken: {
-        type: String,
-        default: null,
-      },
-      channelSecret: {
-        type: String,
-        default: null,
-      },
+      channelAccessToken: String,
+      channelSecret: String,
+      tenantRichMenuId: String,
+      staffRichMenuId: String,
       liffIds: {
-        parcels: {
-          type: String,
-          default: null,
-        },
-        reports: {
-          type: String,
-          default: null,
-        },
-        billing: {
-          type: String,
-          default: null,
-        },
-        cleaning: {
-          type: String,
-          default: null,
-        },
-        maintenance: {
-          type: String,
-          default: null,
-        },
+        parcels: String,
+        reports: String,
+        billing: String,
+        cleaning: String,
+        maintenance: String,
+        announcement: String,
+        schedule: String,
+        tasks: String,
       },
     },
   },

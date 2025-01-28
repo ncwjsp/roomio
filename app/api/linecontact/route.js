@@ -2,10 +2,16 @@ import dbConnect from "@/lib/mongodb";
 import LineContact from "@/app/models/LineContact";
 import { NextResponse } from "next/server";
 
-export async function GET() {
+export async function GET(request) {
   try {
     await dbConnect();
-    const lineContacts = await LineContact.find({}).sort({ createdAt: -1 });
+
+    const { searchParams } = new URL(request.url);
+    const landlordId = searchParams.get("id");
+
+    const lineContacts = await LineContact.find({
+      landlordId: landlordId,
+    }).sort({ createdAt: -1 });
     return NextResponse.json({ lineContacts });
   } catch (error) {
     console.error("Error fetching LINE contacts:", error);
