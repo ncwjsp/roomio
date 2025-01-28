@@ -66,6 +66,8 @@ const ParcelsPage = () => {
   const [selectedModalBuilding, setSelectedModalBuilding] = useState("");
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [selectedBuilding, setSelectedBuilding] = useState(null);
+  const [isRoomsLoading, setIsRoomsLoading] = useState(false);
 
   // Fetch parcels
   const fetchParcels = async () => {
@@ -187,37 +189,31 @@ const ParcelsPage = () => {
 
   const fetchRoomsByBuilding = async (buildingId) => {
     try {
+      setIsRoomsLoading(true);
       console.log("Fetching rooms for building:", buildingId);
-
       const response = await fetch(
         `/api/room?buildingId=${buildingId}&status=Occupied`
       );
-      if (!response.ok) {
-        throw new Error("Failed to fetch rooms");
-      }
+      if (!response.ok) throw new Error("Failed to fetch rooms");
 
       const data = await response.json();
-      console.log("Raw rooms data:", data);
+      console.log("Rooms data:", data);
 
-      // Ensure we're setting an array of rooms
-      if (!data || !data.rooms) {
-        console.log("No rooms data received");
-        setAvailableRooms([]);
-        return;
+      if (data.rooms && Array.isArray(data.rooms)) {
+        const occupiedRooms = data.rooms.filter(
+          (room) => room.status === "Occupied" && room.tenant
+        );
+        console.log("Filtered occupied rooms:", occupiedRooms);
+        setAvailableRooms(occupiedRooms);
+      } else {
+        setAvailableRooms([]); // Set empty array if no rooms or invalid data
       }
-
-      // Filter rooms to only show occupied rooms with tenants
-      const occupiedRooms = data.rooms.filter((room) => {
-        console.log("Checking room:", room);
-        return room.status === "Occupied" && room.tenant;
-      });
-
-      console.log("Filtered occupied rooms:", occupiedRooms);
-      setAvailableRooms(occupiedRooms);
     } catch (error) {
       console.error("Error fetching rooms:", error);
-      setError("Failed to fetch rooms: " + error.message);
-      setAvailableRooms([]);
+      setError("Failed to fetch rooms");
+      setAvailableRooms([]); // Set empty array on error
+    } finally {
+      setIsRoomsLoading(false);
     }
   };
 
@@ -372,7 +368,7 @@ const ParcelsPage = () => {
     setIsDeleting(false);
   };
 
-  const handleBuildingSelect = (buildingId) => {
+  const handleBuildingSelect = async (buildingId) => {
     setSelectedRoom("");
     setNewParcel({
       ...newParcel,
@@ -383,7 +379,8 @@ const ParcelsPage = () => {
 
     if (buildingId) {
       console.log("Selected building ID:", buildingId);
-      fetchRoomsByBuilding(buildingId);
+      setSelectedModalBuilding(buildingId);
+      await fetchRoomsByBuilding(buildingId);
     } else {
       setAvailableRooms([]);
     }
@@ -648,85 +645,49 @@ const ParcelsPage = () => {
                   <InputLabel>Building</InputLabel>
                   <Select
                     value={selectedModalBuilding}
-                    onChange={(e) => {
-                      setSelectedModalBuilding(e.target.value);
-                      handleBuildingSelect(e.target.value);
-                    }}
+                    onChange={(e) => handleBuildingSelect(e.target.value)}
                     label="Building"
                   >
                     <MenuItem value="">Select Building</MenuItem>
-                    {buildings && buildings.length > 0 ? (
-                      buildings.map((building) => (
-                        <MenuItem key={building._id} value={building._id}>
-                          {building.name || "Unnamed Building"}
-                        </MenuItem>
-                      ))
-                    ) : (
-                      <MenuItem disabled>No buildings available</MenuItem>
-                    )}
+                    {buildings.map((building) => (
+                      <MenuItem key={building._id} value={building._id}>
+                        {building.name}
+                      </MenuItem>
+                    ))}
                   </Select>
                 </FormControl>
               </Grid>
               <Grid item xs={12}>
-                <Autocomplete
-                  disabled={!selectedModalBuilding}
-                  value={
-                    selectedRoom && Array.isArray(availableRooms)
-                      ? availableRooms.find(
-                          (room) => room._id === selectedRoom
-                        ) || null
-                      : null
-                  }
-                  onChange={(event, newValue) => {
-                    handleRoomSelect(newValue?._id || "");
-                  }}
-                  options={Array.isArray(availableRooms) ? availableRooms : []}
-                  getOptionLabel={(option) => {
-                    return option
-                      ? `Room ${option.roomNumber} - ${
-                          option.tenant?.name || "No tenant"
-                        }`
-                      : "";
-                  }}
-                  renderOption={(props, option) => {
-                    const uniqueKey = `room-${option._id}-${option.roomNumber}`;
-                    return (
-                      <li {...props} key={uniqueKey}>
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            width: "100%",
-                          }}
-                        >
-                          <span>Room {option.roomNumber}</span>
-                          <span style={{ color: "gray" }}>
-                            {option.tenant?.name || "No tenant"}
-                          </span>
+                <FormControl fullWidth sx={{ mt: 2 }}>
+                  <InputLabel>Room</InputLabel>
+                  <Select
+                    value={selectedRoom}
+                    onChange={(e) => handleRoomSelect(e.target.value)}
+                    label="Room"
+                    disabled={!selectedModalBuilding || isRoomsLoading}
+                  >
+                    {isRoomsLoading ? (
+                      <MenuItem value="">
+                        <div style={{ display: "flex", alignItems: "center" }}>
+                          <CircularProgress size={20} sx={{ mr: 1 }} />
+                          Loading rooms...
                         </div>
-                      </li>
-                    );
-                  }}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label="Select Room"
-                      placeholder={
-                        !selectedModalBuilding
-                          ? "Select a building first"
-                          : "Type to search rooms"
-                      }
-                    />
-                  )}
-                  noOptionsText={
-                    !selectedModalBuilding
-                      ? "Select a building first"
-                      : "No rooms found"
-                  }
-                  isOptionEqualToValue={(option, value) =>
-                    option._id === value._id
-                  }
-                />
+                      </MenuItem>
+                    ) : !Array.isArray(availableRooms) ||
+                      availableRooms.length === 0 ? (
+                      <MenuItem value="" disabled>
+                        No rooms available
+                      </MenuItem>
+                    ) : (
+                      availableRooms.map((room) => (
+                        <MenuItem key={room._id} value={room._id}>
+                          Room {room.roomNumber}{" "}
+                          {room.tenant?.name ? `- ${room.tenant.name}` : ""}
+                        </MenuItem>
+                      ))
+                    )}
+                  </Select>
+                </FormControl>
               </Grid>
               <Grid item xs={12}>
                 <TextField
