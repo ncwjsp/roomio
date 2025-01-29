@@ -18,11 +18,9 @@ export default function Navbar() {
     "/line/parcels",
     "/line/payment",
     "/line/report",
-    "/line/security",
-    "/line/housekeeper/schedule",
-    "/line/housekeeper/task",
-    "/line/technician/schedule",
-    "/line/technician/task",
+    "/line/schedule",
+    "/line/task",
+    "/line/announcement",
   ];
 
   // Check if the current path is in the "hideNavbarRoutes" list
@@ -54,7 +52,7 @@ export default function Navbar() {
                 { name: "Maintenance", route: "/maintenance" },
                 { name: "Staffs", route: "/staffs" },
                 { name: "Parcels", route: "/parcels" },
-                { name: "Announcements", route: "/announcements" },
+                { name: "Announcement", route: "/announcement" },
               ].map((link) => (
                 <li className="mb-2" key={link.route}>
                   <Link

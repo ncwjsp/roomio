@@ -1,20 +1,20 @@
-"use client"
+"use client";
 
-import React from 'react';
-import { Calendar } from 'react-calendar';
-import 'react-calendar/dist/Calendar.css';
+import React from "react";
+import { Calendar } from "react-calendar";
+import "react-calendar/dist/Calendar.css";
 
-export default function TechnicianSchedulePage() {
+export default function SchedulePage() {
   const tasks = [
-    { time: '8:00 AM', description: 'Light Changing - Room 101, Building A' },
-    { time: '10:00 AM', description: 'AC Maintenance - Room 102, Building B' },
-    { time: '2:00 PM', description: 'Fan Repair - Room 203, Building C' },
+    { time: "8:00 AM", description: "Light Changing - Room 101, Building A" },
+    { time: "10:00 AM", description: "AC Maintenance - Room 102, Building B" },
+    { time: "2:00 PM", description: "Fan Repair - Room 203, Building C" },
   ];
 
   return (
     <div className="p-5 bg-white rounded-lg shadow-md min-h-screen">
       <header className="text-center mb-5">
-        <h1 className="text-2xl font-bold">Technician Schedule</h1>
+        <h1 className="text-2xl font-bold">Schedule</h1>
       </header>
 
       <div className="mb-5">

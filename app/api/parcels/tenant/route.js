@@ -24,7 +24,6 @@ export async function GET(request) {
 
     // Find tenant by LINE user ID
     const tenant = await Tenant.findOne({ lineUserId });
-    console.log("Found tenant:", tenant); // Debug log
 
     if (!tenant) {
       console.log("No tenant found for LINE user ID:", lineUserId);

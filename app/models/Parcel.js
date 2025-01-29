@@ -42,13 +42,6 @@ const ParcelSchema = new mongoose.Schema(
     collectedAt: {
       type: Date,
     },
-
-    // Notification status
-    notificationSent: {
-      type: Boolean,
-      default: false,
-    },
-
     // Timestamps for tracking
     createdAt: {
       type: Date,
