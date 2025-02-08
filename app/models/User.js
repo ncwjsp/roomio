@@ -36,6 +36,18 @@ const UserSchema = new Schema(
         tasks: String,
       },
     },
+    bankCode: {
+      type: String,
+      default: "",
+    },
+    accountNumber: {
+      type: String,
+      default: "",
+    },
+    accountName: {
+      type: String,
+      default: "",
+    },
   },
   { timestamps: true }
 );

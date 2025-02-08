@@ -1,7 +1,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { TextField, Button, Alert, Paper, Grid, Divider } from "@mui/material";
+import {
+  TextField,
+  Button,
+  Alert,
+  Paper,
+  Grid,
+  Divider,
+  CircularProgress,
+  Box,
+} from "@mui/material";
 
 const AccountSettings = () => {
   const [profile, setProfile] = useState({
@@ -84,7 +93,21 @@ const AccountSettings = () => {
     }
   };
 
-  if (isLoading) return <div>Loading...</div>;
+  if (isLoading) {
+    return (
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: "300px",
+          width: "100%",
+        }}
+      >
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <div className="space-y-6">

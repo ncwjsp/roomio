@@ -11,10 +11,10 @@ const LINE_MESSAGING_API = "https://api.line.me/v2/bot/message/push";
 
 async function sendLineMessage(lineUserId, bill, lineConfig) {
   try {
-    console.log("Sending LINE message to:", lineUserId);
-    console.log("Bill data:", JSON.stringify(bill, null, 2));
-    console.log("LINE config:", {
-      channelAccessToken: lineConfig.channelAccessToken ? "exists" : "missing",
+    console.log("📱 Starting LINE message send:", {
+      lineUserId,
+      billId: bill._id,
+      room: bill.roomId?.roomNumber,
     });
 
     const flexMessage = {
@@ -63,7 +63,7 @@ async function sendLineMessage(lineUserId, bill, lineConfig) {
                     },
                     {
                       type: "text",
-                      text: bill.roomId?.floor?.building?.name || "",
+                      text: bill.roomId?.floor?.building?.name || "N/A",
                       size: "sm",
                       align: "end",
                     },
@@ -82,7 +82,7 @@ async function sendLineMessage(lineUserId, bill, lineConfig) {
                     },
                     {
                       type: "text",
-                      text: bill.roomId?.roomNumber || "",
+                      text: bill.roomId?.roomNumber || "N/A",
                       size: "sm",
                       align: "end",
                     },
@@ -114,9 +114,9 @@ async function sendLineMessage(lineUserId, bill, lineConfig) {
                         },
                         {
                           type: "text",
-                          text: `${bill.waterUsage || 0} units (฿${(
+                          text: `${bill.waterUsage || 0} units (฿${
                             bill.waterAmount || 0
-                          ).toLocaleString()})`,
+                          })`,
                           size: "sm",
                           align: "end",
                         },
@@ -134,9 +134,9 @@ async function sendLineMessage(lineUserId, bill, lineConfig) {
                         },
                         {
                           type: "text",
-                          text: `${bill.electricityUsage || 0} units (฿${(
+                          text: `${bill.electricityUsage || 0} units (฿${
                             bill.electricityAmount || 0
-                          ).toLocaleString()})`,
+                          })`,
                           size: "sm",
                           align: "end",
                         },
@@ -154,7 +154,9 @@ async function sendLineMessage(lineUserId, bill, lineConfig) {
                         },
                         {
                           type: "text",
-                          text: `฿${(bill.rentAmount || 0).toLocaleString()}`,
+                          text: `฿${
+                            bill.actualRentAmount || bill.rentAmount || 0
+                          }`,
                           size: "sm",
                           align: "end",
                         },
@@ -162,46 +164,6 @@ async function sendLineMessage(lineUserId, bill, lineConfig) {
                     },
                   ],
                 },
-                ...(bill.additionalFees?.length > 0
-                  ? [
-                      {
-                        type: "separator",
-                        margin: "xl",
-                      },
-                      {
-                        type: "box",
-                        layout: "vertical",
-                        margin: "xl",
-                        contents: [
-                          {
-                            type: "text",
-                            text: "Additional Fees",
-                            weight: "bold",
-                          },
-                          ...bill.additionalFees.map((fee) => ({
-                            type: "box",
-                            layout: "horizontal",
-                            margin: "md",
-                            contents: [
-                              {
-                                type: "text",
-                                text: fee.name || "",
-                                size: "sm",
-                              },
-                              {
-                                type: "text",
-                                text: `฿${(
-                                  Number(fee.price) || 0
-                                ).toLocaleString()}`,
-                                size: "sm",
-                                align: "end",
-                              },
-                            ],
-                          })),
-                        ],
-                      },
-                    ]
-                  : []),
                 {
                   type: "separator",
                   margin: "xl",
@@ -218,7 +180,7 @@ async function sendLineMessage(lineUserId, bill, lineConfig) {
                     },
                     {
                       type: "text",
-                      text: `฿${(bill.totalAmount || 0).toLocaleString()}`,
+                      text: `฿${bill.totalAmount || 0}`,
                       weight: "bold",
                       align: "end",
                       color: "#898F63",
@@ -233,34 +195,16 @@ async function sendLineMessage(lineUserId, bill, lineConfig) {
               contents: [
                 {
                   type: "text",
-                  text: "Payment Methods",
-                  weight: "bold",
+                  text: "Please pay before the due date",
+                  size: "sm",
                   align: "center",
-                },
-                {
-                  type: "box",
-                  layout: "vertical",
-                  margin: "md",
-                  contents: [
-                    {
-                      type: "text",
-                      text: "Bank Transfer: XXX-X-XXXXX-X",
-                      size: "sm",
-                      align: "center",
-                    },
-                    {
-                      type: "text",
-                      text: "PromptPay: XXXXXXXXXX",
-                      size: "sm",
-                      align: "center",
-                    },
-                  ],
+                  color: "#888888",
                 },
                 {
                   type: "text",
-                  text: "Please pay before the 5th of next month",
-                  margin: "xl",
-                  size: "xs",
+                  text: format(new Date(bill.dueDate), "MMMM d, yyyy"),
+                  margin: "sm",
+                  size: "sm",
                   align: "center",
                   color: "#888888",
                 },
@@ -271,7 +215,11 @@ async function sendLineMessage(lineUserId, bill, lineConfig) {
       ],
     };
 
-    console.log("Sending flex message:", JSON.stringify(flexMessage, null, 2));
+    console.log("📨 Sending to LINE API with config:", {
+      url: LINE_MESSAGING_API,
+      hasToken: !!lineConfig.channelAccessToken,
+      messageLength: JSON.stringify(flexMessage).length,
+    });
 
     const response = await fetch(LINE_MESSAGING_API, {
       method: "POST",
@@ -282,22 +230,31 @@ async function sendLineMessage(lineUserId, bill, lineConfig) {
       body: JSON.stringify(flexMessage),
     });
 
-    const responseData = await response.text();
-    console.log("LINE API Response:", {
+    const responseText = await response.text();
+    console.log("📬 LINE API Raw Response:", responseText);
+
+    let responseData;
+    try {
+      responseData = JSON.parse(responseText);
+    } catch (e) {
+      console.log("⚠️ Could not parse LINE response as JSON");
+    }
+
+    console.log("📫 LINE API Response Details:", {
       status: response.status,
       statusText: response.statusText,
-      data: responseData,
+      headers: Object.fromEntries(response.headers.entries()),
+      data: responseData || responseText,
     });
 
     if (!response.ok) {
-      throw new Error(
-        `Failed to send LINE message: ${response.status} ${responseData}`
-      );
+      throw new Error(`LINE API Error: ${response.status} - ${responseText}`);
     }
 
+    console.log("✅ LINE message sent successfully");
     return true;
   } catch (error) {
-    console.error("Error sending LINE message:", {
+    console.error("❌ Error in sendLineMessage:", {
       error: error.message,
       stack: error.stack,
       lineUserId,
@@ -309,76 +266,163 @@ async function sendLineMessage(lineUserId, bill, lineConfig) {
 
 export async function POST(request) {
   try {
+    console.log("🟢 POST /api/bills/send started");
     await dbConnect();
-    const { bills } = await request.json();
+
+    const body = await request.json();
+    console.log("📦 Request body:", body);
+
+    const { bills } = body;
+    if (!bills || !Array.isArray(bills)) {
+      console.error("❌ Invalid bills data:", bills);
+      return NextResponse.json(
+        { error: "Invalid bills data" },
+        { status: 400 }
+      );
+    }
     console.log(
-      "Received bills:",
+      "📝 Processing bills:",
       bills.map((b) => b.id)
     );
 
-    // Get the current user's session
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
+      console.error("❌ No session found");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    console.log("User email:", session.user.email);
+    console.log("👤 User email:", session.user.email);
 
     // Get user's LINE configuration
     const user = await User.findOne({ email: session.user.email });
-    console.log("Found user:", {
-      hasLineConfig: !!user?.lineConfig,
+    console.log("👤 User LINE config:", {
+      hasConfig: !!user?.lineConfig,
       hasToken: !!user?.lineConfig?.channelAccessToken,
+      userId: user?._id,
     });
 
     if (!user?.lineConfig?.channelAccessToken) {
+      console.error("❌ No LINE config found for user");
       return NextResponse.json(
         { error: "LINE configuration not found" },
         { status: 400 }
       );
     }
 
+    // Log what's being sent to the frontend
+    console.log("🔄 Selected bills for sending:", {
+      count: bills.length,
+      ids: bills.map((b) => b.id),
+    });
+
     // Extract just the IDs from the bills array
     const billIds = bills.map((bill) => bill.id);
-    console.log("Processing bill IDs:", billIds);
 
     // Fetch fully populated bills
     const populatedBills = await Bill.find({ _id: { $in: billIds } }).populate({
       path: "roomId",
-      populate: {
-        path: "floor",
-        populate: {
-          path: "building",
+      populate: [
+        {
+          path: "floor",
+          populate: {
+            path: "building",
+            select: "name",
+          },
         },
-      },
+        {
+          path: "tenant",
+        },
+      ],
     });
-    console.log("Found populated bills:", populatedBills.length);
+
+    console.log("📄 Found populated bills:", {
+      requested: billIds.length,
+      found: populatedBills.length,
+      bills: populatedBills.map((b) => ({
+        id: b._id,
+        room: b.roomId?.roomNumber,
+        building: b.roomId?.floor?.building?.name,
+        hasRoom: !!b.roomId,
+        hasFloor: !!b.roomId?.floor,
+        hasBuilding: !!b.roomId?.floor?.building,
+      })),
+    });
 
     const results = await Promise.all(
       populatedBills.map(async (bill) => {
-        // Get tenant's LINE userId from your database
-        const tenant = await Tenant.findOne({ room: bill.roomId });
-        console.log("Found tenant for room:", {
-          roomId: bill.roomId?._id,
-          hasLineUserId: !!tenant?.lineUserId,
-        });
-
-        if (!tenant?.lineUserId) {
-          console.warn(
-            `No LINE userId found for tenant in room ${
-              bill.roomId?.roomNumber || "unknown"
-            }`
+        try {
+          // Only update the paymentStatus, preserve all other values
+          const updatedBill = await Bill.findByIdAndUpdate(
+            bill._id,
+            {
+              $set: {
+                paymentStatus: "pending",
+                waterAmount: bill.waterUsage * bill.waterRate,
+                electricityAmount: bill.electricityUsage * bill.electricityRate,
+                waterUsage: bill.waterUsage,
+                electricityUsage: bill.electricityUsage,
+                rentAmount: bill.rentAmount,
+                actualRentAmount: bill.actualRentAmount,
+                totalAmount:
+                  (bill.actualRentAmount || bill.rentAmount) +
+                  bill.waterUsage * bill.waterRate +
+                  bill.electricityUsage * bill.electricityRate +
+                  (bill.additionalFees?.reduce(
+                    (sum, fee) => sum + (fee.price || 0),
+                    0
+                  ) || 0),
+                additionalFees: bill.additionalFees || [],
+                waterRate: bill.waterRate,
+                electricityRate: bill.electricityRate,
+              },
+            },
+            { new: true }
           );
+
+          console.log("🏠 Processing bill for room:", {
+            billId: updatedBill._id,
+            room: updatedBill.roomId?.roomNumber,
+            building: updatedBill.roomId?.floor?.building?.name,
+          });
+
+          // Get tenant's LINE userId
+          const tenant = await Tenant.findOne({ room: updatedBill.roomId });
+          console.log("👥 Found tenant:", {
+            hasLineId: !!tenant?.lineUserId,
+            room: updatedBill.roomId?.roomNumber,
+          });
+
+          if (!tenant?.lineUserId) {
+            console.warn(
+              "⚠️ No LINE userId for tenant in room",
+              updatedBill.roomId?.roomNumber
+            );
+            return false;
+          }
+
+          // Try to send the message
+          console.log("📤 Attempting to send LINE message");
+          const sent = await sendLineMessage(
+            tenant.lineUserId,
+            updatedBill,
+            user.lineConfig
+          );
+          console.log("✅ LINE message sent:", sent);
+          return sent;
+        } catch (error) {
+          console.error("❌ Error processing bill:", {
+            billId: bill._id,
+            error: error.message,
+          });
           return false;
         }
-
-        return sendLineMessage(tenant.lineUserId, bill, user.lineConfig);
       })
     );
 
     const successCount = results.filter(Boolean).length;
-    console.log("Results:", {
+    console.log("🏁 Final results:", {
       total: results.length,
       successful: successCount,
+      failed: results.length - successCount,
     });
 
     return NextResponse.json({
@@ -386,7 +430,7 @@ export async function POST(request) {
       message: `Successfully sent ${successCount} out of ${populatedBills.length} bills`,
     });
   } catch (error) {
-    console.error("Error sending bills:", {
+    console.error("❌ Error in POST route:", {
       error: error.message,
       stack: error.stack,
     });

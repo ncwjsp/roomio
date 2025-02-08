@@ -49,19 +49,6 @@ export async function POST(request) {
         },
         {
           bounds: {
-            x: 1666,
-            y: 0,
-            width: 834,
-            height: 843,
-          },
-          action: {
-            type: "uri",
-            uri: `https://liff.line.me/${liffIds.reports}`,
-            label: "Reports",
-          },
-        },
-        {
-          bounds: {
             x: 0,
             y: 843,
             width: 833,

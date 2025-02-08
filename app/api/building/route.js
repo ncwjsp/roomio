@@ -3,7 +3,6 @@ import dbConnect from "@/lib/mongodb";
 import Building from "@/app/models/Building";
 import Floor from "@/app/models/Floor";
 import Room from "@/app/models/Room";
-import Tenant from "@/app/models/Tenant";
 
 export async function POST(request) {
   try {
@@ -19,7 +18,7 @@ export async function POST(request) {
     if (existingRooms.length > 0) {
       return NextResponse.json(
         {
-          error: `Building ${data.name} already has rooms. Please use a different building name.`,
+          error: `Building ${data.name} already exists. Please use a different building name.`,
         },
         { status: 400 }
       );
@@ -59,10 +58,10 @@ export async function POST(request) {
             const room = new Room({
               roomNumber,
               floor: floor._id,
-              price: data.price,
-              status: "Available", // Set default status
-              createdBy: data.userId,
               building: building._id,
+              price: data.price,
+              status: "Available",
+              createdBy: data.userId,
             });
 
             await room.save();
@@ -100,6 +99,7 @@ export async function POST(request) {
 export async function GET(request) {
   try {
     await dbConnect();
+
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get("id");
 
@@ -110,23 +110,17 @@ export async function GET(request) {
       );
     }
 
-    const buildings = await Building.find({ createdBy: userId })
-      .populate({
-        path: "floors",
-        populate: {
-          path: "rooms",
-          model: "Room",
-          populate: [
-            { path: "tenant", model: "Tenant" },
-            { path: "building", model: "Building" },
-          ],
-        },
-      })
-      .sort({ name: 1 });
+    const buildings = await Building.find({ createdBy: userId }).populate({
+      path: "floors",
+      populate: {
+        path: "rooms",
+        options: { sort: { roomNumber: 1 } },
+      },
+    });
 
     return NextResponse.json({ buildings });
   } catch (error) {
-    console.error("Error fetching buildings:", error);
+    console.error("Error in GET /api/building:", error);
     return NextResponse.json(
       { error: "Failed to fetch buildings" },
       { status: 500 }

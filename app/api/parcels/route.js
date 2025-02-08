@@ -84,249 +84,31 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     await dbConnect();
-    const body = await request.json();
-    console.log("Received parcel data:", body);
 
-    if (!body.landlordId) {
+    const parcelData = await request.json();
+    console.log("Received parcel data:", parcelData);
+
+    // Get the room and its tenant
+    const room = await Room.findById(parcelData.room).populate("tenant");
+    if (!room) {
+      return NextResponse.json({ error: "Room not found" }, { status: 404 });
+    }
+
+    // Automatically set the tenant from the room
+    parcelData.tenant = room.tenant?._id;
+
+    if (!parcelData.tenant) {
       return NextResponse.json(
-        { error: "landlordId is required" },
+        { error: "No tenant found in this room" },
         { status: 400 }
       );
     }
 
-    // Get landlord's LINE configuration
-    const landlord = await User.findById(body.landlordId);
-    if (
-      !landlord?.lineConfig?.channelAccessToken ||
-      !landlord?.lineConfig?.channelSecret
-    ) {
-      console.log("LINE configuration not found for landlord");
-      return NextResponse.json(
-        { error: "LINE configuration not found" },
-        { status: 400 }
-      );
-    }
+    const parcel = new Parcel(parcelData);
+    const savedParcel = await parcel.save();
 
-    // Configure LINE client with landlord's credentials
-    const lineConfig = {
-      channelAccessToken: landlord.lineConfig.channelAccessToken,
-      channelSecret: landlord.lineConfig.channelSecret,
-    };
-    const client = new Client(lineConfig);
-
-    // Check for duplicate tracking number
-    const existingParcel = await Parcel.findOne({
-      trackingNumber: body.trackingNumber,
-      landlordId: body.landlordId,
-    });
-
-    if (existingParcel) {
-      return NextResponse.json(
-        {
-          error: `Parcel with tracking number ${body.trackingNumber} already exists`,
-        },
-        { status: 400 }
-      );
-    }
-
-    const parcel = await Parcel.create({
-      tenant: body.tenant,
-      landlordId: body.landlordId,
-      room: body.room,
-      recipient: body.recipient,
-      trackingNumber: body.trackingNumber,
-      status: body.status || "uncollected",
-    });
-
-    // Fetch tenant details with populated data
-    const tenant = await Tenant.findById(body.tenant).populate({
-      path: "room",
-      populate: {
-        path: "floor",
-        populate: {
-          path: "building",
-        },
-      },
-    });
-
-    if (tenant?.lineUserId) {
-      try {
-        const message = {
-          type: "flex",
-          altText: "New Parcel Arrived",
-          contents: {
-            type: "bubble",
-            size: "mega",
-            header: {
-              type: "box",
-              layout: "vertical",
-              contents: [
-                {
-                  type: "box",
-                  layout: "vertical",
-                  contents: [
-                    {
-                      type: "text",
-                      text: "📦 NEW PARCEL ARRIVED",
-                      color: "#ffffff",
-                      size: "lg",
-                      flex: 4,
-                      weight: "bold",
-                      align: "center",
-                    },
-                  ],
-                },
-              ],
-              paddingAll: "20px",
-              backgroundColor: "#3b82f6",
-              spacing: "md",
-              height: "60px",
-              paddingTop: "22px",
-            },
-            body: {
-              type: "box",
-              layout: "vertical",
-              contents: [
-                {
-                  type: "box",
-                  layout: "horizontal",
-                  contents: [
-                    {
-                      type: "text",
-                      text: "Name",
-                      size: "sm",
-                      color: "#8C8C8C",
-                      flex: 1,
-                    },
-                    {
-                      type: "text",
-                      text: tenant.name || "N/A",
-                      size: "sm",
-                      color: "#000000",
-                      flex: 2,
-                      wrap: true,
-                    },
-                  ],
-                  spacing: "md",
-                  paddingAll: "12px",
-                },
-                {
-                  type: "box",
-                  layout: "horizontal",
-                  contents: [
-                    {
-                      type: "text",
-                      text: "Room",
-                      size: "sm",
-                      color: "#8C8C8C",
-                      flex: 1,
-                    },
-                    {
-                      type: "text",
-                      text: tenant.room?.roomNumber || "N/A",
-                      size: "sm",
-                      color: "#000000",
-                      flex: 2,
-                      wrap: true,
-                    },
-                  ],
-                  spacing: "md",
-                  paddingAll: "12px",
-                },
-                {
-                  type: "box",
-                  layout: "horizontal",
-                  contents: [
-                    {
-                      type: "text",
-                      text: "Building",
-                      size: "sm",
-                      color: "#8C8C8C",
-                      flex: 1,
-                    },
-                    {
-                      type: "text",
-                      text: tenant.room?.floor?.building?.name || "N/A",
-                      size: "sm",
-                      color: "#000000",
-                      flex: 2,
-                      wrap: true,
-                    },
-                  ],
-                  spacing: "md",
-                  paddingAll: "12px",
-                },
-                {
-                  type: "box",
-                  layout: "horizontal",
-                  contents: [
-                    {
-                      type: "text",
-                      text: "Tracking",
-                      size: "sm",
-                      color: "#8C8C8C",
-                      flex: 1,
-                    },
-                    {
-                      type: "text",
-                      text: body.trackingNumber || "N/A",
-                      size: "sm",
-                      color: "#000000",
-                      flex: 2,
-                      wrap: true,
-                    },
-                  ],
-                  spacing: "md",
-                  paddingAll: "12px",
-                },
-              ],
-            },
-            footer: {
-              type: "box",
-              layout: "vertical",
-              contents: [
-                {
-                  type: "text",
-                  text: "Please collect your parcel at the office",
-                  color: "#8C8C8C",
-                  size: "xs",
-                  align: "center",
-                  wrap: true,
-                },
-              ],
-              paddingAll: "20px",
-            },
-            styles: {
-              footer: {
-                separator: true,
-              },
-            },
-          },
-        };
-
-        console.log("Sending LINE notification to:", tenant.lineUserId);
-        console.log("Message payload:", JSON.stringify(message, null, 2));
-
-        await client.pushMessage(tenant.lineUserId, message);
-        console.log("LINE notification sent successfully");
-      } catch (lineError) {
-        console.error("Failed to send LINE notification:", lineError);
-        if (lineError.response?.data) {
-          console.error("LINE API Error details:", lineError.response.data);
-        }
-        console.error("Error message:", lineError.message);
-        console.error("Full error object:", JSON.stringify(lineError, null, 2));
-      }
-    } else {
-      console.log("No LINE userId found for tenant:", tenant?._id);
-    }
-
-    // Return populated parcel data
-    const populatedParcel = await Parcel.findById(parcel._id)
-      .populate({
-        path: "tenant",
-        select: "name email phone lineUserId",
-      })
+    // Populate the saved parcel
+    const populatedParcel = await Parcel.findById(savedParcel._id)
       .populate({
         path: "room",
         populate: {
@@ -335,7 +117,8 @@ export async function POST(request) {
             path: "building",
           },
         },
-      });
+      })
+      .populate("tenant");
 
     return NextResponse.json(populatedParcel, { status: 201 });
   } catch (error) {

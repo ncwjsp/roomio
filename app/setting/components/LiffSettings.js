@@ -8,6 +8,8 @@ import {
   Paper,
   Grid,
   Typography,
+  CircularProgress,
+  Box,
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import SaveIcon from "@mui/icons-material/Save";
@@ -41,7 +43,6 @@ const LiffSettings = () => {
     channel: false,
     cleaning: false,
     maintenance: false,
-    reports: false,
     parcels: false,
     billing: false,
     announcement: false,
@@ -84,7 +85,6 @@ const LiffSettings = () => {
           liffIds: {
             cleaning: data.lineConfig.liffIds?.cleaning || "",
             maintenance: data.lineConfig.liffIds?.maintenance || "",
-            reports: data.lineConfig.liffIds?.reports || "",
             parcels: data.lineConfig.liffIds?.parcels || "",
             billing: data.lineConfig.liffIds?.billing || "",
             announcement: data.lineConfig.liffIds?.announcement || "",
@@ -209,7 +209,21 @@ const LiffSettings = () => {
     }, 3000);
   };
 
-  if (isLoading) return <div>Loading...</div>;
+  if (isLoading) {
+    return (
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: "300px",
+          width: "100%",
+        }}
+      >
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -256,7 +270,6 @@ const LiffSettings = () => {
           {[
             { key: "cleaning", label: "Cleaning URL" },
             { key: "maintenance", label: "Maintenance URL" },
-            { key: "reports", label: "Reports URL" },
             { key: "parcels", label: "Parcels URL" },
             { key: "billing", label: "Billing URL" },
             { key: "announcement", label: "Announcement URL" },

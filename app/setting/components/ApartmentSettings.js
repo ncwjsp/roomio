@@ -13,6 +13,8 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  CircularProgress,
+  Box,
 } from "@mui/material";
 
 const ApartmentSettings = () => {
@@ -46,6 +48,11 @@ const ApartmentSettings = () => {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
   const [buildings, setBuildings] = useState([]);
+  const [billingCycle, setBillingCycle] = useState({
+    startDate: 1,
+    endDate: 28,
+    dueDate: 5,
+  });
 
   useEffect(() => {
     fetchSettings();
@@ -97,7 +104,21 @@ const ApartmentSettings = () => {
     }
   };
 
-  if (isLoading) return <div>Loading...</div>;
+  if (isLoading) {
+    return (
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: "300px",
+          width: "100%",
+        }}
+      >
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -237,6 +258,73 @@ const ApartmentSettings = () => {
                 ),
               }}
             />
+          </Grid>
+        </Grid>
+      </Paper>
+
+      <Paper className="p-6">
+        <Typography variant="h6" className="mb-4">
+          Billing Cycle Settings
+        </Typography>
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={4}>
+            <FormControl fullWidth>
+              <InputLabel>Billing Start Date</InputLabel>
+              <Select
+                value={billingCycle.startDate}
+                onChange={(e) =>
+                  setBillingCycle({
+                    ...billingCycle,
+                    startDate: e.target.value,
+                  })
+                }
+                label="Billing Start Date"
+              >
+                {Array.from({ length: 28 }, (_, i) => (
+                  <MenuItem key={i + 1} value={i + 1}>
+                    {i + 1}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+
+          <Grid item xs={12} md={4}>
+            <FormControl fullWidth>
+              <InputLabel>Billing End Date</InputLabel>
+              <Select
+                value={billingCycle.endDate}
+                onChange={(e) =>
+                  setBillingCycle({ ...billingCycle, endDate: e.target.value })
+                }
+                label="Billing End Date"
+              >
+                {Array.from({ length: 28 }, (_, i) => (
+                  <MenuItem key={i + 1} value={i + 1}>
+                    {i + 1}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+
+          <Grid item xs={12} md={4}>
+            <FormControl fullWidth>
+              <InputLabel>Due Date</InputLabel>
+              <Select
+                value={billingCycle.dueDate}
+                onChange={(e) =>
+                  setBillingCycle({ ...billingCycle, dueDate: e.target.value })
+                }
+                label="Due Date"
+              >
+                {Array.from({ length: 31 }, (_, i) => (
+                  <MenuItem key={i + 1} value={i + 1}>
+                    {i + 1}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
           </Grid>
         </Grid>
       </Paper>

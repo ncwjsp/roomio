@@ -1,202 +1,379 @@
-"use client"
-import React, { useState } from 'react';
-import DatePicker from 'react-datepicker';
-import 'react-datepicker/dist/react-datepicker.css';
+"use client";
 
-export default function MaintenanceServicePage() {
-  const [buildingNo, setBuildingNo] = useState('');
-  const [roomNo, setRoomNo] = useState('');
-  const [serviceType, setServiceType] = useState('');
-  const [details, setDetails] = useState('');
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [selectedTime, setSelectedTime] = useState('');
-  const [isServiceConfirmed, setIsServiceConfirmed] = useState(false);
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { format } from "date-fns";
+import Image from "next/image";
 
-  const availableTimes = ['7:30 AM', '8:30 AM', '10:00 AM', '11:30 AM', '3:00 PM'];
+const MaintenancePage = () => {
+  const [userId, setUserId] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [tickets, setTickets] = useState([]);
+  const [landlordId, setLandlordId] = useState(null);
+  const [showNewRequestModal, setShowNewRequestModal] = useState(false);
+  const [newRequest, setNewRequest] = useState({
+    problem: "",
+    description: "",
+    images: [],
+  });
+  const [uploadingImages, setUploadingImages] = useState(false);
+  const [previewImages, setPreviewImages] = useState([]);
 
-  const datePickerCustomStyles = `
-    .react-datepicker {
-      font-size: 16px;
+  useEffect(() => {
+    const initializeLiff = async () => {
+      try {
+        const { searchParams } = new URL(window.location.href);
+        const id = searchParams.get("id"); // landlord's id
+
+        if (!id) {
+          throw new Error("ID not provided in URL");
+        }
+
+        setLandlordId(id);
+
+        const response = await fetch(
+          `/api/user/line-config?id=${id}&feature=maintenance`
+        );
+        const data = await response.json();
+        console.log("Line config response:", data);
+
+        const maintenanceLiffId = data.lineConfig?.liffIds?.maintenance;
+        if (!maintenanceLiffId) {
+          throw new Error("LIFF ID not configured for maintenance feature");
+        }
+
+        const liff = (await import("@line/liff")).default;
+        await liff.init({
+          liffId: maintenanceLiffId,
+        });
+
+        if (!liff.isLoggedIn()) {
+          await liff.login();
+          return;
+        }
+
+        const profile = await liff.getProfile();
+        setUserId(profile.userId);
+
+        // Fetch maintenance tickets for this tenant
+        fetchMaintenanceByLineIdAndLandlord(profile.userId, id);
+      } catch (error) {
+        console.error("Failed to initialize LIFF:", error);
+        setError("Failed to initialize LINE login");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    const fetchMaintenanceByLineIdAndLandlord = async (
+      lineUserId,
+      landlordId
+    ) => {
+      try {
+        setIsLoading(true);
+        const response = await fetch(
+          `/api/maintenance?lineUserId=${lineUserId}&landlordId=${landlordId}`
+        );
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch maintenance tickets");
+        }
+
+        const data = await response.json();
+        setTickets(data.tickets || []);
+      } catch (error) {
+        console.error("Failed to fetch maintenance tickets:", error);
+        setError("Failed to load maintenance tickets");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    initializeLiff();
+  }, []);
+
+  const getStatusColor = (status) => {
+    switch (status?.toLowerCase()) {
+      case "completed":
+        return "bg-green-100 text-green-800";
+      case "in progress":
+        return "bg-blue-100 text-blue-800";
+      case "pending":
+        return "bg-yellow-100 text-yellow-800";
+      default:
+        return "bg-gray-100 text-gray-800";
     }
-    .react-datepicker__day-name, .react-datepicker__day, .react-datepicker__time-name {
-      width: 2.9rem;
-      line-height: 2.9rem;
-      margin: 0.166rem;
-    }
-    .react-datepicker__header {
-      background-color: white;
-      border-bottom: none;
-    }
-    .react-datepicker__day--selected, .react-datepicker__day--keyboard-selected {
-      border-radius: 50%;
-      background-color: #FF0000; // Red background for selected day
-      color: white;
-    }
-    .react-datepicker__day:hover {
-      background-color: #FFCCCC; // Light red for hover
-    }
-  `;
-
-  const flexRowStyle = {
-    display: 'flex',
-    alignItems: 'flex-start',
-    marginBottom: '20px'
   };
 
-  const flexColumnStyle = {
-    display: 'flex',
-    flexDirection: 'column',
-    marginRight: '10px',
-    flex: 1
-  };
+  const handleImageUpload = async (e) => {
+    try {
+      setUploadingImages(true);
+      const files = Array.from(e.target.files);
 
-  const inputStyle = {
-    padding: '10px',
-    fontSize: '16px',
-    borderRadius: '5px',
-    border: '1px solid #ccc',
-    width: '100%'
-  };
+      // Create preview URLs
+      const previews = files.map((file) => URL.createObjectURL(file));
+      setPreviewImages((prev) => [...prev, ...previews]);
 
-  const labelStyle = {
-    marginBottom: '5px'
-  };
+      // Upload each file to S3
+      const uploadPromises = files.map(async (file) => {
+        const formData = new FormData();
+        formData.append("file", file);
 
-  const buttonStyle = {
-    padding: '10px 20px',
-    fontSize: '16px',
-    borderRadius: '5px',
-    border: 'none',
-    cursor: 'pointer',
-    margin: '0 10px',
-  };
+        const response = await fetch("/api/s3-upload", {
+          method: "POST",
+          body: formData,
+        });
 
-  const confirmButtonStyle = {
-    ...buttonStyle,
-    backgroundColor: '#E9EDD3',
-    color: '#898F63',
-  };
+        if (!response.ok) {
+          throw new Error("Failed to upload image");
+        }
 
-  const cancelButtonStyle = {
-    ...buttonStyle,
-    backgroundColor: '#D85C5C',
-    color: 'white'
-  };
+        const data = await response.json();
+        return `https://${process.env.NEXT_PUBLIC_AWS_BUCKET_NAME}.s3.${process.env.NEXT_PUBLIC_AWS_REGION}.amazonaws.com/${data.fileName}`;
+      });
 
-  const handleConfirmation = () => {
-    if (window.confirm("Are you sure you want to confirm this service request?")) {
-      setIsServiceConfirmed(true);
+      const uploadedUrls = await Promise.all(uploadPromises);
+      setNewRequest((prev) => ({
+        ...prev,
+        images: [...prev.images, ...uploadedUrls],
+      }));
+    } catch (error) {
+      console.error("Image upload failed:", error);
+      setError("Failed to upload images");
+    } finally {
+      setUploadingImages(false);
     }
   };
 
-  const handleCancellation = () => {
-    if (window.confirm("Are you sure you want to cancel this service request?")) {
-      setIsServiceConfirmed(false);
+  const removeImage = (index) => {
+    setNewRequest((prev) => ({
+      ...prev,
+      images: prev.images.filter((_, i) => i !== index),
+    }));
+    setPreviewImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSubmitRequest = async (e) => {
+    e.preventDefault();
+    try {
+      setIsLoading(true);
+      const response = await fetch("/api/maintenance", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ...newRequest,
+          lineUserId: userId,
+          landlordId: landlordId,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to create maintenance request");
+      }
+
+      // Refresh the tickets list
+      fetchMaintenanceByLineIdAndLandlord(userId, landlordId);
+      setShowNewRequestModal(false);
+      setNewRequest({ problem: "", description: "", images: [] });
+      setPreviewImages([]);
+    } catch (error) {
+      setError("Failed to create request");
+    } finally {
+      setIsLoading(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return <div className="p-4 text-center text-red-500">{error}</div>;
+  }
 
   return (
-    <div className="p-5 font-sans">
-      <style>{datePickerCustomStyles}</style>
-      <header className="text-2xl font-bold mb-5">Maintenance Service</header>
-
-      <div style={flexRowStyle}>
-        <div style={flexColumnStyle}>
-          <label style={labelStyle}>Building No.:</label>
-          <input
-            type="text"
-            placeholder="Enter building number"
-            value={buildingNo}
-            onChange={(e) => setBuildingNo(e.target.value)}
-            style={inputStyle}
-          />
-        </div>
-        <div style={flexColumnStyle}>
-          <label style={labelStyle}>Room No.:</label>
-          <input
-            type="text"
-            placeholder="Enter room number"
-            value={roomNo}
-            onChange={(e) => setRoomNo(e.target.value)}
-            style={inputStyle}
-          />
-        </div>
+    <div className="min-h-screen bg-gray-50 p-4">
+      {/* Header */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">
+          Maintenance Requests
+        </h1>
+        <button
+          onClick={() => setShowNewRequestModal(true)}
+          className="bg-[#889F63] text-white px-4 py-2 rounded-lg inline-block shadow-sm hover:bg-[#7A8F53] transition-colors"
+        >
+          New Request
+        </button>
       </div>
 
-      <div style={flexRowStyle}>
-        <div style={flexColumnStyle}>
-          <label style={labelStyle}>Service Type:</label>
-          <select
-            value={serviceType}
-            onChange={(e) => setServiceType(e.target.value)}
-            style={inputStyle}
-          >
-            <option value="">Choose the service</option>
-            <option value="plumbing">Plumbing</option>
-            <option value="electrical">Electrical</option>
-            <option value="cleaning">Cleaning</option>
-            <option value="other">Other</option>
-          </select>
-        </div>
-        <div style={{ ...flexColumnStyle, marginRight: 0 }}>
-          <label style={labelStyle}>Details:</label>
-          <textarea
-            placeholder="Tell more about the problem"
-            value={details}
-            onChange={(e) => setDetails(e.target.value)}
-            style={{ ...inputStyle, height: '100px' }} // Adjusted for textarea
-          />
-        </div>
-      </div>
-
-      <label className="block mb-2">Select Time Slot:</label>
-      <div className="grid grid-cols-3 gap-4 mb-5">
-        {availableTimes.map((time, index) => (
-          <button
-            key={index}
-            style={{
-              padding: '10px 20px',
-              fontSize: '16px',
-              borderRadius: '5px',
-              border: 'none',
-              backgroundColor: selectedTime === time ? '#E9EDD3' : 'white',
-              color: selectedTime === time ? '#898F63' : 'black',
-              cursor: 'pointer',
-              fontWeight: selectedTime === time ? 'bold' : 'normal',
-            }}
-            onClick={() => setSelectedTime(time)}
-          >
-            {time}
-          </button>
-        ))}
-      </div>
-
-      <div className="mb-5" style={{ display: 'flex', justifyContent: 'center' }}>
-        <DatePicker
-          selected={selectedDate}
-          onChange={(date) => setSelectedDate(date)}
-          inline
-          calendarClassName="custom-calendar"
-        />
-      </div>
-
-      <div className="flex justify-end">
-        {isServiceConfirmed ? (
-          <button
-            style={cancelButtonStyle}
-            onClick={handleCancellation}
-          >
-            Cancel Service
-          </button>
+      {/* Tickets List */}
+      <div className="space-y-4">
+        {!tickets?.length ? (
+          <div className="text-center py-8">
+            <p className="text-gray-500 mb-4">No maintenance requests found</p>
+            <button
+              onClick={() => setShowNewRequestModal(true)}
+              className="bg-[#889F63] text-white px-6 py-3 rounded-lg inline-block shadow-sm hover:bg-[#7A8F53] transition-colors"
+            >
+              Create Your First Maintenance Request
+            </button>
+          </div>
         ) : (
-          <button
-            style={confirmButtonStyle}
-            onClick={handleConfirmation}
-          >
-            Confirm Service
-          </button>
+          tickets.map((ticket) => (
+            <Link
+              key={ticket._id}
+              href={`/line/maintenance/${landlordId}/ticket/${ticket._id}?liff.state=${userId}`}
+              className="block bg-white rounded-lg shadow p-4 hover:shadow-md transition-shadow"
+            >
+              <div className="flex justify-between items-start mb-2">
+                <h3 className="font-semibold text-gray-900">
+                  {ticket.problem}
+                </h3>
+                <span
+                  className={`px-2 py-1 rounded-full text-xs ${getStatusColor(
+                    ticket.currentStatus
+                  )}`}
+                >
+                  {ticket.currentStatus}
+                </span>
+              </div>
+
+              <div className="text-sm text-gray-600 mb-2">
+                Room {ticket.room?.roomNumber}
+              </div>
+
+              <div className="text-sm text-gray-500">
+                {ticket.createdAt &&
+                  format(new Date(ticket.createdAt), "MMM d, yyyy")}
+              </div>
+            </Link>
+          ))
         )}
       </div>
+
+      {/* New Request Modal */}
+      {showNewRequestModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl font-semibold mb-4">
+              New Maintenance Request
+            </h2>
+            <form onSubmit={handleSubmitRequest}>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Problem
+                </label>
+                <input
+                  type="text"
+                  value={newRequest.problem}
+                  onChange={(e) =>
+                    setNewRequest((prev) => ({
+                      ...prev,
+                      problem: e.target.value,
+                    }))
+                  }
+                  className="w-full p-2 border rounded-lg"
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Description
+                </label>
+                <textarea
+                  value={newRequest.description}
+                  onChange={(e) =>
+                    setNewRequest((prev) => ({
+                      ...prev,
+                      description: e.target.value,
+                    }))
+                  }
+                  className="w-full p-2 border rounded-lg"
+                  rows={4}
+                  required
+                />
+              </div>
+
+              {/* Image Upload */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Images
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleImageUpload}
+                  className="w-full"
+                  disabled={uploadingImages}
+                />
+                {uploadingImages && (
+                  <div className="text-sm text-gray-500 mt-1">
+                    Uploading images...
+                  </div>
+                )}
+
+                {/* Image Previews */}
+                {previewImages.length > 0 && (
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    {previewImages.map((preview, index) => (
+                      <div key={index} className="relative">
+                        <Image
+                          src={preview}
+                          alt={`Preview ${index + 1}`}
+                          width={150}
+                          height={150}
+                          className="rounded-lg object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeImage(index)}
+                          className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowNewRequestModal(false);
+                    setNewRequest({ problem: "", description: "", images: [] });
+                    setPreviewImages([]);
+                  }}
+                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={uploadingImages}
+                  className={`bg-[#889F63] text-white px-4 py-2 rounded-lg hover:bg-[#7A8F53] ${
+                    uploadingImages ? "opacity-50 cursor-not-allowed" : ""
+                  }`}
+                >
+                  Submit Request
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
-}
+};
+
+export default MaintenancePage;

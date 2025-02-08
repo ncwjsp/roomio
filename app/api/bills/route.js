@@ -75,28 +75,46 @@ export async function POST(request) {
 export async function GET(request) {
   try {
     await dbConnect();
+    const session = await getServerSession(authOptions);
+
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const month = searchParams.get("month");
-    const buildingId = searchParams.get("buildingId");
 
-    const query = {};
-    if (month) query.month = month;
-    if (buildingId) query.buildingId = buildingId;
+    if (!month) {
+      return NextResponse.json(
+        { error: "Month parameter is required" },
+        { status: 400 }
+      );
+    }
 
-    const bills = await Bill.find(query)
+    // Get all bills with populated tenant and building info
+    const bills = await Bill.find({
+      month: month,
+      createdBy: session.user.id,
+    })
       .populate({
         path: "roomId",
-        populate: {
-          path: "floor",
-          populate: {
-            path: "building",
+        populate: [
+          {
+            path: "floor",
+            populate: {
+              path: "building",
+              select: "name billingConfig waterRate electricityRate",
+            },
           },
-        },
+          {
+            path: "tenant",
+            select: "name leaseStartDate",
+            match: { active: true },
+          },
+        ],
       })
-      .populate("tenantId", "firstName lastName")
       .sort({ createdAt: -1 });
 
-    // Return an object with bills property
     return NextResponse.json({ bills });
   } catch (error) {
     console.error("Error fetching bills:", error);

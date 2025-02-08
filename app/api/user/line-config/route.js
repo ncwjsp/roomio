@@ -9,36 +9,55 @@ export async function GET(request) {
   try {
     await dbConnect();
     const { searchParams } = new URL(request.url);
-    const id = searchParams.get("id");
+    const userId = searchParams.get("id");
     const feature = searchParams.get("feature");
 
-    if (!id) {
-      return NextResponse.json({ error: "ID is required" }, { status: 400 });
+    if (!userId) {
+      return NextResponse.json(
+        { error: "User ID is required" },
+        { status: 400 }
+      );
     }
 
-    const user = await User.findById(id);
+    const user = await User.findById(userId).select("lineConfig");
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // If requesting specific feature's LIFF ID
-    if (feature) {
-      const liffId = user.lineConfig?.liffIds?.[feature] || "";
-      return NextResponse.json({ liffId });
+    console.log("Found user config:", {
+      userId,
+      feature,
+      lineConfig: user.lineConfig,
+      liffId: user.lineConfig?.liffIds?.[feature],
+    });
+
+    // Verify the specific LIFF ID exists based on the feature
+    if (feature && !user.lineConfig?.liffIds?.[feature]) {
+      return NextResponse.json(
+        { error: `${feature} LIFF ID not configured for this user` },
+        { status: 400 }
+      );
     }
 
     return NextResponse.json({
       lineConfig: {
-        channelAccessToken: user.lineConfig?.channelAccessToken || "",
-        channelSecret: user.lineConfig?.channelSecret || "",
-        liffIds: user.lineConfig?.liffIds || {},
+        ...user.lineConfig,
+        maintenanceLiffId: user.lineConfig?.liffIds?.maintenance,
+        // Add other specific LIFF IDs as needed
+        parcelsLiffId: user.lineConfig?.liffIds?.parcels,
+        reportsLiffId: user.lineConfig?.liffIds?.reports,
+        billingLiffId: user.lineConfig?.liffIds?.billing,
+        cleaningLiffId: user.lineConfig?.liffIds?.cleaning,
+        announcementLiffId: user.lineConfig?.liffIds?.announcement,
+        scheduleLiffId: user.lineConfig?.liffIds?.schedule,
+        tasksLiffId: user.lineConfig?.liffIds?.tasks,
       },
     });
   } catch (error) {
-    console.error("Error fetching LINE config:", error);
+    console.error("Error fetching line config:", error);
     return NextResponse.json(
-      { error: "Failed to fetch LINE configuration" },
+      { error: "Failed to fetch line config" },
       { status: 500 }
     );
   }

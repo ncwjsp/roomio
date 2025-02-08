@@ -30,7 +30,6 @@ const Register = () => {
       channelSecret: "",
       liffIds: {
         parcels: "",
-        reports: "",
         billing: "",
         cleaning: "",
         maintenance: "",

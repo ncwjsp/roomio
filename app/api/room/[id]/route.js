@@ -62,7 +62,6 @@ export async function PUT(request, context) {
       path: "floor",
       populate: {
         path: "building",
-        select: "createdBy",
       },
     });
 
@@ -75,20 +74,27 @@ export async function PUT(request, context) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    const updatedRoom = await Room.findByIdAndUpdate(
-      roomId,
-      { $set: updates },
-      { new: true }
-    ).populate({
-      path: "floor",
-      populate: {
-        path: "building",
-        select: "name",
-      },
+    // Apply all updates to the room document
+    Object.keys(updates).forEach((key) => {
+      if (key !== "currentMeterReadings") {
+        room[key] = updates[key];
+      }
     });
 
-    return NextResponse.json(updatedRoom);
+    // Update meter readings if provided
+    if (updates.currentMeterReadings) {
+      room.currentMeterReadings = {
+        ...room.currentMeterReadings,
+        ...updates.currentMeterReadings,
+        lastUpdated: new Date(),
+      };
+    }
+
+    await room.save();
+
+    return NextResponse.json(room);
   } catch (error) {
+    console.error("Error updating room:", error);
     return NextResponse.json(
       { error: "Failed to update room" },
       { status: 500 }

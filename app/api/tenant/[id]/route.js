@@ -178,7 +178,7 @@ export async function DELETE(request, context) {
 
         const goodbyeMessage = {
           type: "text",
-          text: `Thank you for staying with us at ${tenant.room.floor.building.name}. We hope to see you again!`,
+          text: `Thank you for staying with us, ${tenant.name}. We hope to see you again!`,
         };
 
         await client.pushMessage(tenant.lineUserId, goodbyeMessage);

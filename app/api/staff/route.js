@@ -49,7 +49,7 @@ export async function POST(request) {
 
     await staff.save();
 
-    // If staff is Housekeeper or Technician and has lineUserId, attach rich menu
+    // If staff has lineUserId, handle LINE setup
     if (
       ["Housekeeper", "Technician"].includes(staff.role) &&
       staff.lineUserId
@@ -59,14 +59,20 @@ export async function POST(request) {
         const user = await User.findById(session.user.id);
         const client = await getLineClient(session.user.id);
 
-        // Get the appropriate rich menu ID based on role
+        // Get the appropriate rich menu ID
         const richMenuId = user.lineConfig?.staffRichMenuId;
 
-        if (!richMenuId) {
-          throw new Error(`${staff.role} rich menu ID not configured`);
+        if (richMenuId) {
+          await client.linkRichMenuToUser(staff.lineUserId, richMenuId);
         }
 
-        await client.linkRichMenuToUser(staff.lineUserId, richMenuId);
+        // Send welcome message
+        await client.pushMessage(staff.lineUserId, {
+          type: "text",
+          text: `Welcome ${
+            staff.firstName
+          }! You have been registered as a ${staff.role.toLowerCase()}. Please use the menu below to manage your tasks.`,
+        });
       } catch (error) {
         console.error("Error with LINE operations:", error);
       }

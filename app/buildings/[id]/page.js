@@ -4,8 +4,7 @@ import { use } from "react";
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { CircularProgress } from "@mui/material";
-import Notification from "@/app/ui/notification";
+import { CircularProgress, Snackbar, Alert } from "@mui/material";
 
 export default function RoomDetails({ params }) {
   const roomId = use(params).id;
@@ -16,8 +15,11 @@ export default function RoomDetails({ params }) {
   const [error, setError] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editedRoom, setEditedRoom] = useState(null);
-  const [showNotification, setShowNotification] = useState(false);
-  const [notificationMessage, setNotificationMessage] = useState("");
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: "",
+    severity: "success",
+  });
 
   useEffect(() => {
     if (status === "authenticated") {
@@ -57,11 +59,17 @@ export default function RoomDetails({ params }) {
 
       setRoom(editedRoom);
       setIsEditing(false);
-      setNotificationMessage("Room updated successfully!");
-      setShowNotification(true);
+      setSnackbar({
+        open: true,
+        message: "Room updated successfully!",
+        severity: "success",
+      });
     } catch (err) {
-      setError(err.message);
-      setShowNotification(true);
+      setSnackbar({
+        open: true,
+        message: err.message,
+        severity: "error",
+      });
     }
   };
 
@@ -124,14 +132,14 @@ export default function RoomDetails({ params }) {
               </p>
             </div>
             <button
-              onClick={() => router.push("/units")}
+              onClick={() => router.push("/buildings")}
               className={`px-4 py-2 rounded-lg transition-colors ${
                 room?.status === "Available" || room?.status === "Unavailable"
                   ? "bg-white/10 hover:bg-white/20 text-white"
                   : "bg-gray-100 hover:bg-gray-200 text-gray-600"
               }`}
             >
-              Back to Units
+              Back to Buildings
             </button>
           </div>
         </div>
@@ -175,7 +183,7 @@ export default function RoomDetails({ params }) {
               <div className="flex justify-end gap-2 pt-4">
                 <button
                   onClick={handleCancel}
-                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-white hover:bg-gray-50 hover:text-gray-800"
                 >
                   Cancel
                 </button>
@@ -283,18 +291,21 @@ export default function RoomDetails({ params }) {
         </div>
       </div>
 
-      {showNotification && (
-        <Notification
-          message={notificationMessage || error}
-          type={error ? "bad" : "good"}
-          duration={3000}
-          onClose={() => {
-            setShowNotification(false);
-            setNotificationMessage("");
-            setError(null);
-          }}
-        />
-      )}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={3000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+        sx={{ mt: 6 }}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          sx={{ width: "100%" }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </div>
   );
 }

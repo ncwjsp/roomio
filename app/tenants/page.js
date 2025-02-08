@@ -130,6 +130,23 @@ export default function TenantsPage() {
     );
   }
 
+  const columns = [
+    {
+      field: "name",
+      headerName: "Name",
+      width: 200,
+      renderCell: (params) => (
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <Avatar src={params.row.pfp} alt={params.row.name}>
+            <PersonIcon />
+          </Avatar>
+          <Typography>{params.row.name}</Typography>
+        </Box>
+      ),
+    },
+    // ... other columns
+  ];
+
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       {/* Header Section */}

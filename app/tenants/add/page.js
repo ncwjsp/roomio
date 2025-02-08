@@ -52,9 +52,11 @@ const AddTenant = () => {
     pfp: "",
     room: "",
     depositAmount: "",
+    fromDate: "",
+    toDate: "",
   });
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
+  const [fromDate, setFromDate] = useState(dayjs());
+  const [toDate, setToDate] = useState(dayjs().add(1, "year"));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
@@ -84,6 +86,11 @@ const AddTenant = () => {
   const [errorMessage, setErrorMessage] = useState("");
   const [selectedBuildingFilter, setSelectedBuildingFilter] = useState("all");
   const [selectedFloorFilter, setSelectedFloorFilter] = useState("all");
+  const [meterReadings, setMeterReadings] = useState({
+    water: 0,
+    electricity: 0,
+  });
+  const [currentReadings, setCurrentReadings] = useState(null);
   const router = useRouter();
 
   const handleInputChange = (e) => {
@@ -106,57 +113,49 @@ const AddTenant = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    setError(null);
-
     try {
-      // Validate required fields
-      if (!selectedRoom || !fromDate || !toDate || !tenantData.depositAmount) {
-        throw new Error("Please fill in all required fields");
+      setLoading(true);
+      setError(null);
+
+      if (!selectedContact) {
+        setError("Please select a LINE contact");
+        return;
       }
 
-      // Get the selected contact's LINE user ID
-      const lineUserId = selectedContact?.userId;
-      if (!lineUserId) {
-        throw new Error("No LINE contact selected");
+      if (!selectedRoom) {
+        setError("Please select a room");
+        return;
       }
-
-      const tenantPayload = {
-        owner: session?.user?.id,
-        name: tenantData.name,
-        email: tenantData.email,
-        phone: tenantData.phone,
-        lineId: tenantData.lineId,
-        lineUserId: lineUserId, // Add LINE user ID
-        pfp: tenantData.pfp,
-        room: selectedRoom._id,
-        leaseStartDate: fromDate,
-        leaseEndDate: toDate,
-        depositAmount: Number(tenantData.depositAmount),
-      };
-
-      console.log("Sending tenant payload:", tenantPayload); // Debug log
 
       const response = await fetch("/api/tenant", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(tenantPayload),
+        body: JSON.stringify({
+          name: tenantData.name,
+          email: tenantData.email,
+          phone: tenantData.phone,
+          lineId: tenantData.lineId,
+          lineUserId: selectedContact.userId,
+          room: selectedRoom._id,
+          fromDate: fromDate,
+          toDate: toDate,
+          depositAmount: parseFloat(tenantData.depositAmount),
+          initialMeterReadings: meterReadings,
+          landlordId: session.user.id,
+        }),
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        // Log the error details
-        console.error("Server response:", data);
-        throw new Error(data.error);
+        const data = await response.json();
+        throw new Error(data.error || "Failed to create tenant");
       }
 
-      // Success - redirect to tenants page
+      setSuccess(true);
       router.push("/tenants");
     } catch (error) {
-      console.error("Error adding tenant:", error);
+      console.error("Error creating tenant:", error);
       setError(error.message);
     } finally {
       setLoading(false);
@@ -197,7 +196,17 @@ const AddTenant = () => {
   };
 
   const handleSelectContact = (contact) => {
-    setSelectedContact(contact);
+    console.log("Selected Contact Data:", contact);
+    if (!contact || !contact._id) {
+      setError("Invalid LINE contact data");
+      return;
+    }
+    setSelectedContact({
+      id: contact._id,
+      userId: contact.userId,
+      name: contact.name || "",
+      pfp: contact.pfp || "",
+    });
     setTenantData((prev) => ({
       ...prev,
       pfp: contact.pfp || "",
@@ -240,22 +249,38 @@ const AddTenant = () => {
   const handleOpenRoomModal = () => setOpenRoomModal(true);
   const handleCloseRoomModal = () => setOpenRoomModal(false);
 
-  const handleSelectRoom = (room) => {
-    setSelectedRoom({
-      _id: room._id,
-      roomNumber: room.roomNumber,
-      floor: {
-        floorNumber: room.floorNumber,
-        building: {
-          name: room.buildingName,
-        },
-      },
-    });
-    setTenantData((prev) => ({
-      ...prev,
-      room: room._id,
-    }));
-    handleCloseRoomModal();
+  const handleRoomSelect = async (room) => {
+    setSelectedRoom(room);
+
+    try {
+      const response = await fetch(`/api/room/${room._id}`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch room details");
+      }
+      const roomData = await response.json();
+
+      // Set current meter readings from room data
+      setCurrentReadings(roomData.currentMeterReadings);
+
+      // Initialize meter readings with current values
+      setMeterReadings({
+        water: roomData.currentMeterReadings.water || 0,
+        electricity: roomData.currentMeterReadings.electricity || 0,
+      });
+
+      // Update selected room with populated data
+      setSelectedRoom({
+        ...roomData,
+        buildingName: roomData.floor?.building?.name || "N/A",
+        floorNumber: roomData.floor?.floorNumber || "N/A",
+      });
+
+      // Close the room selection modal
+      setOpenRoomModal(false);
+    } catch (error) {
+      console.error("Error fetching room details:", error);
+      setError("Failed to fetch room meter readings");
+    }
   };
 
   const handleDeselectRoom = () => {
@@ -410,7 +435,9 @@ const AddTenant = () => {
                 label="Name"
                 name="name"
                 value={tenantData.name}
-                onChange={handleInputChange}
+                onChange={(e) =>
+                  setTenantData((prev) => ({ ...prev, name: e.target.value }))
+                }
                 fullWidth
                 required
                 error={!!errors.name}
@@ -612,7 +639,7 @@ const AddTenant = () => {
                     </Box>
                     <IconButton
                       size="small"
-                      onClick={() => setSelectedRoom(null)}
+                      onClick={handleDeselectRoom}
                       sx={{
                         position: "absolute",
                         right: 8,
@@ -636,30 +663,64 @@ const AddTenant = () => {
               )}
             </Grid>
 
-            <Grid item xs={12} md={6}>
-              <TextField
-                label="Deposit Amount"
-                name="depositAmount"
-                type="number"
-                value={tenantData.depositAmount}
-                onChange={handleInputChange}
-                fullWidth
-                required
-                sx={{ backgroundColor: "white" }}
-              />
-            </Grid>
+            {selectedRoom && (
+              <>
+                <Grid item xs={12}>
+                  <Typography variant="subtitle1" gutterBottom sx={{ mt: 2 }}>
+                    Meter Readings
+                  </Typography>
+                  {currentReadings && (
+                    <Alert severity="info" sx={{ mb: 2 }}>
+                      Current readings - Water: {currentReadings.water} m³,
+                      Electricity: {currentReadings.electricity} kWh
+                      {currentReadings.lastUpdated &&
+                        ` (Last updated: ${new Date(
+                          currentReadings.lastUpdated
+                        ).toLocaleDateString()})`}
+                    </Alert>
+                  )}
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    label="Water Meter Reading"
+                    type="number"
+                    value={meterReadings.water}
+                    onChange={(e) =>
+                      handleMeterReadingChange("water", e.target.value)
+                    }
+                    fullWidth
+                    required
+                    InputProps={{
+                      inputProps: { min: 0, step: "any" },
+                    }}
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    label="Electricity Meter Reading"
+                    type="number"
+                    value={meterReadings.electricity}
+                    onChange={(e) =>
+                      handleMeterReadingChange("electricity", e.target.value)
+                    }
+                    fullWidth
+                    required
+                    InputProps={{
+                      inputProps: { min: 0, step: "any" },
+                    }}
+                  />
+                </Grid>
+              </>
+            )}
 
             <Grid item xs={12} md={6}>
               <DatePicker
-                label="Lease Start Date"
-                value={fromDate ? dayjs(fromDate) : null}
-                onChange={(newValue) =>
-                  setFromDate(newValue ? newValue.format("YYYY-MM-DD") : "")
-                }
-                sx={{ width: "100%", backgroundColor: "white" }}
+                label="From Date *"
+                value={fromDate}
+                onChange={(newValue) => setFromDate(newValue)}
                 slotProps={{
                   textField: {
-                    required: true,
+                    fullWidth: true,
                     error: !!errors.fromDate,
                     helperText: errors.fromDate,
                   },
@@ -669,18 +730,34 @@ const AddTenant = () => {
 
             <Grid item xs={12} md={6}>
               <DatePicker
-                label="Lease End Date"
-                value={toDate ? dayjs(toDate) : null}
-                onChange={(newValue) =>
-                  setToDate(newValue ? newValue.format("YYYY-MM-DD") : "")
-                }
-                sx={{ width: "100%", backgroundColor: "white" }}
+                label="To Date *"
+                value={toDate}
+                onChange={(newValue) => setToDate(newValue)}
                 slotProps={{
                   textField: {
-                    required: true,
+                    fullWidth: true,
                     error: !!errors.toDate,
                     helperText: errors.toDate,
                   },
+                }}
+              />
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <TextField
+                label="Deposit Amount *"
+                name="depositAmount"
+                type="number"
+                value={tenantData.depositAmount}
+                onChange={handleInputChange}
+                fullWidth
+                required
+                error={!!errors.depositAmount}
+                helperText={errors.depositAmount}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">฿</InputAdornment>
+                  ),
                 }}
               />
             </Grid>
@@ -714,6 +791,60 @@ const AddTenant = () => {
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  const fetchAvailableRooms = async () => {
+    try {
+      const response = await fetch("/api/room", {
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch rooms");
+      }
+
+      const data = await response.json();
+
+      // Log all rooms with their status
+      data.rooms.forEach((room) => {
+        console.log(`Room ${room.roomNumber}: ${room.status}`);
+      });
+
+      // Filter and transform the rooms
+      const availableRooms = data.rooms
+        .filter((room) => {
+          const isAvailable = room.status === "Available";
+          console.log(
+            `Filtering ${room.roomNumber}: status=${room.status}, isAvailable=${isAvailable}`
+          );
+          return isAvailable;
+        })
+        .map((room) => ({
+          _id: room._id,
+          roomNumber: room.roomNumber,
+          building: room.floor?.building || {},
+          floor: room.floor || {},
+          price: room.price || 0,
+        }))
+        .sort((a, b) => {
+          const buildingCompare = (a.building?.name || "").localeCompare(
+            b.building?.name || ""
+          );
+          if (buildingCompare !== 0) return buildingCompare;
+
+          const floorCompare =
+            (a.floor?.floorNumber || 0) - (b.floor?.floorNumber || 0);
+          if (floorCompare !== 0) return floorCompare;
+
+          return a.roomNumber.localeCompare(b.roomNumber);
+        });
+
+      console.log("Available rooms after filtering:", availableRooms.length);
+      setRooms(availableRooms);
+    } catch (error) {
+      console.error("Error fetching rooms:", error);
+      setError("Failed to fetch available rooms");
+    }
   };
 
   useEffect(() => {
@@ -752,6 +883,20 @@ const AddTenant = () => {
       fetchRooms();
     }
   }, [session, status]);
+
+  useEffect(() => {
+    if (session?.user?.id) {
+      fetchAvailableRooms();
+    }
+  }, [session]);
+
+  // Add a handler for meter reading changes
+  const handleMeterReadingChange = (type, value) => {
+    setMeterReadings((prev) => ({
+      ...prev,
+      [type]: value,
+    }));
+  };
 
   return (
     <Box sx={{ maxWidth: 1200, margin: "0 auto", p: 3 }}>
@@ -1076,7 +1221,7 @@ const AddTenant = () => {
                   {getPaginatedBuildingData().paginatedRooms.map((room) => (
                     <button
                       key={room._id}
-                      onClick={() => handleSelectRoom(room)}
+                      onClick={() => handleRoomSelect(room)}
                       className={`
                         p-4 rounded-lg text-left transition-colors border
                         ${

@@ -1,16 +1,23 @@
 "use client";
 
-import { useState } from "react";
-import { Tabs, Tab, Box, Typography } from "@mui/material";
+import { useState, useEffect } from "react";
+import { Tabs, Tab, Box, Typography, CircularProgress } from "@mui/material";
 import ApartmentSettings from "./components/ApartmentSettings";
 import LiffSettings from "./components/LiffSettings";
 import AccountSettings from "./components/AccountSettings";
+import PaymentSettings from "./components/PaymentSettings";
 
 const SettingsPage = () => {
   const [currentTab, setCurrentTab] = useState(0);
+  const [loading, setLoading] = useState(false);
 
   const handleTabChange = (event, newValue) => {
+    setLoading(true);
     setCurrentTab(newValue);
+    // Use requestAnimationFrame for smoother transition
+    requestAnimationFrame(() => {
+      setTimeout(() => setLoading(false), 300);
+    });
   };
 
   return (
@@ -24,30 +31,31 @@ const SettingsPage = () => {
           aria-label="settings tabs"
         >
           <Tab label="Apartment" />
-          <Tab label="LINE LIFF" />
+          <Tab label="Payment" />
+          <Tab label="LINE CONFIG" />
           <Tab label="Account" />
         </Tabs>
       </Box>
 
-      {/* Apartment Settings */}
-      {currentTab === 0 && (
-        <div role="tabpanel">
-          <ApartmentSettings />
-        </div>
-      )}
-
-      {/* LIFF Settings */}
-      {currentTab === 1 && (
-        <div role="tabpanel">
-          <LiffSettings />
-        </div>
-      )}
-
-      {/* Account Settings */}
-      {currentTab === 2 && (
-        <div role="tabpanel">
-          <AccountSettings />
-        </div>
+      {loading ? (
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            minHeight: "300px",
+            width: "100%",
+          }}
+        >
+          <CircularProgress />
+        </Box>
+      ) : (
+        <Box sx={{ width: "100%" }}>
+          {currentTab === 0 && <ApartmentSettings />}
+          {currentTab === 1 && <PaymentSettings />}
+          {currentTab === 2 && <LiffSettings />}
+          {currentTab === 3 && <AccountSettings />}
+        </Box>
       )}
     </div>
   );

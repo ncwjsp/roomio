@@ -17,44 +17,32 @@ export async function POST(request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json();
     await dbConnect();
-
-    // Find the LINE contact
-    const lineContact = await LineContact.findOne({ userId: body.lineUserId });
-
-    if (!lineContact) {
-      return NextResponse.json(
-        { error: "LINE contact not found" },
-        { status: 404 }
-      );
-    }
+    const data = await request.json();
 
     // Validate required fields
     const requiredFields = [
       "name",
-      "email",
-      "phone",
-      "lineId",
       "room",
+      "fromDate",
+      "toDate",
       "depositAmount",
-      "leaseStartDate",
-      "leaseEndDate",
+      "lineId",
+      "lineUserId",
+      "initialMeterReadings",
     ];
 
-    const missingFields = requiredFields.filter((field) => !body[field]);
-    if (missingFields.length > 0) {
-      return NextResponse.json(
-        {
-          error: "Missing required fields",
-          missingFields,
-        },
-        { status: 400 }
-      );
+    for (const field of requiredFields) {
+      if (!data[field]) {
+        return NextResponse.json(
+          { error: `Missing required field: ${field}` },
+          { status: 400 }
+        );
+      }
     }
 
-    // Verify room exists and belongs to the current user's buildings
-    const room = await Room.findById(body.room).populate({
+    // Validate and update room status
+    const room = await Room.findById(data.room).populate({
       path: "floor",
       populate: {
         path: "building",
@@ -65,15 +53,6 @@ export async function POST(request) {
       return NextResponse.json({ error: "Room not found" }, { status: 404 });
     }
 
-    // Check if room belongs to the current user
-    if (room.floor.building.createdBy.toString() !== session.user.id) {
-      return NextResponse.json(
-        { error: "Unauthorized to add tenant to this room" },
-        { status: 403 }
-      );
-    }
-
-    // Check if room is available
     if (room.status === "Occupied") {
       return NextResponse.json(
         { error: "Room is already occupied" },
@@ -81,52 +60,62 @@ export async function POST(request) {
       );
     }
 
-    // Create new tenant with landlordId
-    const tenantData = {
-      name: body.name,
-      email: body.email,
-      phone: body.phone,
-      lineId: body.lineId,
-      lineUserId: lineContact.userId,
-      room: body.room,
-      depositAmount: body.depositAmount,
-      leaseStartDate: body.leaseStartDate,
-      leaseEndDate: body.leaseEndDate,
-      pfp: body.pfp || lineContact.pfp,
-      landlordId: session.user.id, // Add landlordId from session
-    };
+    // Create tenant
+    const tenant = await Tenant.create({
+      ...data,
+      createdBy: session.user.id,
+      leaseStartDate: new Date(data.fromDate),
+      leaseEndDate: new Date(data.toDate),
+      status: "Active",
+      initialMeterReadings: {
+        water: parseFloat(data.initialMeterReadings.water),
+        electricity: parseFloat(data.initialMeterReadings.electricity),
+      },
+    });
 
-    const newTenant = new Tenant(tenantData);
-    await newTenant.save();
+    // Update room with new readings and tenant
+    await Room.findByIdAndUpdate(data.room, {
+      status: "Occupied",
+      tenant: tenant._id,
+      currentMeterReadings: {
+        water: parseFloat(data.initialMeterReadings.water),
+        electricity: parseFloat(data.initialMeterReadings.electricity),
+        lastUpdated: new Date(),
+      },
+    });
+
+    // Find the LINE contact
+    const lineContact = await LineContact.findOne({ userId: data.lineUserId });
+
+    if (!lineContact) {
+      return NextResponse.json(
+        { error: "LINE contact not found" },
+        { status: 404 }
+      );
+    }
 
     // Update the LINE contact
     await LineContact.findByIdAndUpdate(lineContact._id, {
       isTenant: true,
-      tenantId: newTenant._id,
-    });
-
-    // Update room status
-    await Room.findByIdAndUpdate(body.room, {
-      tenant: newTenant._id,
-      status: "Occupied",
+      tenantId: tenant._id,
     });
 
     // Get LINE client and user config
     const user = await User.findById(session.user.id);
     const client = await getLineClient(session.user.id);
 
-    // Attach tenant rich menu using the ID from user's config
+    // Send welcome message with tenant details
     try {
       if (!user.lineConfig?.tenantRichMenuId) {
         throw new Error("Tenant rich menu ID not configured");
       }
 
       await client.linkRichMenuToUser(
-        lineContact.userId,
-        user.lineConfig.tenantRichMenuId // Use the ID from user's config
+        data.lineUserId,
+        user.lineConfig.tenantRichMenuId
       );
 
-      // Send welcome message with tenant details
+      // Now room.floor.building.name should be available
       const welcomeMessage = {
         type: "flex",
         altText: "Welcome to your new home!",
@@ -144,7 +133,7 @@ export async function POST(request) {
                 color: "#ffffff",
               },
             ],
-            backgroundColor: "#27ae60",
+            backgroundColor: "#898F63",
           },
           body: {
             type: "box",
@@ -152,7 +141,7 @@ export async function POST(request) {
             contents: [
               {
                 type: "text",
-                text: `Dear ${body.name},`,
+                text: `Dear ${data.name},`,
                 weight: "bold",
                 size: "md",
                 wrap: true,
@@ -180,7 +169,7 @@ export async function POST(request) {
                       },
                       {
                         type: "text",
-                        text: `${room.floor.building.name}`,
+                        text: room.floor.building.name || "N/A",
                         size: "sm",
                         flex: 4,
                         wrap: true,
@@ -222,9 +211,9 @@ export async function POST(request) {
                       {
                         type: "text",
                         text: `${new Date(
-                          body.leaseStartDate
+                          data.fromDate
                         ).toLocaleDateString()} - ${new Date(
-                          body.leaseEndDate
+                          data.toDate
                         ).toLocaleDateString()}`,
                         size: "sm",
                         flex: 4,
@@ -246,7 +235,7 @@ export async function POST(request) {
                       },
                       {
                         type: "text",
-                        text: `฿${body.depositAmount.toLocaleString()}`,
+                        text: `฿${data.depositAmount.toLocaleString()}`,
                         size: "sm",
                         flex: 4,
                       },
@@ -273,31 +262,20 @@ export async function POST(request) {
         },
       };
 
-      await client.pushMessage(lineContact.userId, welcomeMessage);
+      await client.pushMessage(data.lineUserId, welcomeMessage);
     } catch (lineError) {
       console.error("Error with LINE operations:", lineError);
       // Continue with tenant creation even if LINE operations fail
     }
 
-    // Populate and return the new tenant
-    const populatedTenant = await Tenant.findById(newTenant._id).populate({
-      path: "room",
-      populate: {
-        path: "floor",
-        populate: {
-          path: "building",
-        },
-      },
+    return NextResponse.json({
+      message: "Tenant created successfully",
+      tenant,
     });
-
-    return NextResponse.json(populatedTenant, { status: 201 });
   } catch (error) {
     console.error("Error creating tenant:", error);
     return NextResponse.json(
-      {
-        error: "Failed to create tenant",
-        details: error.message,
-      },
+      { error: error.message || "Failed to create tenant" },
       { status: 500 }
     );
   }

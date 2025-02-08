@@ -2,50 +2,64 @@ import { NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import Room from "@/app/models/Room";
 import Floor from "@/app/models/Floor";
-import Building from "@/app/models/Building";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/authOptions";
 
 export async function POST(request) {
   try {
     await dbConnect();
-    const data = await request.json();
+    const session = await getServerSession(authOptions);
 
-    // Validate building exists
-    const building = await Building.findById(data.buildingId);
-    if (!building) {
-      return NextResponse.json(
-        { message: "Building not found" },
-        { status: 404 }
-      );
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check if room number already exists in this building
-    const existingRoom = await Room.findOne({
-      building: data.buildingId,
-      roomNumber: data.roomNumber,
-    });
+    const { floor: floorId, roomNumber, price } = await request.json();
 
-    if (existingRoom) {
+    // Validate required fields
+    if (!floorId || !roomNumber || !price) {
       return NextResponse.json(
-        { message: `Room ${data.roomNumber} already exists in this building` },
+        { error: "Missing required fields" },
         { status: 400 }
       );
     }
 
-    // Create room
+    // First get the floor to get its building ID
+    const floor = await Floor.findById(floorId).populate("building");
+    if (!floor) {
+      return NextResponse.json({ error: "Floor not found" }, { status: 404 });
+    }
+
+    // Create new room
     const room = await Room.create({
-      building: data.buildingId,
-      roomNumber: data.roomNumber,
-      floor: data.floor,
-      price: data.price,
+      floor: floorId,
+      building: floor.building._id,
+      roomNumber,
+      price,
       status: "Available",
-      createdBy: data.createdBy,
+      createdBy: session.user.id,
     });
 
-    return NextResponse.json({ room }, { status: 201 });
+    // Update the floor to include this room
+    await Floor.findByIdAndUpdate(
+      floorId,
+      { $push: { rooms: room._id } },
+      { new: true }
+    );
+
+    // Populate the room data
+    const populatedRoom = await Room.findById(room._id).populate({
+      path: "floor",
+      populate: {
+        path: "building",
+      },
+    });
+
+    return NextResponse.json(populatedRoom, { status: 201 });
   } catch (error) {
-    console.error("Error in room API:", error);
+    console.error("Error creating room:", error);
     return NextResponse.json(
-      { message: "Failed to create room", error: error.message },
+      { error: "Failed to create room" },
       { status: 500 }
     );
   }
@@ -54,47 +68,37 @@ export async function POST(request) {
 export async function GET(request) {
   try {
     await dbConnect();
-    const { searchParams } = new URL(request.url);
-    const buildingId = searchParams.get("buildingId");
-    const status = searchParams.get("status");
+    const session = await getServerSession(authOptions);
 
-    console.log("Fetching rooms with params:", { buildingId, status }); // Debug log
-
-    if (!buildingId) {
-      return NextResponse.json(
-        { error: "Building ID is required" },
-        { status: 400 }
-      );
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Build query
-    const query = {
-      building: buildingId,
-    };
+    // Get query parameters
+    const { searchParams } = new URL(request.url);
+    const status = searchParams.get("status");
 
+    // Build query
+    let query = {};
     if (status) {
       query.status = status;
     }
 
-    console.log("Query:", query); // Debug log
-
+    // Fetch rooms with populated data
     const rooms = await Room.find(query)
-      .populate("tenant")
       .populate({
         path: "floor",
         populate: {
           path: "building",
-          select: "name",
         },
-      });
-
-    console.log("Found rooms:", rooms.length); // Debug log
+      })
+      .sort({ roomNumber: 1 });
 
     return NextResponse.json({ rooms });
   } catch (error) {
-    console.error("Error in room API:", error);
+    console.error("Error fetching rooms:", error);
     return NextResponse.json(
-      { error: "Failed to fetch rooms", details: error.message },
+      { error: "Failed to fetch rooms" },
       { status: 500 }
     );
   }
