@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Container,
   Paper,
@@ -60,118 +60,85 @@ const calculateRentAmount = (moveInDate, roomPrice, partialBillingEnabled) => {
   return roomPrice; // Full month for regular billing
 };
 
-const BillingPage = () => {
-  const [selectedTab, setSelectedTab] = useState(0);
-  const [selectedMonth, setSelectedMonth] = useState(new Date());
-  const [availableMonths, setAvailableMonths] = useState([]);
-  const [bills, setBills] = useState([]);
+export default function BillingPage() {
+  // State declarations
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
-  const [completionStatus, setCompletionStatus] = useState({
-    total: 0,
-    completed: 0,
-  });
-  const [buildings, setBuildings] = useState([]);
+  const [hasBankDetails, setHasBankDetails] = useState(false);
+  const [bills, setBills] = useState([]);
+  const [availableMonths, setAvailableMonths] = useState([]);
+  const [selectedMonth, setSelectedMonth] = useState(format(new Date(), "yyyy-MM"));
+  const [selectedTab, setSelectedTab] = useState(0);
   const [filters, setFilters] = useState({
     building: "",
     floor: "",
     roomNumber: "",
     status: "",
   });
+  const [buildings, setBuildings] = useState([]);
   const [floors, setFloors] = useState([]);
   const [tenantsWithoutBills, setTenantsWithoutBills] = useState({
     count: 0,
     hasNewTenants: false,
   });
+  const [completionStatus, setCompletionStatus] = useState({
+    total: 0,
+    completed: 0,
+  });
+  
   const router = useRouter();
 
-  // Fetch available months that have bills
-  const fetchAvailableMonths = async () => {
-    try {
-      const response = await fetch("/api/bills/months");
-      const data = await response.json();
-
-      if (data.months && Array.isArray(data.months)) {
-        // Sort months in descending order
-        const sortedMonths = [...data.months].sort((a, b) =>
-          b.localeCompare(a)
-        );
-
-        const months = sortedMonths
-          .map((month) => {
-            // Ensure month is in YYYY-MM format
-            if (typeof month === "string" && month.match(/^\d{4}-\d{2}$/)) {
-              return {
-                value: month,
-                label: format(new Date(month + "-01"), "MMMM yyyy"),
-              };
-            }
-            return null;
-          })
-          .filter(Boolean); // Remove any null values
-
-        // Add current month if not in the list
-        const currentMonth = format(new Date(), "yyyy-MM");
-        if (!months.find((m) => m.value === currentMonth)) {
-          months.unshift({
-            value: currentMonth,
-            label: format(new Date(), "MMMM yyyy"),
-          });
-        }
-
-        setAvailableMonths(months);
-
-        // Set selected month to most recent month
-        if (months.length > 0) {
-          const [year, month] = months[0].value.split("-");
-          setSelectedMonth(new Date(parseInt(year), parseInt(month) - 1, 1));
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching available months:", error);
-    }
-  };
-
+  // Fetch initial data including bank details and available months
   useEffect(() => {
-    fetchAvailableMonths();
+    const initializePage = async () => {
+      try {
+        // First check bank details
+        const bankResponse = await fetch('/api/settings/bank-details');
+        if (!bankResponse.ok) {
+          throw new Error('Failed to fetch bank details');
+        }
+        
+        const bankData = await bankResponse.json();
+        const hasValidBankDetails = Boolean(
+          bankData.bankCode?.trim() && 
+          bankData.accountNumber?.trim() && 
+          bankData.accountName?.trim()
+        );
+        setHasBankDetails(hasValidBankDetails);
+
+        // Only fetch billing data if bank details are valid
+        if (hasValidBankDetails) {
+          const monthsResponse = await fetch("/api/bills/months");
+          if (!monthsResponse.ok) {
+            throw new Error('Failed to fetch available months');
+          }
+          
+          const monthsData = await monthsResponse.json();
+          setAvailableMonths(monthsData.months || []);
+        }
+      } catch (error) {
+        console.error('Error initializing page:', error);
+        setError(error.message || 'Failed to initialize page');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initializePage();
   }, []);
 
-  useEffect(() => {
-    if (selectedMonth) {
-      fetchBills();
-      checkForNewTenants();
-    }
-  }, [selectedMonth]);
-
-  useEffect(() => {
-    if (bills.length > 0) {
-      const uniqueBuildings = [
-        ...new Set(bills.map((bill) => bill.building).filter(Boolean)),
-      ];
-      setBuildings(uniqueBuildings.sort());
-
-      // Extract floor numbers from room numbers
-      const uniqueFloors = [
-        ...new Set(
-          bills
-            .map((bill) => {
-              const match = bill.roomNumber?.match(/[A-Z](\d)(\d{2})/);
-              return match ? match[1] : null;
-            })
-            .filter(Boolean)
-        ),
-      ];
-      setFloors(uniqueFloors.sort((a, b) => a - b));
-    }
-  }, [bills]);
-
-  const fetchBills = async () => {
+  // Fetch bills function
+  const fetchBills = useCallback(async () => {
+    if (!selectedMonth || !hasBankDetails) return;
+    
     try {
       setLoading(true);
-      const month = format(selectedMonth, "yyyy-MM");
-
-      const response = await fetch(`/api/bills?month=${month}`);
+      const response = await fetch(`/api/bills?month=${selectedMonth}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch bills');
+      }
+      
       const data = await response.json();
       const billsData = Array.isArray(data) ? data : data.bills || [];
 
@@ -260,25 +227,52 @@ const BillingPage = () => {
           .length,
       });
     } catch (error) {
-      console.error("Error fetching bills:", error);
-      setError("Failed to fetch bills");
+      console.error('Error fetching bills:', error);
+      setError(error.message || 'Failed to fetch bills');
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedMonth, hasBankDetails]);
+
+  // Fetch bills when month changes
+  useEffect(() => {
+    fetchBills();
+  }, [fetchBills]);
+
+  useEffect(() => {
+    if (bills.length > 0) {
+      const uniqueBuildings = [
+        ...new Set(bills.map((bill) => bill.building).filter(Boolean)),
+      ];
+      setBuildings(uniqueBuildings.sort());
+
+      // Extract floor numbers from room numbers
+      const uniqueFloors = [
+        ...new Set(
+          bills
+            .map((bill) => {
+              const match = bill.roomNumber?.match(/[A-Z](\d)(\d{2})/);
+              return match ? match[1] : null;
+            })
+            .filter(Boolean)
+        ),
+      ];
+      setFloors(uniqueFloors.sort((a, b) => a - b));
+    }
+  }, [bills]);
 
   const handleMonthChange = (event) => {
     const [year, month] = event.target.value.split("-");
     const newDate = new Date(parseInt(year), parseInt(month) - 1, 1); // Add day 1
-    setSelectedMonth(newDate);
+    setSelectedMonth(format(newDate, "yyyy-MM"));
   };
 
   const handleCreateBills = async () => {
     try {
       // Format the date properly for the selected month
       const billingDate = new Date(
-        selectedMonth.getFullYear(),
-        selectedMonth.getMonth(),
+        selectedMonth.split("-")[0],
+        selectedMonth.split("-")[1] - 1,
         25 // Fixed billing date
       );
 
@@ -375,7 +369,7 @@ const BillingPage = () => {
   const checkForNewTenants = async () => {
     try {
       const response = await fetch(
-        `/api/tenant/check-new?month=${format(selectedMonth, "yyyy-MM")}`
+        `/api/tenant/check-new?month=${selectedMonth}`
       );
       const data = await response.json();
       console.log("Check new tenants response:", data); // Debug log
@@ -388,6 +382,12 @@ const BillingPage = () => {
       setTenantsWithoutBills({ count: 0, hasNewTenants: false });
     }
   };
+
+  useEffect(() => {
+    if (selectedMonth) {
+      checkForNewTenants();
+    }
+  }, [selectedMonth]);
 
   // Add this helper function
   const isMidMonthMoveIn = (moveInDate, billingDate) => {
@@ -432,6 +432,67 @@ const BillingPage = () => {
     );
   }
 
+  if (error) {
+    return (
+      <Container maxWidth="md" sx={{ py: 4 }}>
+        <Alert 
+          severity="error"
+          sx={{ mb: 2 }}
+        >
+          {error}
+        </Alert>
+      </Container>
+    );
+  }
+
+  if (!hasBankDetails) {
+    return (
+      <Container maxWidth="md" sx={{ py: 4 }}>
+        <Alert 
+          severity="warning"
+          sx={{ 
+            mb: 2,
+            '& .MuiAlert-icon': {
+              color: '#889F63'
+            }
+          }}
+        >
+          Please set up your bank account details before using the billing system.
+        </Alert>
+        <Paper 
+          elevation={0}
+          sx={{ 
+            p: 4, 
+            textAlign: 'center',
+            border: '1px solid',
+            borderColor: 'divider',
+            borderRadius: 2
+          }}
+        >
+          <Typography variant="h6" gutterBottom>
+            Bank Account Setup Required
+          </Typography>
+          <Typography color="text.secondary" sx={{ mb: 3 }}>
+            To use the billing system, you need to configure your bank account details first.
+            This ensures smooth payment processing for your tenants.
+          </Typography>
+          <Button
+            variant="contained"
+            onClick={() => router.push('/setting')}
+            sx={{
+              bgcolor: '#889F63',
+              '&:hover': {
+                bgcolor: '#7A8F53',
+              },
+            }}
+          >
+            Configure Bank Account
+          </Button>
+        </Paper>
+      </Container>
+    );
+  }
+
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
       <Box sx={{ width: "100%" }}>
@@ -463,25 +524,25 @@ const BillingPage = () => {
               <FormControl sx={{ minWidth: 200 }}>
                 <InputLabel>Select Month</InputLabel>
                 <Select
-                  value={format(selectedMonth, "yyyy-MM")}
+                  value={selectedMonth}
                   onChange={handleMonthChange}
                   label="Select Month"
                   size="small"
                 >
                   {availableMonths.map((option) => (
-                    <MenuItem key={option.value} value={option.value}>
-                      {option.label}
+                    <MenuItem key={option} value={option}>
+                      {format(new Date(option + "-01"), "MMMM yyyy")}
                     </MenuItem>
                   ))}
                 </Select>
               </FormControl>
 
               {console.log("Current state:", {
-                isCurrentMonth: isCurrentMonth(selectedMonth),
+                isCurrentMonth: isCurrentMonth(new Date(selectedMonth + "-01")),
                 tenantsWithoutBills,
                 selectedMonth,
               })}
-              {isCurrentMonth(selectedMonth) &&
+              {isCurrentMonth(new Date(selectedMonth + "-01")) &&
                 tenantsWithoutBills.hasNewTenants &&
                 tenantsWithoutBills.count > 0 && (
                   <Button
@@ -971,6 +1032,4 @@ const BillingPage = () => {
       )}
     </Container>
   );
-};
-
-export default BillingPage;
+}

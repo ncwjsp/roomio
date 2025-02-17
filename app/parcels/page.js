@@ -79,14 +79,14 @@ const ParcelsPage = () => {
       );
       if (!response.ok) throw new Error("Failed to fetch parcels");
 
-      const data = await response.json();
-      setParcels(data);
-      setFilteredParcels(data);
+      const { parcels: parcelData } = await response.json();
+      setParcels(parcelData || []);
+      setFilteredParcels(parcelData || []);
       setHasLoaded(true);
 
       // Get unique buildings using Set
       const uniqueBuildingsMap = new Map();
-      data.forEach((parcel) => {
+      (parcelData || []).forEach((parcel) => {
         const building = parcel.room?.floor?.building;
         if (building && building._id) {
           uniqueBuildingsMap.set(building._id, building);

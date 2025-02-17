@@ -38,20 +38,17 @@ function PaymentPage() {
         throw new Error("ID not provided in URL");
       }
 
-      // Get the billing-specific LIFF ID for this landlord
-      const response = await fetch(
-        `/api/user/line-config?id=${id}&feature=billing`
-      );
+      // Get the payment-specific LIFF ID for this landlord
+      const response = await fetch(`/api/user/line-config?id=${id}`);
       const data = await response.json();
 
-      const billingLiffId = data.lineConfig?.liffIds?.billing;
-      if (!billingLiffId) {
-        throw new Error("LIFF ID not configured for billing feature");
+      if (!data.liffIds.payment) {
+        throw new Error("LIFF ID not configured for payment feature");
       }
 
       const liff = (await import("@line/liff")).default;
       await liff.init({
-        liffId: billingLiffId,
+        liffId: data.liffIds.payment,
       });
 
       if (!liff.isLoggedIn()) {

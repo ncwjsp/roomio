@@ -1,213 +1,475 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import { format } from "date-fns";
+import {
+  Card,
+  CardContent,
+  Typography,
+  Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  Grid,
+  Box,
+  IconButton,
+  CircularProgress,
+  Container,
+  Paper,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  OutlinedInput,
+  InputAdornment,
+  Stack,
+} from "@mui/material";
+import {
+  Close as CloseIcon,
+  Schedule as ScheduleIcon,
+  Room as RoomIcon,
+  Description as DescriptionIcon,
+  Image as ImageIcon,
+  History as HistoryIcon,
+  Search as SearchIcon,
+  Person as PersonIcon,
+  Add as AddIcon,
+} from "@mui/icons-material";
+import Link from "next/link";
 
-const MaintenancePage = () => {
-  const buildings = ["A", "B", "C"];
-  const floors = Array.from({ length: 8 }, (_, i) => `${i + 1}`);
-  const workTypes = ["Plumber", "Electrician"];
-  const maintenanceStatuses = ["successful", "in process", "waiting"];
+export default function MaintenancePage() {
+  const { data: session } = useSession();
+  const [tickets, setTickets] = useState(null);
+  const [filteredTickets, setFilteredTickets] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [selectedTicket, setSelectedTicket] = useState(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [staff, setStaff] = useState([]);
 
-  const [maintenanceData, setMaintenanceData] = useState([]);
-  const [filteredBuilding, setFilteredBuilding] = useState("");
-  const [filteredFloor, setFilteredFloor] = useState("");
-  const [filteredWorkType, setFilteredWorkType] = useState("");
-  const [filteredStatus, setFilteredStatus] = useState("");
-  const [newRequest, setNewRequest] = useState({
-    roomNo: "",
-    building: "",
-    name: "",
-    date: "",
-    workType: "",
-    status: "",
-    assignedTo: "",
-  });
+  // Filter states
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [buildingFilter, setBuildingFilter] = useState("all");
+  const [floorFilter, setFloorFilter] = useState("all");
+  const [sortOrder, setSortOrder] = useState("desc");
 
-  const fetchMaintenanceRequests = () => {
-    fetch("/api/maintenance")
-      .then((res) => res.json())
-      .then((data) => setMaintenanceData(data))
-      .catch((error) => console.error("Error fetching maintenance data:", error));
+  const handleSearch = (event) => {
+    setSearchQuery(event.target.value);
+  };
+
+  const handleStatusChange = (event) => {
+    setStatusFilter(event.target.value);
+  };
+
+  const handleSortChange = (event) => {
+    setSortOrder(event.target.value);
+  };
+
+  // Get unique values for filters
+  const buildings = tickets
+    ? [...new Set(tickets
+        .filter(t => t.room?.building?.name)
+        .map(t => t.room.building.name))]
+        .sort()
+    : [];
+
+  const floors = tickets
+    ? [...new Set(tickets
+        .filter(t => t.room?.floor?.floorNumber)
+        .map(t => t.room.floor.floorNumber?.toString()))]
+        .sort((a, b) => parseInt(a) - parseInt(b))
+    : [];
+  const statuses = ["Pending", "In Progress", "Completed"];
+
+  const formatDate = (dateString) => {
+    try {
+      const date = new Date(dateString);
+      return format(date, "MMM d, yyyy 'at' h:mm a");
+    } catch (error) {
+      return "Invalid date";
+    }
   };
 
   useEffect(() => {
-    fetchMaintenanceRequests();
-  }, []);
+    const fetchData = async () => {
+      try {
+        if (!session?.user?.id) return;
 
-  const handleAddRequest = () => {
-    fetch("/api/maintenance", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(newRequest),
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to add maintenance request");
-        return res.json();
-      })
-      .then(() => {
-        fetchMaintenanceRequests();
-        setNewRequest({
-          roomNo: "",
-          building: "",
-          name: "",
-          date: "",
-          workType: "",
-          status: "",
-          assignedTo: "",
-        });
-      })
-      .catch((error) => console.error("Error adding maintenance request:", error));
+        // Fetch tickets
+        const ticketsResponse = await fetch(
+          `/api/maintenance/user/${session.user.id}`
+        );
+        if (!ticketsResponse.ok) throw new Error("Failed to fetch tickets");
+        const ticketsData = await ticketsResponse.json();
+        setTickets(ticketsData.tickets);
+
+        // Fetch staff
+        const staffResponse = await fetch(
+          `/api/staff/technician?landlordId=${session.user.id}`
+        );
+        if (!staffResponse.ok) throw new Error("Failed to fetch staff");
+        const staffData = await staffResponse.json();
+        setStaff(staffData.staff);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        setError(error.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [session]);
+
+  useEffect(() => {
+    if (!tickets) return;
+
+    let filtered = [...tickets];
+
+    // Apply status filter
+    if (statusFilter !== "all") {
+      filtered = filtered.filter(
+        (ticket) =>
+          ticket.currentStatus.toLowerCase() === statusFilter.toLowerCase()
+      );
+    }
+
+    // Apply building filter
+    if (buildingFilter !== "all") {
+      filtered = filtered.filter(
+        (ticket) => ticket.room?.building?.name === buildingFilter
+      );
+    }
+
+    // Apply floor filter
+    if (floorFilter !== "all") {
+      filtered = filtered.filter(
+        (ticket) => ticket.room?.floor?.floorNumber?.toString() === floorFilter
+      );
+    }
+
+    // Apply search query
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (ticket) =>
+          ticket.problem.toLowerCase().includes(query) ||
+          ticket.room?.building?.name?.toLowerCase().includes(query) ||
+          ticket.room?.floor?.floorNumber?.toString().includes(query) ||
+          ticket.room?.roomNumber?.toLowerCase().includes(query)
+      );
+    }
+
+    const sortedTickets = filtered.sort((a, b) => {
+      const dateA = new Date(a.createdAt);
+      const dateB = new Date(b.createdAt);
+      return sortOrder === "desc" ? dateB - dateA : dateA - dateB;
+    });
+
+    setFilteredTickets(sortedTickets);
+  }, [tickets, statusFilter, buildingFilter, floorFilter, searchQuery, sortOrder]);
+
+  const handleAssignTechnician = async (ticketId, technicianId) => {
+    try {
+      const response = await fetch(`/api/maintenance/${ticketId}/assign`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ technicianId }),
+      });
+
+      if (!response.ok) throw new Error("Failed to assign technician");
+
+      // Refresh tickets after assignment
+      const updatedTickets = await fetch(
+        `/api/maintenance/user/${session.user.id}`
+      );
+      const data = await updatedTickets.json();
+      setTickets(data.tickets);
+
+      // Update selected ticket
+      setSelectedTicket(data.tickets.find((t) => t._id === ticketId));
+    } catch (error) {
+      console.error("Error assigning technician:", error);
+      // Add error handling UI here
+    }
   };
 
-  const handleEditRequest = (id, updates) => {
-    fetch("/api/maintenance", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, updates }),
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to update maintenance request");
-        return res.json();
-      })
-      .then(() => fetchMaintenanceRequests())
-      .catch((error) => console.error("Error updating maintenance request:", error));
+  const handleTicketClick = (ticket) => {
+    setSelectedTicket(ticket);
+    setShowDetailModal(true);
   };
 
-  const handleDeleteRequests = (ids) => {
-    fetch("/api/maintenance", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ids }),
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to delete maintenance requests");
-        fetchMaintenanceRequests();
-      })
-      .catch((error) => console.error("Error deleting maintenance requests:", error));
+  const getStatusColor = (status) => {
+    switch (status?.toLowerCase()) {
+      case "Completed":
+        return "success";
+      case "In Progress":
+        return "info";
+      case "Pending":
+        return "warning";
+      default:
+        return "default";
+    }
   };
 
-  const filteredMaintenanceRequests = maintenanceData.filter((request) => {
-    const matchesBuilding = filteredBuilding
-      ? request.building === filteredBuilding
-      : true;
-    const matchesFloor = filteredFloor
-      ? request.roomNo.startsWith(filteredBuilding + filteredFloor)
-      : true;
-    const matchesWorkType = filteredWorkType
-      ? request.workType === filteredWorkType
-      : true;
-    const matchesStatus = filteredStatus
-      ? request.status === filteredStatus
-      : true;
-    return matchesBuilding && matchesFloor && matchesWorkType && matchesStatus;
-  });
+  if (isLoading) {
+    return (
+      <Box
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
+        minHeight="100vh"
+      >
+        <CircularProgress sx={{ color: "#889F63" }} />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
+        minHeight="100vh"
+      >
+        <Typography color="error">{error}</Typography>
+      </Box>
+    );
+  }
 
   return (
-    <div className="flex flex-col items-center min-h-screen bg-[#EBECE1]">
-      <div className="w-full max-w-6xl p-5">
-        <h1 className="text-3xl font-semibold mb-4">Maintenance Page</h1>
+    <Container maxWidth="lg" sx={{ py: 4 }}>
+      {/* Header */}
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 4,
+        }}
+      >
+        <Typography
+          variant="h4"
+          component="h1"
+          fontWeight="bold"
+          color="text.primary"
+        >
+          Maintenance Tickets
+        </Typography>
+        
+      </Box>
 
-        {/* Filters */}
-        <div className="bg-[#898F63] p-6 rounded-[10px] mb-8">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-            <select
-              className="px-4 py-2 bg-white rounded-[10px] border border-gray-300"
-              value={filteredBuilding}
-              onChange={(e) => setFilteredBuilding(e.target.value)}
-            >
-              <option value="">Select Building</option>
-              {buildings.map((building) => (
-                <option key={building} value={building}>
-                  Building {building}
-                </option>
-              ))}
-            </select>
-            <select
-              className="px-4 py-2 bg-white rounded-[10px] border border-gray-300"
-              value={filteredFloor}
-              onChange={(e) => setFilteredFloor(e.target.value)}
-            >
-              <option value="">Select Floor</option>
-              {floors.map((floor) => (
-                <option key={floor} value={floor}>
-                  Floor {floor}
-                </option>
-              ))}
-            </select>
-            <select
-              className="px-4 py-2 bg-white rounded-[10px] border border-gray-300"
-              value={filteredWorkType}
-              onChange={(e) => setFilteredWorkType(e.target.value)}
-            >
-              <option value="">Select Work Type</option>
-              {workTypes.map((workType) => (
-                <option key={workType} value={workType}>
-                  {workType}
-                </option>
-              ))}
-            </select>
-          </div>
-          <select
-            className="px-4 py-2 bg-white rounded-[10px] border border-gray-300"
-            value={filteredStatus}
-            onChange={(e) => setFilteredStatus(e.target.value)}
-          >
-            <option value="">Select Status</option>
-            {maintenanceStatuses.map((status) => (
-              <option key={status} value={status}>
-                {status}
-              </option>
-            ))}
-          </select>
-        </div>
+      {/* Filters */}
+      <Box
+        sx={{
+          mb: 4,
+          p: 2,
+          bgcolor: "background.paper",
+          borderRadius: 1,
+          boxShadow: 1,
+        }}
+      >
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField
+              fullWidth
+              size="small"
+              label="Search tickets"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by problem, building, floor..."
+              disabled={isLoading}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon sx={{ color: "text.secondary" }} />
+                  </InputAdornment>
+                ),
+              }}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={2}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Status</InputLabel>
+              <Select 
+                value={statusFilter} 
+                onChange={(e) => setStatusFilter(e.target.value)}
+                disabled={isLoading}
+              >
+                <MenuItem value="all">All</MenuItem>
+                {statuses.map((status) => (
+                  <MenuItem key={status} value={status}>
+                    {status}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} sm={6} md={2}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Building</InputLabel>
+              <Select 
+                value={buildingFilter} 
+                onChange={(e) => setBuildingFilter(e.target.value)}
+                disabled={isLoading}
+              >
+                <MenuItem value="all">All Buildings</MenuItem>
+                {buildings.map((building) => (
+                  <MenuItem key={building} value={building}>
+                    {building}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} sm={6} md={2}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Floor</InputLabel>
+              <Select 
+                value={floorFilter} 
+                onChange={(e) => setFloorFilter(e.target.value)}
+                disabled={isLoading}
+              >
+                <MenuItem value="all">All Floors</MenuItem>
+                {floors.map((floor) => (
+                  <MenuItem key={floor} value={floor}>
+                    Floor {floor}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Sort by Date</InputLabel>
+              <Select 
+                value={sortOrder} 
+                onChange={(e) => setSortOrder(e.target.value)}
+                disabled={isLoading}
+              >
+                <MenuItem value="desc">Newest First</MenuItem>
+                <MenuItem value="asc">Oldest First</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+        </Grid>
+      </Box>
 
-        {/* Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full table-auto border-collapse">
-            <thead className="bg-[#898F63] text-white">
-              <tr>
-                <th className="p-4">Room No.</th>
-                <th className="p-4">Building</th>
-                <th className="p-4">Firstname-Lastname</th>
-                <th className="p-4">DD/MM/YY</th>
-                <th className="p-4">Work Type</th>
-                <th className="p-4">Status</th>
-                <th className="p-4">Assigned To</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredMaintenanceRequests.map((request, index) => (
-                <tr
-                  key={index}
-                  className={`${
-                    index % 2 === 0 ? "bg-white" : "bg-gray-50"
-                  } text-gray-700`}
+      {/* Loading State */}
+      {isLoading ? (
+        <Box 
+          display="flex" 
+          justifyContent="center" 
+          alignItems="center" 
+          minHeight="200px"
+        >
+          <CircularProgress />
+        </Box>
+      ) : error ? (
+        <Box 
+          display="flex" 
+          justifyContent="center" 
+          alignItems="center" 
+          minHeight="200px"
+        >
+          <Typography color="error">{error}</Typography>
+        </Box>
+      ) : filteredTickets?.length === 0 ? (
+        <Box 
+          display="flex" 
+          justifyContent="center" 
+          alignItems="center" 
+          minHeight="200px"
+        >
+          <Typography color="text.secondary">No maintenance tickets found</Typography>
+        </Box>
+      ) : (
+        <Grid container spacing={3}>
+          {(filteredTickets || []).map((ticket) => (
+            <Grid item xs={12} sm={6} md={4} key={ticket._id}>
+              <Link
+                href={`/maintenance/${ticket._id}`}
+                style={{ textDecoration: "none" }}
+              >
+                <Card
+                  elevation={0}
+                  sx={{
+                    height: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    borderRadius: 2,
+                    border: "1px solid",
+                    borderColor: "divider",
+                    transition: "all 0.2s ease-in-out",
+                    "&:hover": {
+                      transform: "translateY(-4px)",
+                      boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
+                      borderColor: "#889F63",
+                    },
+                  }}
                 >
-                  <td className="p-4 text-center">{request.roomNo}</td>
-                  <td className="p-4 text-center">{request.building}</td>
-                  <td className="p-4 text-center">{request.name}</td>
-                  <td className="p-4 text-center">{request.date}</td>
-                  <td className="p-4 text-center">{request.workType}</td>
-                  <td
-                    className={`p-4 text-center font-semibold ${
-                      request.status === "successful"
-                        ? "text-[#009231]"
-                        : request.status === "in process"
-                        ? "text-[#FFA600]"
-                        : "text-[#F30505]"
-                    }`}
-                  >
-                    {request.status}
-                  </td>
-                  <td className="p-4 text-center">{request.assignedTo}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-};
+                  <CardContent sx={{ flex: 1, p: 3 }}>
+                    <Box
+                      display="flex"
+                      justifyContent="space-between"
+                      alignItems="start"
+                      mb={2}
+                    >
+                      <Typography
+                        variant="h6"
+                        component="span"
+                        fontWeight="medium"
+                        sx={{
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          display: "-webkit-box",
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: "vertical",
+                        }}
+                      >
+                        {ticket.problem}
+                      </Typography>
+                      <Chip
+                        label={ticket.currentStatus}
+                        color={getStatusColor(ticket.currentStatus)}
+                        size="small"
+                        sx={{
+                          ml: 1,
+                          minWidth: 90,
+                        }}
+                      />
+                    </Box>
 
-export default MaintenancePage;
+                    <Stack spacing={1.5}>
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <RoomIcon sx={{ color: "#889F63", fontSize: 20 }} />
+                        <Typography variant="body2" component="span">
+                          Building {ticket.room?.building?.name || '?'}, Floor {ticket.room?.floor?.floorNumber || '?'}, Room {ticket.room?.roomNumber || '?'}
+                        </Typography>
+                      </Box>
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <ScheduleIcon fontSize="small" color="action" />
+                        <Typography variant="body2" color="text.secondary">
+                          {formatDate(ticket.createdAt)}
+                        </Typography>
+                      </Box>
+                      
+                    </Stack>
+                  </CardContent>
+                </Card>
+              </Link>
+            </Grid>
+          ))}
+        </Grid>
+      )}
+    </Container>
+  );
+}

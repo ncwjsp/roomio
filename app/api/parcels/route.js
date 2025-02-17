@@ -7,71 +7,36 @@ import Building from "@/app/models/Building";
 import { NextResponse } from "next/server";
 import { Client } from "@line/bot-sdk";
 import User from "@/app/models/User";
+import { getLineClient } from "@/lib/line";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/authOptions";
 
 export async function GET(request) {
   try {
     await dbConnect();
-    const { searchParams } = new URL(request.url);
-    const lineUserId = searchParams.get("lineUserId");
-    const landlordId = searchParams.get("landlordId");
+    const session = await getServerSession(authOptions);
 
-    console.log("lineUserId:", lineUserId);
-    console.log("landlordId:", landlordId);
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
 
-    // Admin panel request
-    if (landlordId) {
-      console.log("Fetching parcels for landlordId:", landlordId);
-      const parcels = await Parcel.find({ landlordId })
-        .populate("tenant", "name email phone") // Using 'tenant' instead of 'tenantId'
-        .populate({
-          path: "room",
+    const parcels = await Parcel.find({ landlordId: session.user.id })
+      .populate("tenant", "name email phone")
+      .populate({
+        path: "room",
+        populate: {
+          path: "floor",
           populate: {
-            path: "floor",
-            populate: {
-              path: "building",
-            },
+            path: "building",
           },
-        })
-        .sort({ createdAt: -1 });
+        },
+      })
+      .sort({ createdAt: -1 });
 
-      console.log("Found parcels:", parcels.length);
-      return NextResponse.json(parcels);
-    }
-
-    // LINE app request
-    if (lineUserId && landlordId) {
-      const landlord = await User.findById(landlordId);
-      if (!landlord) {
-        return NextResponse.json(
-          { error: "Landlord not found" },
-          { status: 404 }
-        );
-      }
-
-      const tenant = await Tenant.findOne({
-        lineUserId: lineUserId,
-        landlordId: landlord._id,
-      });
-
-      if (!tenant) {
-        return NextResponse.json(
-          { error: "Tenant not found" },
-          { status: 404 }
-        );
-      }
-
-      const parcels = await Parcel.find({
-        tenant: tenant._id,
-        landlordId: landlord._id,
-      }).sort({ createdAt: -1 });
-
-      return NextResponse.json({ parcels });
-    }
-
-    return NextResponse.json(
-      { error: "Invalid request parameters" },
-      { status: 400 }
-    );
+    return NextResponse.json({ parcels });
   } catch (error) {
     console.error("Error fetching parcels:", error);
     return NextResponse.json(
@@ -86,28 +51,201 @@ export async function POST(request) {
     await dbConnect();
 
     const parcelData = await request.json();
-    console.log("Received parcel data:", parcelData);
-
     // Get the room and its tenant
     const room = await Room.findById(parcelData.room).populate("tenant");
     if (!room) {
       return NextResponse.json({ error: "Room not found" }, { status: 404 });
     }
 
-    // Automatically set the tenant from the room
-    parcelData.tenant = room.tenant?._id;
-
-    if (!parcelData.tenant) {
-      return NextResponse.json(
-        { error: "No tenant found in this room" },
-        { status: 400 }
-      );
-    }
-
-    const parcel = new Parcel(parcelData);
+    // Create new parcel
+    const parcel = new Parcel({
+      room: room._id,
+      tenant: room.tenant._id,
+      recipient: parcelData.recipient,
+      trackingNumber: parcelData.trackingNumber,
+      status: "uncollected",
+      landlordId: room.tenant.landlordId, // Add landlordId from tenant
+    });
     const savedParcel = await parcel.save();
 
-    // Populate the saved parcel
+    // Get populated room data for the notification
+    const populatedRoom = await Room.findById(room._id)
+      .populate({
+        path: "floor",
+        populate: {
+          path: "building",
+        },
+      });
+
+    // Send LINE notification if tenant has LINE userId
+    if (room.tenant?.lineUserId) {
+      try {
+        const client = await getLineClient(room.tenant.landlordId);
+        const message = {
+          type: "flex",
+          altText: "New Parcel Arrived",
+          contents: {
+            type: "bubble",
+            size: "mega",
+            header: {
+              type: "box",
+              layout: "vertical",
+              contents: [
+                {
+                  type: "box",
+                  layout: "vertical",
+                  contents: [
+                    {
+                      type: "text",
+                      text: "📦 NEW PARCEL ARRIVED",
+                      color: "#ffffff",
+                      size: "lg",
+                      flex: 4,
+                      weight: "bold",
+                      align: "center",
+                    },
+                  ],
+                },
+              ],
+              paddingAll: "20px",
+              backgroundColor: "#898F63",
+              spacing: "md",
+              height: "60px",
+              paddingTop: "22px",
+            },
+            body: {
+              type: "box",
+              layout: "vertical",
+              contents: [
+                {
+                  type: "box",
+                  layout: "horizontal",
+                  contents: [
+                    {
+                      type: "text",
+                      text: "Recipient",
+                      size: "sm",
+                      color: "#8C8C8C",
+                      flex: 1,
+                    },
+                    {
+                      type: "text",
+                      text: parcelData.recipient || "N/A",
+                      size: "sm",
+                      color: "#000000",
+                      flex: 2,
+                      wrap: true,
+                    },
+                  ],
+                  spacing: "md",
+                  paddingAll: "12px",
+                },
+                {
+                  type: "box",
+                  layout: "horizontal",
+                  contents: [
+                    {
+                      type: "text",
+                      text: "Room",
+                      size: "sm",
+                      color: "#8C8C8C",
+                      flex: 1,
+                    },
+                    {
+                      type: "text",
+                      text: populatedRoom.roomNumber || "N/A",
+                      size: "sm",
+                      color: "#000000",
+                      flex: 2,
+                      wrap: true,
+                    },
+                  ],
+                  spacing: "md",
+                  paddingAll: "12px",
+                },
+                {
+                  type: "box",
+                  layout: "horizontal",
+                  contents: [
+                    {
+                      type: "text",
+                      text: "Building",
+                      size: "sm",
+                      color: "#8C8C8C",
+                      flex: 1,
+                    },
+                    {
+                      type: "text",
+                      text: populatedRoom.floor?.building?.name || "N/A",
+                      size: "sm",
+                      color: "#000000",
+                      flex: 2,
+                      wrap: true,
+                    },
+                  ],
+                  spacing: "md",
+                  paddingAll: "12px",
+                },
+                {
+                  type: "box",
+                  layout: "horizontal",
+                  contents: [
+                    {
+                      type: "text",
+                      text: "Tracking",
+                      size: "sm",
+                      color: "#8C8C8C",
+                      flex: 1,
+                    },
+                    {
+                      type: "text",
+                      text: parcelData.trackingNumber || "N/A",
+                      size: "sm",
+                      color: "#000000",
+                      flex: 2,
+                      wrap: true,
+                    },
+                  ],
+                  spacing: "md",
+                  paddingAll: "12px",
+                },
+              ],
+            },
+            footer: {
+              type: "box",
+              layout: "vertical",
+              contents: [
+                {
+                  type: "text",
+                  text: "Please collect your parcel at the office",
+                  color: "#8C8C8C",
+                  size: "xs",
+                  align: "center",
+                  wrap: true,
+                },
+              ],
+              paddingAll: "20px",
+            },
+            styles: {
+              footer: {
+                separator: true,
+              },
+            },
+          },
+        };
+
+        console.log("Sending LINE notification to:", room.tenant.lineUserId);
+        await client.pushMessage(room.tenant.lineUserId, message);
+        console.log("LINE notification sent successfully");
+      } catch (lineError) {
+        console.error("Failed to send LINE notification:", lineError);
+        if (lineError.response?.data) {
+          console.error("LINE API Error details:", lineError.response.data);
+        }
+      }
+    }
+
+    // Populate the saved parcel for response
     const populatedParcel = await Parcel.findById(savedParcel._id)
       .populate({
         path: "room",
@@ -133,7 +271,6 @@ export async function POST(request) {
 export async function PUT(request) {
   try {
     const body = await request.json();
-    console.log("Updating parcel:", body);
 
     if (!body.trackingNumber) {
       return NextResponse.json(

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import Maintenance from "@/app/models/Maintenance";
 import Tenant from "@/app/models/Tenant";
+import Room from "@/app/models/Room";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 
@@ -31,7 +32,13 @@ export async function GET(request) {
 
     const tickets = await Maintenance.find({
       tenant: tenant._id,
-    }).populate("room");
+    }).populate({
+      path: "room",
+      populate: [
+        { path: "building", select: "name" },
+        { path: "floor", select: "floorNumber" }
+      ]
+    });
 
     return NextResponse.json({ tickets });
   } catch (error) {
@@ -61,7 +68,10 @@ export async function POST(request) {
       lineUserId,
       landlordId,
       active: true,
-    }).populate("room");
+    }).populate({
+      path: "room",
+      model: Room,
+    });
 
     if (!tenant) {
       return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
@@ -75,15 +85,15 @@ export async function POST(request) {
       description,
       images: images?.map((url) => ({ url })) || [],
       currentStatus: "Pending",
-      landlordId: tenant.room.createdBy,
+      landlordId: landlordId,
       createdBy: tenant._id,
       statusHistory: [
         {
           status: "Pending",
           updatedBy: tenant._id,
-          updatedByModel: "USER",
-          note: "Request created",
-          timestamp: new Date(),
+          updatedByModel: "Tenant",
+          comment: "Initial request created",
+          updatedAt: new Date(),
         },
       ],
     });

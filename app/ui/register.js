@@ -30,10 +30,11 @@ const Register = () => {
       channelSecret: "",
       liffIds: {
         parcels: "",
-        billing: "",
+        payment: "",
         cleaning: "",
         maintenance: "",
         announcement: "",
+        tenantInfo: "",
         schedule: "",
         tasks: "",
       },
@@ -77,8 +78,13 @@ const Register = () => {
 
   const handleNext = () => {
     if (currentStep === 0) {
+      if (formData.password.length < 6) {
+        setError("Password must be at least 6 characters long");
+        return;
+      }
+
       if (formData.password !== formData.confirmPassword) {
-        setError("Passwords do not match.");
+        setError("Passwords do not match");
         return;
       }
       setCurrentStep(1);

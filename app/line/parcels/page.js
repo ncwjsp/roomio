@@ -30,18 +30,16 @@ const ParcelsPage = () => {
         }
 
         // Get the parcels-specific LIFF ID for this landlord
-        const response = await fetch(
-          `/api/user/line-config?id=${id}&feature=parcels`
-        );
+        const response = await fetch(`/api/user/line-config?id=${id}`);
         const data = await response.json();
 
-        if (!data.liffId) {
+        if (!data.liffIds.parcels) {
           throw new Error("LIFF ID not configured for parcels feature");
         }
 
         const liff = (await import("@line/liff")).default;
         await liff.init({
-          liffId: data.liffId,
+          liffId: data.liffIds.parcels,
         });
 
         if (!liff.isLoggedIn()) {

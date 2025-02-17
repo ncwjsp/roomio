@@ -11,8 +11,11 @@ import {
   CircularProgress,
   Box,
 } from "@mui/material";
+import { useSession } from "next-auth/react";
 
 const AccountSettings = () => {
+  const { data: session } = useSession();
+
   const [profile, setProfile] = useState({
     firstName: "",
     lastName: "",
@@ -28,16 +31,36 @@ const AccountSettings = () => {
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-    fetchProfile();
-  }, []);
+    if (session?.user?.id) {
+      fetchProfile();
+    }
+  }, [session]);
 
   const fetchProfile = async () => {
     try {
-      const response = await fetch("/api/user/profile");
+      if (!session?.user?.id) {
+        throw new Error("No user ID available");
+      }
+
+      const response = await fetch(`/api/user/profile?id=${session.user.id}`);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to load profile");
+      }
+
       const data = await response.json();
-      setProfile(data);
+      if (!data) {
+        throw new Error("No profile data received");
+      }
+
+      setProfile({
+        firstName: data.firstName || "",
+        lastName: data.lastName || "",
+        email: data.email || "",
+      });
     } catch (error) {
-      setError("Failed to load profile");
+      setError(error.message || "Failed to load profile");
     } finally {
       setIsLoading(false);
     }
@@ -52,11 +75,13 @@ const AccountSettings = () => {
       const response = await fetch("/api/user/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(profile),
+        body: JSON.stringify({
+          id: session.user.id,
+          ...profile,
+        }),
       });
 
       if (!response.ok) throw new Error("Failed to update profile");
-
       setSuccess(true);
     } catch (error) {
       setError(error.message);
@@ -68,6 +93,21 @@ const AccountSettings = () => {
     setError(null);
     setSuccess(false);
 
+    // Client-side validation
+    if (
+      !passwords.currentPassword ||
+      !passwords.newPassword ||
+      !passwords.confirmPassword
+    ) {
+      setError("All password fields are required");
+      return;
+    }
+
+    if (passwords.newPassword.length < 6) {
+      setError("Password must be at least 6 characters long");
+      return;
+    }
+
     if (passwords.newPassword !== passwords.confirmPassword) {
       setError("New passwords don't match");
       return;
@@ -77,10 +117,18 @@ const AccountSettings = () => {
       const response = await fetch("/api/user/password", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(passwords),
+        body: JSON.stringify({
+          id: session.user.id,
+          currentPassword: passwords.currentPassword,
+          newPassword: passwords.newPassword,
+        }),
       });
 
-      if (!response.ok) throw new Error("Failed to update password");
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to update password");
+      }
 
       setSuccess(true);
       setPasswords({
@@ -88,6 +136,11 @@ const AccountSettings = () => {
         newPassword: "",
         confirmPassword: "",
       });
+
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setSuccess(false);
+      }, 3000);
     } catch (error) {
       setError(error.message);
     }
@@ -174,6 +227,10 @@ const AccountSettings = () => {
             onChange={(e) =>
               setPasswords({ ...passwords, currentPassword: e.target.value })
             }
+            error={!!error && error.includes("current password")}
+            helperText={
+              error && error.includes("current password") ? error : ""
+            }
             required
           />
           <TextField
@@ -183,6 +240,12 @@ const AccountSettings = () => {
             value={passwords.newPassword}
             onChange={(e) =>
               setPasswords({ ...passwords, newPassword: e.target.value })
+            }
+            error={!!error && error.includes("new password")}
+            helperText={
+              error && error.includes("new password")
+                ? error
+                : "Password must be at least 6 characters long"
             }
             required
           />
@@ -194,6 +257,8 @@ const AccountSettings = () => {
             onChange={(e) =>
               setPasswords({ ...passwords, confirmPassword: e.target.value })
             }
+            error={!!error && error.includes("don't match")}
+            helperText={error && error.includes("don't match") ? error : ""}
             required
           />
           <Button

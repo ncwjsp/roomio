@@ -4,9 +4,6 @@ import dbConnect from "@/lib/mongodb";
 import LineContact from "@/app/models/LineContact";
 import User from "@/app/models/User";
 
-// const config = {
-//   channelSecret: process.env.CHANNEL_SECRET,
-// };
 
 async function getLineClient(id) {
   await dbConnect();

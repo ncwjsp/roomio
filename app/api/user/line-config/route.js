@@ -8,56 +8,32 @@ import dbConnect from "@/lib/mongodb";
 export async function GET(request) {
   try {
     await dbConnect();
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get("id");
-    const feature = searchParams.get("feature");
 
-    if (!userId) {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
       return NextResponse.json(
         { error: "User ID is required" },
         { status: 400 }
       );
     }
 
-    const user = await User.findById(userId).select("lineConfig");
-
+    const user = await User.findById(id);
+    console.log("Found user:", user); // Debug log
+    
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    console.log("Found user config:", {
-      userId,
-      feature,
-      lineConfig: user.lineConfig,
-      liffId: user.lineConfig?.liffIds?.[feature],
-    });
+    // Debug log
+    console.log("Line config:", user.lineConfig);
 
-    // Verify the specific LIFF ID exists based on the feature
-    if (feature && !user.lineConfig?.liffIds?.[feature]) {
-      return NextResponse.json(
-        { error: `${feature} LIFF ID not configured for this user` },
-        { status: 400 }
-      );
-    }
-
-    return NextResponse.json({
-      lineConfig: {
-        ...user.lineConfig,
-        maintenanceLiffId: user.lineConfig?.liffIds?.maintenance,
-        // Add other specific LIFF IDs as needed
-        parcelsLiffId: user.lineConfig?.liffIds?.parcels,
-        reportsLiffId: user.lineConfig?.liffIds?.reports,
-        billingLiffId: user.lineConfig?.liffIds?.billing,
-        cleaningLiffId: user.lineConfig?.liffIds?.cleaning,
-        announcementLiffId: user.lineConfig?.liffIds?.announcement,
-        scheduleLiffId: user.lineConfig?.liffIds?.schedule,
-        tasksLiffId: user.lineConfig?.liffIds?.tasks,
-      },
-    });
+    return NextResponse.json({ lineConfig: user.lineConfig || {} });
   } catch (error) {
     console.error("Error fetching line config:", error);
     return NextResponse.json(
-      { error: "Failed to fetch line config" },
+      { error: "Failed to fetch LINE configuration" },
       { status: 500 }
     );
   }

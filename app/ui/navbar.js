@@ -22,7 +22,7 @@ export default function Navbar() {
     "/line/billing",
     "/line/report",
     "/line/schedule",
-    "/line/task",
+    "/line/tasks",
     "/line/announcement",
   ];
 

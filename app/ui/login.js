@@ -10,9 +10,6 @@ import {
   TextField,
   Button,
   Box,
-  FormControlLabel,
-  Checkbox,
-  Link as MuiLink,
 } from "@mui/material";
 
 const Login = () => {
@@ -101,31 +98,6 @@ const Login = () => {
             onChange={(e) => setPassword(e.target.value)}
             required
           />
-
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              my: 2,
-            }}
-          >
-            <FormControlLabel
-              control={<Checkbox size="small" />}
-              label={
-                <Typography variant="body2" color="textSecondary">
-                  Remember me
-                </Typography>
-              }
-            />
-            <MuiLink
-              href="#"
-              variant="body2"
-              sx={{ color: "text.secondary", textDecoration: "none" }}
-            >
-              Forgot Password?
-            </MuiLink>
-          </Box>
 
           <Button
             type="submit"

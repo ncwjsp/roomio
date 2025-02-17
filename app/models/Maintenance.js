@@ -4,24 +4,24 @@ const Schema = mongoose.Schema;
 const statusHistorySchema = new Schema({
   status: {
     type: String,
-    enum: ["Pending", "Assigned", "In Progress", "Completed", "Cancelled"],
     required: true,
+    enum: ["Pending", "In Progress", "Completed", "Cancelled"],
   },
   updatedBy: {
     type: Schema.Types.ObjectId,
-    refPath: "updatedByModel",
     required: true,
+    refPath: "statusHistory.updatedByModel",
   },
   updatedByModel: {
     type: String,
     required: true,
-    enum: ["Staff", "User"],
+    enum: ["Tenant", "User", "Staff"],
   },
-  note: String,
-  timestamp: {
+  updatedAt: {
     type: Date,
-    default: Date.now,
+    required: true,
   },
+  comment: String,
 });
 
 const maintenanceSchema = new Schema(
@@ -60,7 +60,7 @@ const maintenanceSchema = new Schema(
     ],
     currentStatus: {
       type: String,
-      enum: ["Pending", "Assigned", "In Progress", "Completed", "Cancelled"],
+      enum: ["Pending", "In Progress", "Completed", "Cancelled"],
       default: "Pending",
     },
     statusHistory: [statusHistorySchema],

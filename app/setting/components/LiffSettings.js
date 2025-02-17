@@ -30,9 +30,9 @@ const LiffSettings = () => {
     liffIds: {
       cleaning: "",
       maintenance: "",
-      reports: "",
+      tenantInfo: "",
       parcels: "",
-      billing: "",
+      payment: "",
       announcement: "",
       schedule: "",
       tasks: "",
@@ -44,7 +44,7 @@ const LiffSettings = () => {
     cleaning: false,
     maintenance: false,
     parcels: false,
-    billing: false,
+    payment: false,
     announcement: false,
     schedule: false,
     tasks: false,
@@ -57,52 +57,51 @@ const LiffSettings = () => {
   const [copySuccess, setCopySuccess] = useState({});
 
   useEffect(() => {
-    if (status === "loading") return;
+    const fetchConfig = async () => {
+      try {
+        if (!session?.user?.id) return;
 
-    if (session?.user?.id) {
-      console.log("Using user ID:", session.user.id);
-      fetchConfig(session.user.id);
-    } else {
-      console.log("No user ID found in session");
-      setIsLoading(false);
-      setErrors((prev) => ({ ...prev, fetch: "Not authenticated" }));
+        console.log("Fetching config for user:", session.user.id); // Debug log
+        const response = await fetch(
+          `/api/user/line-config?id=${session.user.id}`
+        );
+        const data = await response.json();
+
+        console.log("Received data:", data); // Debug log
+
+        if (data.lineConfig) {
+          setConfig({
+            channelAccessToken: data.lineConfig.channelAccessToken || "",
+            channelSecret: data.lineConfig.channelSecret || "",
+            liffIds: {
+              cleaning: data.lineConfig.liffIds?.cleaning || "",
+              maintenance: data.lineConfig.liffIds?.maintenance || "",
+              tenantInfo: data.lineConfig.liffIds?.tenantInfo || "",
+              parcels: data.lineConfig.liffIds?.parcels || "",
+              payment: data.lineConfig.liffIds?.payment || "",
+              announcement: data.lineConfig.liffIds?.announcement || "",
+              schedule: data.lineConfig.liffIds?.schedule || "",
+              tasks: data.lineConfig.liffIds?.tasks || "",
+            },
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching config:", error);
+        setErrors((prev) => ({ ...prev, fetch: error.message }));
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (status !== "loading") {
+      fetchConfig();
     }
   }, [session, status]);
 
-  const fetchConfig = async (userId) => {
-    console.log("Fetching config for user ID:", userId);
-    try {
-      const response = await fetch(`/api/user/line-config?id=${userId}`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch configuration");
-      }
-
-      const data = await response.json();
-      if (data.lineConfig) {
-        setConfig({
-          channelAccessToken: data.lineConfig.channelAccessToken || "",
-          channelSecret: data.lineConfig.channelSecret || "",
-          liffIds: {
-            cleaning: data.lineConfig.liffIds?.cleaning || "",
-            maintenance: data.lineConfig.liffIds?.maintenance || "",
-            parcels: data.lineConfig.liffIds?.parcels || "",
-            billing: data.lineConfig.liffIds?.billing || "",
-            announcement: data.lineConfig.liffIds?.announcement || "",
-            schedule: data.lineConfig.liffIds?.schedule || "",
-            tasks: data.lineConfig.liffIds?.tasks || "",
-          },
-        });
-      }
-    } catch (error) {
-      console.error("Fetch error:", error);
-      setErrors((prev) => ({
-        ...prev,
-        fetch: error.message || "Failed to load LINE configuration",
-      }));
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // Debug log current config
+  useEffect(() => {
+    console.log("Current config:", config);
+  }, [config]);
 
   const handleEdit = (section) => {
     setTempValues((prev) => ({
@@ -153,6 +152,7 @@ const LiffSettings = () => {
             ...config,
             channelAccessToken: config.channelAccessToken,
             channelSecret: config.channelSecret,
+            liffIds: config.liffIds,
           },
         }),
       });
@@ -271,8 +271,9 @@ const LiffSettings = () => {
             { key: "cleaning", label: "Cleaning URL" },
             { key: "maintenance", label: "Maintenance URL" },
             { key: "parcels", label: "Parcels URL" },
-            { key: "billing", label: "Billing URL" },
+            { key: "payment", label: "Payment URL" },
             { key: "announcement", label: "Announcement URL" },
+            { key: "tenantInfo", label: "Tenant Information URL" },
             { key: "schedule", label: "Schedule URL" },
             { key: "tasks", label: "Tasks URL" },
           ].map(({ key, label }) => (

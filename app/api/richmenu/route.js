@@ -49,6 +49,19 @@ export async function POST(request) {
         },
         {
           bounds: {
+            x: 1666,
+            y: 0,
+            width: 834,
+            height: 843,
+          },
+          action: {
+            type: "uri",
+            uri: `https://liff.line.me/${liffIds.tenantInfo}`,
+            label: "Tenant Information",
+          },
+        },
+        {
+          bounds: {
             x: 0,
             y: 843,
             width: 833,
@@ -69,8 +82,8 @@ export async function POST(request) {
           },
           action: {
             type: "uri",
-            uri: `https://liff.line.me/${liffIds.billing}`,
-            label: "Billing",
+            uri: `https://liff.line.me/${liffIds.payment}`,
+            label: "Payment",
           },
         },
         {
@@ -173,9 +186,6 @@ export async function POST(request) {
     // Upload both images
     await uploadRichMenuImage(tenantRichMenuId, tenantImageUrl);
     await uploadRichMenuImage(staffRichMenuId, staffImageUrl);
-
-    // Set tenant menu as default
-    await client.setDefaultRichMenu(tenantRichMenuId);
 
     return NextResponse.json(
       {

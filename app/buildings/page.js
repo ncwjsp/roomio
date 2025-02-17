@@ -71,12 +71,6 @@ const Buildings = () => {
   const [electricityRate, setElectricityRate] = useState(0);
   const [waterRate, setWaterRate] = useState(0);
 
-  const [billingCycle, setBillingCycle] = useState({
-    startDate: 1,
-    endDate: 28,
-    dueDate: 5,
-  });
-
   const [formErrors, setFormErrors] = useState({
     electricityRate: "",
     waterRate: "",
@@ -98,11 +92,6 @@ const Buildings = () => {
     setRoomsPerFloor(10);
     setElectricityRate(0);
     setWaterRate(0);
-    setBillingCycle({
-      startDate: 1,
-      endDate: 28,
-      dueDate: 5,
-    });
   };
 
   const fetchBuildings = async () => {
@@ -292,7 +281,6 @@ const Buildings = () => {
             electricityRate: Number(electricityRate),
             waterRate: Number(waterRate),
             userId: session?.user?.id,
-            billingCycle: billingCycle,
           }),
         });
 
@@ -881,82 +869,6 @@ const Buildings = () => {
                   helperText={formErrors.waterRate}
                   required
                 />
-              </Grid>
-
-              {/* Billing Cycle */}
-              <Grid item xs={12}>
-                <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
-                  Billing Cycle
-                </Typography>
-              </Grid>
-
-              {/* Start Date */}
-              <Grid item xs={12} sm={4}>
-                <FormControl fullWidth>
-                  <InputLabel>Start Date</InputLabel>
-                  <Select
-                    value={billingCycle.startDate}
-                    onChange={(e) =>
-                      setBillingCycle({
-                        ...billingCycle,
-                        startDate: e.target.value,
-                      })
-                    }
-                    label="Start Date"
-                  >
-                    {Array.from({ length: 28 }, (_, i) => (
-                      <MenuItem key={i + 1} value={i + 1}>
-                        {i + 1}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-
-              {/* End Date */}
-              <Grid item xs={12} sm={4}>
-                <FormControl fullWidth>
-                  <InputLabel>End Date</InputLabel>
-                  <Select
-                    value={billingCycle.endDate}
-                    onChange={(e) =>
-                      setBillingCycle({
-                        ...billingCycle,
-                        endDate: e.target.value,
-                      })
-                    }
-                    label="End Date"
-                  >
-                    {Array.from({ length: 28 }, (_, i) => (
-                      <MenuItem key={i + 1} value={i + 1}>
-                        {i + 1}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-
-              {/* Due Date */}
-              <Grid item xs={12} sm={4}>
-                <FormControl fullWidth>
-                  <InputLabel>Due Date</InputLabel>
-                  <Select
-                    value={billingCycle.dueDate}
-                    onChange={(e) =>
-                      setBillingCycle({
-                        ...billingCycle,
-                        dueDate: e.target.value,
-                      })
-                    }
-                    label="Due Date"
-                  >
-                    {Array.from({ length: 31 }, (_, i) => (
-                      <MenuItem key={i + 1} value={i + 1}>
-                        {i + 1}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
               </Grid>
             </Grid>
           </Box>

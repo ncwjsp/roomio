@@ -11,6 +11,7 @@ export async function GET(request) {
 
     const lineContacts = await LineContact.find({
       landlordId: landlordId,
+      isTenant: false
     }).sort({ createdAt: -1 });
     return NextResponse.json({ lineContacts });
   } catch (error) {

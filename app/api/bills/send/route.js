@@ -17,13 +17,30 @@ async function sendLineMessage(lineUserId, bill, lineConfig) {
       room: bill.roomId?.roomNumber,
     });
 
+    // Populate bill with room, floor, and building details
+    const populatedBill = await Bill.findById(bill._id)
+      .populate({
+        path: 'roomId',
+        populate: {
+          path: 'floor',
+          populate: {
+            path: 'building'
+          }
+        }
+      });
+
+    // Calculate additional fees total
+    const additionalFeesTotal = populatedBill.additionalFees?.reduce((sum, fee) => 
+      sum + (Number(fee.price) || 0), 0
+    ) || 0;
+
     const flexMessage = {
       to: lineUserId,
       messages: [
         {
           type: "flex",
           altText: `Monthly Bill - ${format(
-            new Date(bill.month),
+            new Date(populatedBill.month),
             "MMMM yyyy"
           )}`,
           contents: {
@@ -41,7 +58,7 @@ async function sendLineMessage(lineUserId, bill, lineConfig) {
                 },
                 {
                   type: "text",
-                  text: format(new Date(bill.month), "MMMM yyyy"),
+                  text: format(new Date(populatedBill.month), "MMMM yyyy"),
                   color: "#ffffff",
                 },
               ],
@@ -63,7 +80,7 @@ async function sendLineMessage(lineUserId, bill, lineConfig) {
                     },
                     {
                       type: "text",
-                      text: bill.roomId?.floor?.building?.name || "N/A",
+                      text: populatedBill.roomId?.floor?.building?.name || "N/A",
                       size: "sm",
                       align: "end",
                     },
@@ -82,7 +99,7 @@ async function sendLineMessage(lineUserId, bill, lineConfig) {
                     },
                     {
                       type: "text",
-                      text: bill.roomId?.roomNumber || "N/A",
+                      text: populatedBill.roomId?.roomNumber || "N/A",
                       size: "sm",
                       align: "end",
                     },
@@ -114,8 +131,8 @@ async function sendLineMessage(lineUserId, bill, lineConfig) {
                         },
                         {
                           type: "text",
-                          text: `${bill.waterUsage || 0} units (฿${
-                            bill.waterAmount || 0
+                          text: `${populatedBill.waterUsage || 0} units (฿${
+                            populatedBill.waterAmount || 0
                           })`,
                           size: "sm",
                           align: "end",
@@ -134,8 +151,8 @@ async function sendLineMessage(lineUserId, bill, lineConfig) {
                         },
                         {
                           type: "text",
-                          text: `${bill.electricityUsage || 0} units (฿${
-                            bill.electricityAmount || 0
+                          text: `${populatedBill.electricityUsage || 0} units (฿${
+                            populatedBill.electricityAmount || 0
                           })`,
                           size: "sm",
                           align: "end",
@@ -155,13 +172,32 @@ async function sendLineMessage(lineUserId, bill, lineConfig) {
                         {
                           type: "text",
                           text: `฿${
-                            bill.actualRentAmount || bill.rentAmount || 0
+                            populatedBill.actualRentAmount || populatedBill.rentAmount || 0
                           }`,
                           size: "sm",
                           align: "end",
                         },
                       ],
                     },
+                    // Add additional fees section if there are any
+                    ...(additionalFeesTotal > 0 ? [{
+                      type: "box",
+                      layout: "horizontal",
+                      margin: "md",
+                      contents: [
+                        {
+                          type: "text",
+                          text: "📋 Additional Fees",
+                          size: "sm",
+                        },
+                        {
+                          type: "text",
+                          text: `฿${additionalFeesTotal}`,
+                          size: "sm",
+                          align: "end",
+                        },
+                      ],
+                    }] : []),
                   ],
                 },
                 {
@@ -180,7 +216,7 @@ async function sendLineMessage(lineUserId, bill, lineConfig) {
                     },
                     {
                       type: "text",
-                      text: `฿${bill.totalAmount || 0}`,
+                      text: `฿${populatedBill.totalAmount || 0}`,
                       weight: "bold",
                       align: "end",
                       color: "#898F63",
@@ -202,7 +238,7 @@ async function sendLineMessage(lineUserId, bill, lineConfig) {
                 },
                 {
                   type: "text",
-                  text: format(new Date(bill.dueDate), "MMMM d, yyyy"),
+                  text: format(new Date(populatedBill.dueDate), "MMMM d, yyyy"),
                   margin: "sm",
                   size: "sm",
                   align: "center",

@@ -27,7 +27,6 @@ const ParcelSchema = new mongoose.Schema(
     trackingNumber: {
       type: String,
       required: true,
-      unique: true,
       trim: true,
     },
 

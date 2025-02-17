@@ -27,11 +27,11 @@ const UserSchema = new Schema(
       staffRichMenuId: String,
       liffIds: {
         parcels: String,
-        reports: String,
-        billing: String,
+        payment: String,
         cleaning: String,
         maintenance: String,
         announcement: String,
+        tenantInfo: String,
         schedule: String,
         tasks: String,
       },

@@ -31,11 +31,11 @@ const BuildingSchema = new mongoose.Schema(
         required: true,
         min: 1,
         max: 30,
-        default: 10, // Default 10 days to pay after billing date
+        default: 10,
       },
       latePaymentCharge: {
         type: Number,
-        default: 0, // Optional late payment charge
+        default: 0,
         min: 0,
       },
       latePaymentChargeType: {
@@ -45,7 +45,7 @@ const BuildingSchema = new mongoose.Schema(
       },
       partialBillingEnabled: {
         type: Boolean,
-        default: false, // If false, charge full month regardless of move-in date
+        default: false,
       },
     },
   },
