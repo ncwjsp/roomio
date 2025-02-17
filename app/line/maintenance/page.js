@@ -26,8 +26,8 @@ const MaintenancePage = () => {
   const [previewImages, setPreviewImages] = useState([]);
 
   // Add these console logs to debug environment variables
-  console.log("Bucket:", process.env.NEXT_PUBLIC_AWS_BUCKET_NAME);
-  console.log("Region:", process.env.NEXT_PUBLIC_AWS_REGION);
+  console.log("Bucket:", process.env.AWS_BUCKET_NAME);
+  console.log("Region:", process.env.AWS_REGION);
 
   useEffect(() => {
     const initializeLiff = async () => {
@@ -145,7 +145,7 @@ const MaintenancePage = () => {
         }
 
         const data = await response.json();
-        return `https://${process.env.NEXT_PUBLIC_AWS_BUCKET_NAME}.s3.${process.env.NEXT_PUBLIC_AWS_REGION}.amazonaws.com/${data.fileName}`;
+        return `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${data.fileName}`;
       });
 
       const uploadedUrls = await Promise.all(uploadPromises);
