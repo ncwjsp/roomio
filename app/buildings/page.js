@@ -24,6 +24,7 @@ import {
   Alert,
   Menu,
   DialogContentText,
+  Paper,
 } from "@mui/material";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -156,6 +157,12 @@ const Buildings = () => {
     }
   }, [status, session, hasLoaded]);
 
+  useEffect(() => {
+    if (session?.user?.id) {
+      fetchBuildings();
+    }
+  }, [session, refreshTrigger]);
+
   const handleRefresh = async () => {
     try {
       // Fetch without parameters to get all rooms
@@ -179,7 +186,7 @@ const Buildings = () => {
     if (session) {
       handleRefresh();
     }
-  }, [session]); // Add session as dependency
+  }, [session]);
 
   const getFloorOptions = () => {
     if (selectedBuilding && selectedBuilding !== "") {
@@ -262,55 +269,48 @@ const Buildings = () => {
   };
 
   const handleAddBuilding = async () => {
-    if (newBuilding.trim()) {
-      if (!validateUtilityRates()) {
-        return;
+    try {
+      setIsLoading(true);
+      const response = await fetch("/api/building", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: newBuilding.trim(),
+          price: Number(newPrice),
+          totalFloors: Number(numFloors),
+          roomsPerFloor: Number(roomsPerFloor),
+          electricityRate: Number(electricityRate),
+          waterRate: Number(waterRate),
+          userId: session?.user?.id,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to add building");
       }
 
-      try {
-        const response = await fetch("/api/building", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            name: newBuilding.trim(),
-            price: Number(newPrice),
-            totalFloors: Number(numFloors),
-            roomsPerFloor: Number(roomsPerFloor),
-            electricityRate: Number(electricityRate),
-            waterRate: Number(waterRate),
-            userId: session?.user?.id,
-          }),
-        });
-
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || "Failed to create building");
-        }
-
-        setSnackbar({
-          open: true,
-          message: `Building ${newBuilding} was successfully created!`,
-          severity: "success",
-        });
-
-        handleRefresh();
-        setShowModal(false);
-        resetForm();
-      } catch (error) {
-        setSnackbar({
-          open: true,
-          message: error.message,
-          severity: "error",
-        });
-      }
-    } else {
+      setShowModal(false);
+      resetForm();
       setSnackbar({
         open: true,
-        message: "Building name is required",
+        message: "Building added successfully",
+        severity: "success",
+      });
+
+      // Trigger refresh
+      setRefreshTrigger((prev) => prev + 1);
+
+    } catch (error) {
+      console.error("Error adding building:", error);
+      setSnackbar({
+        open: true,
+        message: "Failed to add building",
         severity: "error",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -363,20 +363,7 @@ const Buildings = () => {
   // Update the handleAddRoom function
   const handleAddRoom = async () => {
     try {
-      if (!selectedBuildingForRoom || !selectedFloor) {
-        setSnackbar({
-          open: true,
-          message: "Please select both building and floor",
-          severity: "error",
-        });
-        return;
-      }
-
-      const building = buildings.find((b) => b._id === selectedBuildingForRoom);
-      const floor = building.floors.find(
-        (f) => f.floorNumber === parseInt(selectedFloor)
-      );
-
+      setIsLoading(true);
       const response = await fetch("/api/room", {
         method: "POST",
         headers: {
@@ -384,39 +371,42 @@ const Buildings = () => {
         },
         body: JSON.stringify({
           buildingId: selectedBuildingForRoom,
-          roomNumber: getNextRoomNumber(building, selectedFloor),
-          floor: floor._id,
+          roomNumber: getNextRoomNumber(
+            buildings.find((b) => b._id === selectedBuildingForRoom),
+            selectedFloor
+          ),
+          floor: selectedBuildingData.floors.find(
+            (f) => f.floorNumber === parseInt(selectedFloor)
+          )._id,
           price: roomPrice,
           createdBy: session?.user?.id,
         }),
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        throw new Error(data.message || "Failed to create room");
+        throw new Error("Failed to add room");
       }
 
-      // Close modal and reset form
       setShowAddRoomModal(false);
       resetRoomForm();
 
-      // Force a complete refresh of the buildings data
-      await fetchBuildings();
-      setRefreshTrigger((prev) => prev + 1); // Trigger a refresh
+      // Trigger refresh
+      setRefreshTrigger((prev) => prev + 1);
 
       setSnackbar({
         open: true,
-        message: `Room added successfully!`,
+        message: "Room added successfully",
         severity: "success",
       });
     } catch (error) {
       console.error("Error in handleAddRoom:", error);
       setSnackbar({
         open: true,
-        message: error.message,
+        message: "Failed to add room",
         severity: "error",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -542,106 +532,234 @@ const Buildings = () => {
   return (
     <div className="flex flex-col items-center min-h-screen bg-[#EBECE1]">
       <div className="container px-4 py-8">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-semibold">Buildings</h1>
-          <div className="flex gap-2">
-            <button
-              className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 flex items-center"
-              onClick={() => setShowAddRoomModal(true)}
-            >
-              <AddIcon className="mr-1" /> Add Room
-            </button>
-            <button
-              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            mb: 4,
+          }}
+        >
+          <Typography variant="h4" sx={{ color: "#889F63", fontWeight: 600 }}>
+            Buildings
+          </Typography>
+          <Box sx={{ display: "flex", gap: 2 }}>
+            {buildings.length > 0 && (
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => setShowAddRoomModal(true)}
+                sx={{
+                  bgcolor: "#889F63",
+                  "&:hover": {
+                    bgcolor: "#7C8F59",
+                  },
+                  textTransform: "none",
+                }}
+              >
+                Add Room
+              </Button>
+            )}
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
               onClick={() => setShowModal(true)}
+              sx={{
+                bgcolor: "#889F63",
+                "&:hover": {
+                  bgcolor: "#7C8F59",
+                },
+                textTransform: "none",
+              }}
             >
               Add Building
-            </button>
-          </div>
-        </div>
+            </Button>
+          </Box>
+        </Box>
 
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-20">
-            <CircularProgress size={40} sx={{ color: "#898F63" }} />
-            <p className="mt-4 text-gray-600">Loading units...</p>
-          </div>
+          <Box display="flex" justifyContent="center" my={4}>
+            <CircularProgress sx={{ color: "#889F63" }} />
+          </Box>
         ) : error ? (
-          <div className="text-red-500 text-center py-4">{error}</div>
-        ) : roomCards.length === 0 ? (
-          <div className="text-center py-8">
-            <p className="text-gray-600">No buildings found</p>
-            <button
-              onClick={handleRefresh}
-              className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          <Box textAlign="center" my={4}>
+            <Typography color="error">{error}</Typography>
+          </Box>
+        ) : buildings.length === 0 ? (
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              minHeight: "60vh",
+              textAlign: "center",
+              p: 4,
+              bgcolor: "#fff",
+              borderRadius: 2,
+              boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+            }}
+          >
+            <Box
+              component="img"
+              src="/building-empty.svg"
+              alt="No buildings"
+              sx={{
+                width: "200px",
+                height: "200px",
+                mb: 3,
+                opacity: 0.7,
+              }}
+            />
+            <Typography variant="h5" sx={{ color: "#889F63", mb: 1, fontWeight: 600 }}>
+              No Buildings Found
+            </Typography>
+            <Typography color="text.secondary" sx={{ mb: 3, maxWidth: "500px" }}>
+              Start managing your properties by adding your first building. Click the "Add Building" button above to get started.
+            </Typography>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setShowModal(true)}
+              sx={{
+                bgcolor: "#889F63",
+                "&:hover": {
+                  bgcolor: "#7C8F59",
+                },
+                textTransform: "none",
+                px: 3,
+                py: 1,
+              }}
             >
-              Retry
-            </button>
-          </div>
+              Add Your First Building
+            </Button>
+          </Box>
         ) : (
           <>
             {/* Filter Section */}
-            <div className="p-6 rounded-lg shadow-sm mb-6 bg-gradient-to-br from-[#898F63] to-[#6B7355] text-white">
-              <h4 className="text-lg font-semibold mb-4">Filter Rooms</h4>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <select
-                  className="w-full p-2 rounded text-gray-700"
-                  value={selectedBuilding}
-                  onChange={(e) => {
-                    setSelectedBuilding(e.target.value);
-                    setSelectedFloor(""); // Reset floor when building changes
-                    setCurrentPage(1);
-                  }}
-                >
-                  <option value="">All Buildings</option>
-                  {buildings.map((building) => (
-                    <option key={building._id} value={building.name}>
-                      Building {building.name}
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  className="w-full p-2 rounded text-gray-700"
-                  value={selectedFloor}
-                  onChange={(e) => {
-                    setSelectedFloor(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                >
-                  <option value="">All Floors</option>
-                  {getFloorOptions().map((floorNum) => (
-                    <option key={floorNum} value={floorNum}>
-                      Floor {floorNum}
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  className="w-full p-2 rounded text-gray-700"
-                  value={filterStatus}
-                  onChange={(e) => {
-                    setFilterStatus(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                >
-                  <option value="">All Status</option>
-                  <option value="Available">Available</option>
-                  <option value="Unavailable">Unavailable</option>
-                  <option value="Occupied">Occupied</option>
-                </select>
-
-                <input
-                  type="text"
-                  className="w-full p-2 rounded text-gray-700"
-                  placeholder="Search by Room Number"
-                  value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                />
-              </div>
-            </div>
+            <Paper
+              elevation={0}
+              sx={{
+                p: 3,
+                mb: 4,
+                borderRadius: 2,
+                border: "1px solid",
+                borderColor: "divider",
+                bgcolor: "#889F63",
+              }}
+            >
+              <Typography variant="h6" sx={{ color: "white", mb: 2, fontWeight: 600 }}>
+                Filter Rooms
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={3}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel sx={{ color: "black" }}>Building</InputLabel>
+                    <Select
+                      value={selectedBuilding}
+                      onChange={(e) => {
+                        setSelectedBuilding(e.target.value);
+                        setSelectedFloor("");
+                        setCurrentPage(1);
+                      }}
+                      sx={{
+                        bgcolor: "white",
+                        "& .MuiOutlinedInput-notchedOutline": {
+                          borderColor: "rgba(255, 255, 255, 0.5)",
+                        },
+                        "&:hover .MuiOutlinedInput-notchedOutline": {
+                          borderColor: "white",
+                        },
+                      }}
+                    >
+                      <MenuItem value="">All Buildings</MenuItem>
+                      {buildings.map((building) => (
+                        <MenuItem key={building._id} value={building.name}>
+                          Building {building.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel sx={{ color: "black" }}>Floor</InputLabel>
+                    <Select
+                      value={selectedFloor}
+                      onChange={(e) => {
+                        setSelectedFloor(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                      sx={{
+                        bgcolor: "white",
+                        "& .MuiOutlinedInput-notchedOutline": {
+                          borderColor: "rgba(255, 255, 255, 0.5)",
+                        },
+                        "&:hover .MuiOutlinedInput-notchedOutline": {
+                          borderColor: "white",
+                        },
+                      }}
+                    >
+                      <MenuItem value="">All Floors</MenuItem>
+                      {getFloorOptions().map((floorNum) => (
+                        <MenuItem key={floorNum} value={floorNum}>
+                          Floor {floorNum}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel sx={{ color: "black" }}>Status</InputLabel>
+                    <Select
+                      value={filterStatus}
+                      onChange={(e) => {
+                        setFilterStatus(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                      sx={{
+                        bgcolor: "white",
+                        "& .MuiOutlinedInput-notchedOutline": {
+                          borderColor: "rgba(255, 255, 255, 0.5)",
+                        },
+                        "&:hover .MuiOutlinedInput-notchedOutline": {
+                          borderColor: "white",
+                        },
+                      }}
+                    >
+                      <MenuItem value="">All Status</MenuItem>
+                      <MenuItem value="Available">Available</MenuItem>
+                      <MenuItem value="Unavailable">Unavailable</MenuItem>
+                      <MenuItem value="Occupied">Occupied</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    placeholder="Search by Room Number"
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    sx={{
+                      "& .MuiOutlinedInput-root": {
+                        bgcolor: "white",
+                        "& fieldset": {
+                          borderColor: "rgba(255, 255, 255, 0.5)",
+                        },
+                        "&:hover fieldset": {
+                          borderColor: "white",
+                        },
+                      },
+                    }}
+                  />
+                </Grid>
+              </Grid>
+            </Paper>
 
             {/* Room Grid */}
             <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
@@ -651,7 +769,7 @@ const Buildings = () => {
                   onClick={() => handleRoomClick(room)}
                   className={`p-4 rounded-lg text-center cursor-pointer transition-all hover:scale-105 ${
                     room.status === "Available"
-                      ? "bg-gradient-to-br from-[#898F63] to-[#6B7355] text-white hover:border-[#e7e7e7]"
+                      ? "bg-[#898F63] text-white hover:border-[#e7e7e7]"
                       : room.status === "Unavailable"
                       ? "bg-red-500 text-white hover:bg-red-600"
                       : "bg-white text-gray-800 border border-gray-200 hover:border-[#898F63]"
@@ -873,16 +991,32 @@ const Buildings = () => {
             </Grid>
           </Box>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowModal(false)} color="inherit">
+        <DialogActions sx={{ p: 2.5 }}>
+          <Button
+            onClick={() => {
+              setShowModal(false);
+              resetForm();
+            }}
+            sx={{
+              color: "#889F63",
+              "&:hover": {
+                bgcolor: "rgba(136, 159, 99, 0.08)",
+              },
+              textTransform: "none",
+            }}
+          >
             Cancel
           </Button>
           <Button
-            onClick={handleAddBuilding}
             variant="contained"
+            onClick={handleAddBuilding}
+            disabled={!newBuilding || !numFloors || !roomsPerFloor}
             sx={{
-              bgcolor: "#898f63",
-              "&:hover": { bgcolor: "#707454" },
+              bgcolor: "#889F63",
+              "&:hover": {
+                bgcolor: "#7C8F59",
+              },
+              textTransform: "none",
             }}
           >
             Add Building
@@ -994,16 +1128,35 @@ const Buildings = () => {
             )}
           </Grid>
         </DialogContent>
-        <DialogActions sx={{ p: 2.5, borderTop: 1, borderColor: "divider" }}>
-          <Button onClick={handleCloseModal} color="inherit">
+        <DialogActions sx={{ p: 2.5 }}>
+          <Button
+            onClick={() => {
+              setShowAddRoomModal(false);
+              setNewRoomNumber("");
+              setSelectedBuildingForRoom("");
+              setSelectedFloor("");
+              setRoomPrice(5000);
+            }}
+            sx={{
+              color: "#889F63",
+              "&:hover": {
+                bgcolor: "rgba(136, 159, 99, 0.08)",
+              },
+              textTransform: "none",
+            }}
+          >
             Cancel
           </Button>
           <Button
-            onClick={handleAddRoom}
             variant="contained"
+            onClick={handleAddRoom}
+            disabled={!selectedBuildingForRoom || !selectedFloor || !newRoomNumber}
             sx={{
-              bgcolor: "#898F63",
-              "&:hover": { bgcolor: "#707454" },
+              bgcolor: "#889F63",
+              "&:hover": {
+                bgcolor: "#7C8F59",
+              },
+              textTransform: "none",
             }}
           >
             Add Room
@@ -1055,24 +1208,114 @@ const Buildings = () => {
             undone.
           </DialogContentText>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowDeleteBuildingDialog(false)}>
+        <DialogActions sx={{ p: 2.5 }}>
+          <Button
+            onClick={() => setShowDeleteBuildingDialog(false)}
+            sx={{
+              color: "#889F63",
+              "&:hover": {
+                bgcolor: "rgba(136, 159, 99, 0.08)",
+              },
+              textTransform: "none",
+            }}
+          >
             Cancel
           </Button>
           <Button
-            onClick={handleDeleteBuilding}
-            color="error"
             variant="contained"
+            onClick={handleDeleteBuilding}
+            sx={{
+              bgcolor: "#d32f2f",
+              "&:hover": {
+                bgcolor: "#c62828",
+              },
+              textTransform: "none",
+            }}
           >
             Delete
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Similar dialogs for other actions */}
-      {/* ... Add Room Modal ... */}
-      {/* ... Edit Building Dialog ... */}
-      {/* ... Delete Room Dialog ... */}
+      <Dialog
+        open={showEditBuildingDialog}
+        onClose={() => setShowEditBuildingDialog(false)}
+      >
+        <DialogTitle>Edit Building</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to edit this building?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5 }}>
+          <Button
+            onClick={() => setShowEditBuildingDialog(false)}
+            sx={{
+              color: "#889F63",
+              "&:hover": {
+                bgcolor: "rgba(136, 159, 99, 0.08)",
+              },
+              textTransform: "none",
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleEditBuilding}
+            disabled={!selectedBuildingData?.name}
+            sx={{
+              bgcolor: "#889F63",
+              "&:hover": {
+                bgcolor: "#7C8F59",
+              },
+              textTransform: "none",
+            }}
+          >
+            Update
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={showDeleteRoomDialog}
+        onClose={() => setShowDeleteRoomDialog(false)}
+      >
+        <DialogTitle>Delete Room</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to delete this room? This action cannot be
+            undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5 }}>
+          <Button
+            onClick={() => setShowDeleteRoomDialog(false)}
+            sx={{
+              color: "#889F63",
+              "&:hover": {
+                bgcolor: "rgba(136, 159, 99, 0.08)",
+              },
+              textTransform: "none",
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleDeleteRoom}
+            sx={{
+              bgcolor: "#d32f2f",
+              "&:hover": {
+                bgcolor: "#c62828",
+              },
+              textTransform: "none",
+            }}
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Snackbar
         open={snackbar.open}

@@ -103,9 +103,9 @@ export default function RoomDetails({ params }) {
         <div
           className={`rounded-lg shadow-lg p-6 mb-6 ${
             room?.status === "Available"
-              ? "bg-gradient-to-br from-[#898F63] to-[#6B7355] text-white"
+              ? "bg-[#898F63] text-white"
               : room?.status === "Unavailable"
-              ? "bg-gradient-to-br from-red-500 to-red-600 text-white"
+              ? "bg-red-500 text-white"
               : "bg-white"
           }`}
         >

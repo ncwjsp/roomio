@@ -23,6 +23,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import CampaignIcon from "@mui/icons-material/Campaign";
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import { format } from "date-fns";
+import { colors, buttonStyles } from "lib/styles";
 
 export default function AnnouncementsPage() {
   const [announcements, setAnnouncements] = useState(null);
@@ -91,23 +92,23 @@ export default function AnnouncementsPage() {
     if (!announcementToDelete) return;
 
     try {
-      const response = await fetch(
-        `/api/announcement/${announcementToDelete._id}`,
-        {
-          method: "DELETE",
-        }
-      );
+      setLoading(true);
+      const response = await fetch(`/api/announcement/${announcementToDelete._id}`, {
+        method: 'DELETE',
+      });
 
       if (!response.ok) {
-        throw new Error("Failed to delete announcement");
+        throw new Error('Failed to delete announcement');
       }
 
-      await fetchAnnouncements();
-    } catch (error) {
-      console.error("Error deleting announcement:", error);
-    } finally {
+      setAnnouncements(prev => prev.filter(a => a._id !== announcementToDelete._id));
       setDeleteConfirmOpen(false);
       setAnnouncementToDelete(null);
+    } catch (error) {
+      console.error('Error deleting announcement:', error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -146,38 +147,25 @@ export default function AnnouncementsPage() {
           display: 'flex', 
           justifyContent: 'space-between', 
           alignItems: 'center',
-          mb: 6
+          mb: 4
         }}
       >
-        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-          <Typography 
-            variant="h4" 
-            component="h1" 
-            sx={{ 
-              fontWeight: 600,
-              background: 'linear-gradient(45deg, #898f63 30%, #5D6142 90%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent'
-            }}
-          >
-            Announcements
-          </Typography>
-        </Box>
+        <Typography 
+          variant="h4" 
+          component="h1" 
+          sx={{ 
+            fontWeight: 600,
+            color: colors.primary,
+          }}
+        >
+          Announcements
+        </Typography>
 
         <Button
           variant="contained"
           startIcon={<AddIcon />}
           onClick={() => setOpen(true)}
-          sx={{
-            background: 'linear-gradient(45deg, #898f63 30%, #5D6142 90%)',
-            boxShadow: '0 3px 5px 2px rgba(137, 143, 99, .3)',
-            color: 'white',
-            px: 3,
-            py: 1,
-            '&:hover': {
-              background: 'linear-gradient(45deg, #7A8057 30%, #4D513A 90%)',
-            }
-          }}
+          sx={buttonStyles.primary.contained}
         >
           New Announcement
         </Button>
@@ -185,7 +173,7 @@ export default function AnnouncementsPage() {
 
       {loading ? (
         <Box display="flex" justifyContent="center" my={4}>
-          <CircularProgress sx={{ color: "#898f63" }} />
+          <CircularProgress sx={{ color: colors.primary }} />
         </Box>
       ) : error ? (
         <Box textAlign="center" color="error.main" my={4}>
@@ -200,8 +188,8 @@ export default function AnnouncementsPage() {
             justifyContent: 'center',
             minHeight: '50vh',
             textAlign: 'center',
-            background: 'linear-gradient(135deg, rgba(137, 143, 99, 0.05) 0%, rgba(93, 97, 66, 0.05) 100%)',
-            borderRadius: 4,
+            bgcolor: colors.primaryLight,
+            borderRadius: 2,
             py: 8,
             px: 3,
           }}
@@ -209,7 +197,7 @@ export default function AnnouncementsPage() {
           <NotificationsActiveIcon 
             sx={{ 
               fontSize: 80, 
-              color: '#898f63',
+              color: colors.primary,
               mb: 3,
               opacity: 0.8
             }} 
@@ -217,7 +205,7 @@ export default function AnnouncementsPage() {
           <Typography 
             variant="h5" 
             sx={{ 
-              color: '#898f63',
+              color: colors.primary,
               fontWeight: 600,
               mb: 2
             }}
@@ -241,15 +229,16 @@ export default function AnnouncementsPage() {
               <Card 
                 elevation={0}
                 sx={{ 
-                  borderRadius: 3,
+                  borderRadius: 2,
                   transition: "all 0.3s ease-in-out",
                   cursor: "pointer",
-                  border: '1px solid rgba(137, 143, 99, 0.1)',
-                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 1) 0%, rgba(249, 250, 251, 1) 100%)',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  bgcolor: 'background.paper',
                   "&:hover": {
                     transform: "translateY(-4px)",
-                    boxShadow: '0 8px 20px -12px rgba(137, 143, 99, 0.5)',
-                    borderColor: 'rgba(137, 143, 99, 0.2)',
+                    boxShadow: 3,
+                    borderColor: colors.primary,
                   }
                 }}
                 onClick={() => handleAnnouncementClick(announcement)}
@@ -262,7 +251,7 @@ export default function AnnouncementsPage() {
                         gutterBottom 
                         sx={{ 
                           fontWeight: 600,
-                          color: "#898f63",
+                          color: colors.primary,
                           mb: 2
                         }}
                       >
@@ -273,7 +262,7 @@ export default function AnnouncementsPage() {
                         sx={{ 
                           whiteSpace: "pre-wrap", 
                           mb: 3,
-                          color: "#4A4A4A",
+                          color: "text.primary",
                           lineHeight: 1.6
                         }}
                       >
@@ -295,13 +284,10 @@ export default function AnnouncementsPage() {
                       <IconButton
                         onClick={(e) => handleDeleteClick(e, announcement)}
                         sx={{ 
-                          color: '#898f63',
-                          opacity: 0.7,
-                          transition: 'all 0.2s ease',
+                          color: colors.primary,
                           '&:hover': {
-                            opacity: 1,
-                            color: '#dc3545',
-                            transform: 'scale(1.1)',
+                            color: 'error.main',
+                            bgcolor: 'error.light',
                           }
                         }}
                       >
@@ -323,8 +309,8 @@ export default function AnnouncementsPage() {
         fullWidth
         PaperProps={{
           sx: { 
-            borderRadius: 3,
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+            borderRadius: 2,
+            boxShadow: 3,
           }
         }}
       >
@@ -340,9 +326,7 @@ export default function AnnouncementsPage() {
               variant="h5" 
               component="div"
               sx={{ 
-                background: 'linear-gradient(45deg, #898f63 30%, #5D6142 90%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
+                color: colors.primary,
                 fontWeight: 600
               }}
             >
@@ -362,14 +346,14 @@ export default function AnnouncementsPage() {
                 mb: 3,
                 '& .MuiOutlinedInput-root': {
                   '&:hover fieldset': {
-                    borderColor: '#898f63',
+                    borderColor: colors.primary,
                   },
                   '&.Mui-focused fieldset': {
-                    borderColor: '#898f63',
+                    borderColor: colors.primary,
                   },
                 },
                 '& .MuiInputLabel-root.Mui-focused': {
-                  color: '#898f63',
+                  color: colors.primary,
                 },
               }}
             />
@@ -385,14 +369,14 @@ export default function AnnouncementsPage() {
               sx={{ 
                 '& .MuiOutlinedInput-root': {
                   '&:hover fieldset': {
-                    borderColor: '#898f63',
+                    borderColor: colors.primary,
                   },
                   '&.Mui-focused fieldset': {
-                    borderColor: '#898f63',
+                    borderColor: colors.primary,
                   },
                 },
                 '& .MuiInputLabel-root.Mui-focused': {
-                  color: '#898f63',
+                  color: colors.primary,
                 },
               }}
             />
@@ -412,15 +396,7 @@ export default function AnnouncementsPage() {
             <Button
               type="submit"
               variant="contained"
-              sx={{
-                background: 'linear-gradient(45deg, #898f63 30%, #5D6142 90%)',
-                boxShadow: '0 3px 5px 2px rgba(137, 143, 99, .3)',
-                color: 'white',
-                px: 4,
-                '&:hover': {
-                  background: 'linear-gradient(45deg, #7A8057 30%, #4D513A 90%)',
-                }
-              }}
+              sx={buttonStyles.primary.contained}
             >
               {isEditing ? "Update" : "Create & Send"}
             </Button>
@@ -428,42 +404,34 @@ export default function AnnouncementsPage() {
         </form>
       </Dialog>
 
+      {/* Delete Confirmation Dialog */}
       <Dialog
         open={deleteConfirmOpen}
-        onClose={handleDeleteCancel}
-        maxWidth="xs"
-        fullWidth
+        onClose={() => setDeleteConfirmOpen(false)}
         PaperProps={{
           sx: { 
-            borderRadius: 3,
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+            borderRadius: 2,
+            boxShadow: 3,
           }
         }}
       >
         <DialogTitle sx={{ pt: 3, px: 4 }}>
-          <Typography 
-            variant="h6" 
-            sx={{ 
-              color: '#dc3545',
-              fontWeight: 600
-            }}
-          >
-            Confirm Delete
+          <Typography variant="h6" component="div" fontWeight={600}>
+            Delete Announcement
           </Typography>
         </DialogTitle>
-        <DialogContent sx={{ px: 4 }}>
-          <Typography sx={{ color: '#4A4A4A' }}>
-            Are you sure you want to delete the announcement "
-            <strong>{announcementToDelete?.title}</strong>"?
+        <DialogContent sx={{ px: 4, pb: 2 }}>
+          <Typography>
+            Are you sure you want to delete this announcement? This action cannot be undone.
           </Typography>
         </DialogContent>
         <DialogActions sx={{ px: 4, pb: 3 }}>
           <Button 
-            onClick={handleDeleteCancel}
+            onClick={() => setDeleteConfirmOpen(false)}
             sx={{ 
               color: 'text.secondary',
               '&:hover': {
-                backgroundColor: 'rgba(0, 0, 0, 0.04)'
+                bgcolor: 'rgba(0, 0, 0, 0.05)',
               }
             }}
           >
@@ -472,13 +440,11 @@ export default function AnnouncementsPage() {
           <Button
             onClick={handleDeleteConfirm}
             variant="contained"
-            sx={{ 
-              bgcolor: '#dc3545',
-              color: 'white',
-              px: 3,
+            sx={{
+              bgcolor: 'error.main',
               '&:hover': {
-                bgcolor: '#bb2d3b'
-              }
+                bgcolor: 'error.dark',
+              },
             }}
           >
             Delete

@@ -49,6 +49,8 @@ import TimelineDot from '@mui/lab/TimelineDot';
 import TimelineConnector from '@mui/lab/TimelineConnector';
 import TimelineContent from '@mui/lab/TimelineContent';
 
+import { getStatusColor, buttonStyles, chipStyles, modalStyles, colors } from "@/lib/styles";
+
 export default function MaintenanceDetailPage({ params }) {
   const router = useRouter();
   const { data: session } = useSession();
@@ -62,6 +64,7 @@ export default function MaintenanceDetailPage({ params }) {
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [newStatus, setNewStatus] = useState("");
   const [statusComment, setStatusComment] = useState("");
+  const [isAssigning, setIsAssigning] = useState(false);
 
   const formatDate = (dateString) => {
     try {
@@ -105,13 +108,12 @@ export default function MaintenanceDetailPage({ params }) {
   }, [session, id]);
 
   const handleAssignTechnician = async (technicianId) => {
-    try {
-      // Prevent assigning the same technician
-      if (ticket.staff?._id === technicianId) {
-        console.log("Technician is already assigned to this ticket");
-        return;
-      }
+    if (["Completed", "Cancelled"].includes(ticket.currentStatus)) {
+      return; // Don't allow assignment if ticket is completed or cancelled
+    }
 
+    try {
+      setIsAssigning(true);
       const response = await fetch(`/api/maintenance/${ticket._id}/assign`, {
         method: "PUT",
         headers: {
@@ -133,6 +135,8 @@ export default function MaintenanceDetailPage({ params }) {
       }
     } catch (error) {
       console.error("Error assigning technician:", error);
+    } finally {
+      setIsAssigning(false);
     }
   };
 
@@ -191,7 +195,7 @@ export default function MaintenanceDetailPage({ params }) {
         alignItems="center"
         minHeight="100vh"
       >
-        <CircularProgress sx={{ color: "#889F63" }} />
+        <CircularProgress sx={{ color: colors.primary }} />
       </Box>
     );
   }
@@ -228,13 +232,7 @@ export default function MaintenanceDetailPage({ params }) {
         <Button
           startIcon={<ArrowBack />}
           onClick={() => router.back()}
-          sx={{ 
-            mb: 3,
-            color: '#889F63',
-            '&:hover': {
-              bgcolor: 'rgba(136, 159, 99, 0.08)',
-            },
-          }}
+          sx={buttonStyles.primary.outlined}
         >
           Back to Maintenance List
         </Button>
@@ -243,6 +241,7 @@ export default function MaintenanceDetailPage({ params }) {
           elevation={0}
           sx={{ 
             p: 4, 
+            mt: 3,
             borderRadius: 2,
             border: '1px solid',
             borderColor: 'divider',
@@ -267,23 +266,20 @@ export default function MaintenanceDetailPage({ params }) {
                   {ticket.problem}
                 </Typography>
                 <Box display="flex" alignItems="center" gap={1}>
-                  <RoomIcon sx={{ color: '#889F63' }} />
+                  <RoomIcon sx={{ color: colors.primary }} />
                   <Typography variant="subtitle1" color="text.secondary" component="div">
                     Room {ticket.room?.roomNumber}
                   </Typography>
                 </Box>
               </Box>
-              <Box display="flex" alignItems="center" gap={1}>
+              <Box display="flex" alignItems="center" gap={2}>
                 <Chip
                   label={ticket.currentStatus}
                   color={getStatusColor(ticket.currentStatus)}
-                  size="large"
-                  sx={{ 
-                    px: 2,
+                  sx={{
+                    ...chipStyles[getStatusColor(ticket.currentStatus)],
                     height: 32,
-                    fontSize: '0.875rem',
-                    fontWeight: 600,
-                    borderRadius: 2,
+                    px: 1,
                   }}
                 />
                 {!["Completed", "Cancelled"].includes(ticket.currentStatus) && (
@@ -291,14 +287,7 @@ export default function MaintenanceDetailPage({ params }) {
                     variant="outlined"
                     size="small"
                     onClick={() => setShowStatusModal(true)}
-                    sx={{
-                      color: '#889F63',
-                      borderColor: '#889F63',
-                      '&:hover': {
-                        borderColor: '#889F63',
-                        bgcolor: 'rgba(136, 159, 99, 0.08)',
-                      },
-                    }}
+                    sx={buttonStyles.primary.outlined}
                   >
                     Update Status
                   </Button>
@@ -359,7 +348,7 @@ export default function MaintenanceDetailPage({ params }) {
               sx={{ 
                 display: 'flex',
                 alignItems: 'center',
-                color: '#889F63',
+                color: colors.primary,
               }}
             >
               <DescriptionIcon sx={{ mr: 1 }} />
@@ -390,7 +379,7 @@ export default function MaintenanceDetailPage({ params }) {
                 sx={{ 
                   display: 'flex',
                   alignItems: 'center',
-                  color: '#889F63',
+                  color: colors.primary,
                 }}
               >
                 <ImageIcon sx={{ mr: 1 }} />
@@ -438,7 +427,7 @@ export default function MaintenanceDetailPage({ params }) {
               sx={{ 
                 display: 'flex',
                 alignItems: 'center',
-                color: '#889F63',
+                color: colors.primary,
               }}
             >
               <PersonIcon sx={{ mr: 1 }} />
@@ -456,17 +445,11 @@ export default function MaintenanceDetailPage({ params }) {
                 borderColor: 'divider',
               }}
             >
-              {ticket.currentStatus !== "Completed" && (
+              {ticket.currentStatus !== "Completed" && ticket.currentStatus !== "Cancelled" && (
                 <Button
                   variant="contained"
                   onClick={() => setShowTechnicianModal(true)}
-                  sx={{
-                    bgcolor: "#889F63",
-                    "&:hover": {
-                      bgcolor: "#7A8F53",
-                    },
-                    px: 3,
-                  }}
+                  sx={buttonStyles.primary.contained}
                 >
                   {ticket.staff?._id ? "Change Technician" : "Assign Technician"}
                 </Button>
@@ -481,7 +464,7 @@ export default function MaintenanceDetailPage({ params }) {
                     {ticket.staff.specialization}
                   </Typography>
                 </Box>
-              ) : ticket.currentStatus !== "Completed" ? (
+              ) : ticket.currentStatus !== "Completed" && ticket.currentStatus !== "Cancelled" ? (
                 <Typography color="text.secondary" fontStyle="italic" component="div">
                   No technician assigned
                 </Typography>
@@ -498,7 +481,7 @@ export default function MaintenanceDetailPage({ params }) {
               sx={{ 
                 display: 'flex',
                 alignItems: 'center',
-                color: '#889F63',
+                color: colors.primary,
               }}
             >
               <HistoryIcon sx={{ mr: 1 }} />
@@ -559,98 +542,90 @@ export default function MaintenanceDetailPage({ params }) {
       {/* Technician Selection Modal */}
       <Dialog
         open={showTechnicianModal}
-        onClose={() => setShowTechnicianModal(false)}
+        onClose={() => {
+          setShowTechnicianModal(false);
+          setSearchQuery("");
+        }}
         maxWidth="sm"
         fullWidth
+        PaperProps={{ sx: modalStyles.paper }}
       >
-        <DialogTitle>Select Technician</DialogTitle>
-        <DialogContent dividers>
-          <TextField
-            fullWidth
-            placeholder="Search technicians..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
-            }}
-            sx={{ mb: 2 }}
-          />
-
-          <List sx={{ pt: 0 }}>
-            {filteredTechnicians.map((technician) => {
-              const isCurrentTechnician = ticket.staff?._id === technician._id;
-              return (
-                <ListItem
-                  component="div"
-                  onClick={() => {
-                    if (!isCurrentTechnician) {
-                      handleAssignTechnician(technician._id);
-                      setShowTechnicianModal(false);
-                      setSearchQuery("");
-                    }
-                  }}
-                  sx={{
-                    borderRadius: 1,
-                    mb: 1,
-                    cursor: isCurrentTechnician ? 'default' : 'pointer',
-                    bgcolor: isCurrentTechnician
-                      ? "rgba(136, 159, 99, 0.12)"
-                      : "transparent",
-                    "&:hover": {
-                      bgcolor: isCurrentTechnician 
-                        ? "rgba(136, 159, 99, 0.12)" 
-                        : "action.hover",
-                    },
-                    opacity: isCurrentTechnician ? 0.7 : 1,
-                  }}
-                  key={technician._id}
-                >
-                  <ListItemAvatar>
-                    <Avatar sx={{ bgcolor: "#889F63" }}>
-                      {technician.firstName[0]}
-                    </Avatar>
-                  </ListItemAvatar>
-                  <ListItemText
-                    primary={
-                      <Box component="div" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        {`${technician.firstName} ${technician.lastName}`}
-                        {isCurrentTechnician && (
-                          <Chip
-                            label="Currently Assigned"
-                            size="small"
-                            sx={{ 
-                              bgcolor: 'rgba(136, 159, 99, 0.2)',
-                              color: '#889F63',
-                              height: 24
-                            }}
-                          />
-                        )}
-                      </Box>
-                    }
-                    secondary={technician.specialization}
-                  />
-                </ListItem>
-              );
-            })}
-            {filteredTechnicians.length === 0 && (
-              <Typography color="text.secondary" align="center" py={2}>
-                No technicians found
-              </Typography>
-            )}
-          </List>
+        <DialogTitle>
+          {ticket.staff?._id ? "Change Technician" : "Assign Technician"}
+        </DialogTitle>
+        <DialogContent dividers sx={modalStyles.content}>
+          {["Completed", "Cancelled"].includes(ticket.currentStatus) ? (
+            <Typography color="error" sx={{ p: 2 }}>
+              Cannot assign technician to a {ticket.currentStatus.toLowerCase()} ticket.
+            </Typography>
+          ) : (
+            <>
+              <TextField
+                fullWidth
+                placeholder="Search technicians..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                sx={{ mb: 2 }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+              <List sx={{ pt: 0 }}>
+                {filteredTechnicians.map((tech) => (
+                  <ListItem
+                    key={tech._id}
+                    sx={{
+                      borderRadius: 1,
+                      mb: 1,
+                      '&:last-child': { mb: 0 },
+                      '&:hover': {
+                        bgcolor: 'action.hover',
+                      },
+                    }}
+                  >
+                    <ListItemAvatar>
+                      <Avatar sx={{ bgcolor: colors.primary }}>
+                        {tech.firstName[0]}
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary={`${tech.firstName} ${tech.lastName}`}
+                      secondary={tech.specialization}
+                    />
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() => handleAssignTechnician(tech._id)}
+                      disabled={isAssigning || tech._id === ticket.staff?._id}
+                      sx={{
+                        color: colors.primary,
+                        borderColor: colors.primary,
+                        '&:hover': {
+                          borderColor: colors.primary,
+                          bgcolor: 'rgba(136, 159, 99, 0.08)',
+                        },
+                      }}
+                    >
+                      {isAssigning ? "Assigning..." : "Assign"}
+                    </Button>
+                  </ListItem>
+                ))}
+              </List>
+            </>
+          )}
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={modalStyles.actions}>
           <Button
             onClick={() => {
               setShowTechnicianModal(false);
               setSearchQuery("");
             }}
           >
-            Cancel
+            Close
           </Button>
         </DialogActions>
       </Dialog>
@@ -658,27 +633,20 @@ export default function MaintenanceDetailPage({ params }) {
       {/* Status Update Modal */}
       <Dialog
         open={showStatusModal}
-        onClose={() => {
-          setShowStatusModal(false);
-          setNewStatus("");
-          setStatusComment("");
-        }}
-        maxWidth="sm"
-        fullWidth
+        onClose={() => setShowStatusModal(false)}
+        PaperProps={{ sx: modalStyles.paper }}
       >
         <DialogTitle>Update Status</DialogTitle>
-        <DialogContent dividers>
+        <DialogContent dividers sx={modalStyles.content}>
           <FormControl fullWidth sx={{ mb: 2 }}>
-            <InputLabel id="status-select-label">Status</InputLabel>
+            <InputLabel>Status</InputLabel>
             <Select
-              labelId="status-select-label"
-              id="status-select"
               value={newStatus}
-              label="Status"
               onChange={(e) => setNewStatus(e.target.value)}
+              label="Status"
             >
               {["Pending", "In Progress", "Completed", "Cancelled"]
-                .filter(status => status !== ticket.currentStatus) 
+                .filter(status => status !== ticket.currentStatus)
                 .map((status) => (
                   <MenuItem key={status} value={status}>{status}</MenuItem>
                 ))
@@ -689,31 +657,20 @@ export default function MaintenanceDetailPage({ params }) {
             fullWidth
             multiline
             rows={3}
-            label="Comment (Optional)"
+            label="Comment"
             value={statusComment}
             onChange={(e) => setStatusComment(e.target.value)}
           />
         </DialogContent>
-        <DialogActions>
-          <Button
-            onClick={() => {
-              setShowStatusModal(false);
-              setNewStatus("");
-              setStatusComment("");
-            }}
-          >
+        <DialogActions sx={modalStyles.actions}>
+          <Button onClick={() => setShowStatusModal(false)}>
             Cancel
           </Button>
           <Button
-            onClick={handleUpdateStatus}
             variant="contained"
-            disabled={!newStatus}
-            sx={{
-              bgcolor: "#889F63",
-              "&:hover": {
-                bgcolor: "#7A8F53",
-              },
-            }}
+            onClick={handleUpdateStatus}
+            disabled={!newStatus || !statusComment}
+            sx={buttonStyles.primary.contained}
           >
             Update
           </Button>

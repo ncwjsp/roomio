@@ -84,7 +84,7 @@ export default function MaintenancePage() {
         .map(t => t.room.floor.floorNumber?.toString()))]
         .sort((a, b) => parseInt(a) - parseInt(b))
     : [];
-  const statuses = ["Pending", "In Progress", "Completed"];
+  const statuses = ["Pending", "In Progress", "Completed", "Cancelled"];
 
   const formatDate = (dateString) => {
     try {
@@ -214,6 +214,8 @@ export default function MaintenancePage() {
         return "info";
       case "Pending":
         return "warning";
+      case "Cancelled":
+        return "error";
       default:
         return "default";
     }
