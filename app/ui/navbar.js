@@ -97,7 +97,7 @@ export default function Navbar() {
                       href={link.route}
                       className={`flex justify-center items-center px-6 py-3 mb-1 rounded no-underline transition-all duration-200 ${
                         isActive(link.route)
-                          ? "bg-[#889F63] text-white"
+                          ? "bg-[#B3B7A0] text-white"
                           : "text-black hover:bg-gray-200"
                       }`}
                     >
@@ -116,7 +116,7 @@ export default function Navbar() {
             href="/setting"
             className={`flex justify-center items-center px-6 py-3 rounded no-underline transition-all duration-200 ${
               isActive("/setting")
-                ? "bg-[#889F63] text-white"
+                ? "bg-[#CED69C] text-white"
                 : "text-black hover:bg-gray-200"
             }`}
           >

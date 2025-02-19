@@ -284,7 +284,7 @@ export default function AnnouncementsPage() {
                       <IconButton
                         onClick={(e) => handleDeleteClick(e, announcement)}
                         sx={{ 
-                          color: colors.primary,
+                          color: "#d32f2f",
                           '&:hover': {
                             color: 'error.main',
                             bgcolor: 'error.light',

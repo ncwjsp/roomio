@@ -226,8 +226,19 @@ const StaffForm = ({ onSubmit, initialData = {}, onCancel }) => {
           >
             <Button
               variant="outlined"
-              startIcon={<PersonAddIcon />}
+              startIcon={<Icon />}
               onClick={handleOpenContactModal}
+              sx={{
+                borderRadius: 2,
+                py: 1.5,
+                px: 3,
+                borderColor: errors.contact ? "error.main" : "#898F63",
+                color: errors.contact ? "error.main" : "#898F63",
+                "&:hover": {
+                  borderColor: errors.contact ? "error.dark" : "#7C8F59",
+                  backgroundColor: errors.contact ? "error.50" : "rgba(137, 143, 99, 0.04)",
+                },
+              }}
             >
               {selectedContact
                 ? "Change LINE Contact"

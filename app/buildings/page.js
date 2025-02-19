@@ -647,17 +647,17 @@ const Buildings = () => {
             mb: 4,
           }}
         >
-          <Typography variant="h4" sx={{ color: "#889F63", fontWeight: 600 }}>
+          <Typography variant="h4" sx={{ color: "#898F63", fontWeight: 600 }}>
             Buildings
           </Typography>
           <Box sx={{ display: "flex", gap: 2 }}>
             {buildings.length > 0 && (
               <Button
                 variant="contained"
-                startIcon={<AddIcon />}
+                startIcon={<AddIcon sx={{ color: "white" }} />}
                 onClick={() => setShowAddRoomModal(true)}
                 sx={{
-                  bgcolor: "#889F63",
+                  bgcolor: "#898F63",
                   "&:hover": {
                     bgcolor: "#7C8F59",
                   },
@@ -669,10 +669,10 @@ const Buildings = () => {
             )}
             <Button
               variant="contained"
-              startIcon={<AddIcon />}
+              startIcon={<AddIcon sx={{ color: "white" }} />}
               onClick={() => setShowModal(true)}
               sx={{
-                bgcolor: "#889F63",
+                bgcolor: "#898F63",
                 "&:hover": {
                   bgcolor: "#7C8F59",
                 },
@@ -686,7 +686,7 @@ const Buildings = () => {
 
         {isLoading ? (
           <Box display="flex" justifyContent="center" my={4}>
-            <CircularProgress sx={{ color: "#889F63" }} />
+            <CircularProgress sx={{ color: "#898F63" }} />
           </Box>
         ) : error ? (
           <Box textAlign="center" my={4}>
@@ -718,7 +718,7 @@ const Buildings = () => {
                 opacity: 0.7,
               }}
             />
-            <Typography variant="h5" sx={{ color: "#889F63", mb: 1, fontWeight: 600 }}>
+            <Typography variant="h5" sx={{ color: "#898F63", mb: 1, fontWeight: 600 }}>
               No Buildings Found
             </Typography>
             <Typography color="text.secondary" sx={{ mb: 3, maxWidth: "500px" }}>
@@ -729,7 +729,7 @@ const Buildings = () => {
               startIcon={<AddIcon />}
               onClick={() => setShowModal(true)}
               sx={{
-                bgcolor: "#889F63",
+                bgcolor: "#898F63",
                 "&:hover": {
                   bgcolor: "#7C8F59",
                 },
@@ -752,7 +752,7 @@ const Buildings = () => {
                 borderRadius: 2,
                 border: "1px solid",
                 borderColor: "divider",
-                bgcolor: "#889F63",
+                bgcolor: "#898F63",
               }}
             >
               <Typography variant="h6" sx={{ color: "white", mb: 2, fontWeight: 600 }}>
@@ -795,7 +795,8 @@ const Buildings = () => {
                                 setBuildingToDelete(building);
                                 setShowDeleteBuildingConfirm(true);
                               }}
-                              className="ml-4 text-red-500 hover:text-red-700"
+                              className="ml-4 text-red-500 hover:text-red-700 bg-transparent border-none p-0"
+                              style={{ background: 'transparent' }}
                             >
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
@@ -803,6 +804,7 @@ const Buildings = () => {
                                 fill="none"
                                 viewBox="0 0 24 24"
                                 stroke="currentColor"
+                                style={{ backgroundColor: 'transparent' }}
                               >
                                 <path
                                   strokeLinecap="round"
@@ -1128,7 +1130,7 @@ const Buildings = () => {
               resetForm();
             }}
             sx={{
-              color: "#889F63",
+              color: "#898F63",
               "&:hover": {
                 bgcolor: "rgba(136, 159, 99, 0.08)",
               },
@@ -1152,7 +1154,7 @@ const Buildings = () => {
               Number(waterRate) <= 0
             }
             sx={{
-              bgcolor: "#889F63",
+              bgcolor: "#898F63",
               "&:hover": {
                 bgcolor: "#7C8F59",
               },
@@ -1309,7 +1311,7 @@ const Buildings = () => {
           <Button
             onClick={handleCloseModal}
             sx={{
-              color: "#889F63",
+              color: "#898F63",
               "&:hover": {
                 bgcolor: "rgba(136, 159, 99, 0.08)",
               },
@@ -1329,7 +1331,7 @@ const Buildings = () => {
               isLoading
             }
             sx={{
-              bgcolor: "#889F63",
+              bgcolor: "#898F63",
               "&:hover": {
                 bgcolor: "#7C8F59",
               },
@@ -1364,14 +1366,14 @@ const Buildings = () => {
           Add Room
         </MenuItem>
         <MenuItem onClick={handleDeleteRoom}>
-          <DeleteIcon sx={{ mr: 1, fontSize: 20, color: "orange" }} />
+          <DeleteIcon sx={{ mr: 1, fontSize: 20, color: "#d32f2f" }} />
           Delete Room
         </MenuItem>
         <MenuItem onClick={() => {
           setBuildingToDelete(selectedBuilding);
           setShowDeleteBuildingConfirm(true);
-        }} sx={{ color: "red" }}>
-          <DeleteIcon sx={{ mr: 1, fontSize: 20 }} />
+        }} sx={{ color: "#d32f2f" }}>
+          <DeleteIcon sx={{ mr: 1, fontSize: 20, color: "#d32f2f" }} />
           Delete Building
         </MenuItem>
       </Menu>
@@ -1396,14 +1398,20 @@ const Buildings = () => {
               setShowDeleteBuildingConfirm(false);
               setBuildingToDelete(null);
             }}
-            sx={{ color: "#889F63" }}
+            sx={{ color: "#898F63" }}
           >
             Cancel
           </Button>
           <Button
             onClick={handleDeleteBuilding}
             variant="contained"
-            color="error"
+            sx={{
+              bgcolor: "#d32f2f",
+              "&:hover": {
+                bgcolor: "#7a4040",
+              },
+              textTransform: "none",
+            }}
             disabled={isLoading}
           >
             {isLoading ? <CircularProgress size={24} /> : "Delete"}
@@ -1425,7 +1433,7 @@ const Buildings = () => {
           <Button
             onClick={() => setShowDeleteBuildingDialog(false)}
             sx={{
-              color: "#889F63",
+              color: "#898F63",
               "&:hover": {
                 bgcolor: "rgba(136, 159, 99, 0.08)",
               },
@@ -1440,7 +1448,7 @@ const Buildings = () => {
             sx={{
               bgcolor: "#d32f2f",
               "&:hover": {
-                bgcolor: "#c62828",
+                bgcolor: "#7a4040",
               },
               textTransform: "none",
             }}
@@ -1464,7 +1472,7 @@ const Buildings = () => {
           <Button
             onClick={() => setShowEditBuildingDialog(false)}
             sx={{
-              color: "#889F63",
+              color: "#898F63",
               "&:hover": {
                 bgcolor: "rgba(136, 159, 99, 0.08)",
               },
@@ -1478,7 +1486,7 @@ const Buildings = () => {
             onClick={handleEditBuilding}
             disabled={!selectedBuilding}
             sx={{
-              bgcolor: "#889F63",
+              bgcolor: "#898F63",
               "&:hover": {
                 bgcolor: "#7C8F59",
               },
@@ -1504,7 +1512,7 @@ const Buildings = () => {
           <Button
             onClick={() => setShowDeleteRoomDialog(false)}
             sx={{
-              color: "#889F63",
+              color: "#898F63",
               "&:hover": {
                 bgcolor: "rgba(136, 159, 99, 0.08)",
               },
@@ -1519,7 +1527,7 @@ const Buildings = () => {
             sx={{
               bgcolor: "#d32f2f",
               "&:hover": {
-                bgcolor: "#c62828",
+                bgcolor: "#7a4040",
               },
               textTransform: "none",
             }}

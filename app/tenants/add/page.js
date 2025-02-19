@@ -519,8 +519,8 @@ const AddTenant = () => {
                     borderRadius: 2,
                     py: 1.5,
                     px: 3,
-                    borderColor: errors.contact ? "error.main" : "primary.main",
-                    color: errors.contact ? "error.main" : "primary.main",
+                    borderColor: errors.contact ? "error.main" : "#898F63",
+                    color: errors.contact ? "error.main" : "#898F63",
                     "&:hover": {
                       borderColor: errors.contact
                         ? "error.dark"
@@ -607,8 +607,8 @@ const AddTenant = () => {
                     borderRadius: 2,
                     py: 1.5,
                     px: 3,
-                    borderColor: errors.room ? "error.main" : "primary.main",
-                    color: errors.room ? "error.main" : "primary.main",
+                    borderColor: errors.room ? "error.main" :  "#898F63",
+                    color: errors.room ? "error.main" :  "#898F63",
                     whiteSpace: "nowrap",
                   }}
                 >
@@ -907,10 +907,18 @@ const AddTenant = () => {
 
         <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
           <Step>
-            <StepLabel>Personal Information</StepLabel>
+            <StepLabel StepIconProps={{
+              style: {
+                color: activeStep >= 0 ? '#898F63' : undefined,
+              }
+            }}>Personal Information</StepLabel>
           </Step>
           <Step>
-            <StepLabel>Lease Information</StepLabel>
+            <StepLabel StepIconProps={{
+              style: {
+                color: activeStep >= 0 ? '#898F63' : undefined,
+              }
+            }}>Lease Information</StepLabel>
           </Step>
         </Stepper>
 
@@ -929,6 +937,11 @@ const AddTenant = () => {
               onClick={handleBack}
               disabled={activeStep === 0}
               variant="outlined"
+              sx={{
+                color: "#898F63",
+                borderColor: "#898F63",
+                /* hover styles */
+              }}
             >
               Back
             </Button>
@@ -938,11 +951,23 @@ const AddTenant = () => {
                 variant="contained"
                 color="primary"
                 disabled={loading}
+                sx={{
+                  bgcolor: "#898F63",
+                  "&:hover": {
+                    bgcolor: "#7C8F59",
+                  },
+                }}
               >
                 Submit
               </Button>
             ) : (
-              <Button variant="contained" onClick={handleNext} color="primary">
+              <Button variant="contained" onClick={handleNext} sx={{
+                bgcolor: "#898F63",
+                "&:hover": {
+                  bgcolor: "#7C8F59",
+                },
+              }}
+              >
                 Next
               </Button>
             )}
@@ -1109,7 +1134,14 @@ const AddTenant = () => {
           )}
 
           <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}>
-            <Button onClick={handleCloseContactModal}>Cancel</Button>
+            <Button onClick={handleCloseContactModal}
+            sx={{
+              color: "#d32f2f", // Red cancel button
+              "&:hover": {
+                backgroundColor: "rgba(148, 80, 80, 0.04)",
+              },
+            }}
+            >Cancel</Button>
           </Box>
         </Box>
       </Modal>
@@ -1277,7 +1309,12 @@ const AddTenant = () => {
                 count={getPaginatedBuildingData().totalPages}
                 page={roomPage}
                 onChange={(e, page) => setRoomPage(page)}
-                color="primary"
+                color="primary"sx={{
+                  '& .MuiPaginationItem-root.Mui-selected': {
+                    bgcolor: '#898F63',
+                    color: 'white',
+                  },
+                }}
                 size="small"
               />
               <Button onClick={handleCloseRoomModal}>Cancel</Button>

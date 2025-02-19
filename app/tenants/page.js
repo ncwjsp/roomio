@@ -164,11 +164,17 @@ export default function TenantsPage() {
         <Link href="/tenants/add" passHref>
           <Button
             variant="contained"
-            startIcon={<AddIcon />}
+            startIcon={<AddIcon sx={{ color: "white" }} />}
             sx={{
               borderRadius: 2,
               textTransform: "none",
               px: 3,
+              px: 3,
+              bgcolor: "#898F63",
+              "&:hover": {
+                bgcolor: "#7C8F59",
+              },
+              color: "white",
             }}
           >
             Add New Tenant
@@ -266,7 +272,14 @@ export default function TenantsPage() {
                     <Button
                       variant="outlined"
                       size="small"
-                      sx={{ borderRadius: 1.5, textTransform: "none" }}
+                      sx={{ 
+                        color: "#898F63", 
+                        borderColor: "#898F63",
+                        '&:hover': {
+                          borderColor: "#7C8F59",
+                          backgroundColor: "rgba(137, 143, 99, 0.04)"
+                        }
+                      }}
                     >
                       View Details
                     </Button>

@@ -342,7 +342,11 @@ const EditBillPage = () => {
           <Box
             sx={{ mt: 3, display: "flex", gap: 2, justifyContent: "flex-end" }}
           >
-            <Button variant="outlined" onClick={() => router.push("/billings")}>
+            <Button 
+              variant="outlined" 
+              color="error"
+              onClick={() => router.push("/billings")}
+            >
               Cancel
             </Button>
             <Button

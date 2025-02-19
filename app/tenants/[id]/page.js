@@ -352,9 +352,15 @@ export default function TenantDetails({ params }) {
               </Box>
               <Button
                 variant="contained"
-                startIcon={<EditIcon />}
+                startIcon={<EditIcon sx={{ color: "white" }} />}
                 onClick={() => setEditDialogOpen(true)}
-                sx={{ borderRadius: 2 }}
+                sx={{ 
+                  bgcolor: "#898F63", 
+                  '&:hover': { 
+                    bgcolor: "#7C8F59" 
+                  },
+                  color: "white"
+                }}
               >
                 Edit Details
               </Button>
@@ -370,17 +376,17 @@ export default function TenantDetails({ params }) {
                 </Typography>
                 <Box sx={{ mb: 4 }}>
                   <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-                    <EmailIcon sx={{ mr: 2, color: "primary.main" }} />
+                    <EmailIcon sx={{ mr: 2, color: "#898F63" }} />
                     <Typography>{tenant?.email}</Typography>
                   </Box>
 
                   <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-                    <PhoneIcon sx={{ mr: 2, color: "primary.main" }} />
+                    <PhoneIcon sx={{ mr: 2, color: "#898F63" }} />
                     <Typography>{tenant?.phone}</Typography>
                   </Box>
 
                   <Box sx={{ display: "flex", alignItems: "center", mb: 3 }}>
-                    <ChatIcon sx={{ mr: 2, color: "primary.main" }} />
+                    <ChatIcon sx={{ mr: 2, color: "#898F63" }} />
                     <Typography>{tenant?.lineId || "Not set"}</Typography>
                   </Box>
 
@@ -413,6 +419,14 @@ export default function TenantDetails({ params }) {
                         onClick={handleOpenContactModal}
                         variant="outlined"
                         size="small"
+                        sx={{
+                          color: "#898F63",
+                          borderColor: "#898F63",
+                          "&:hover": {
+                            borderColor: "#7C8F59",
+                            backgroundColor: "rgba(137, 143, 99, 0.04)",
+                          },
+                        }}
                       >
                         Change LINE Contact
                       </Button>
@@ -433,6 +447,14 @@ export default function TenantDetails({ params }) {
                         onClick={handleOpenContactModal}
                         variant="outlined"
                         size="small"
+                        sx={{
+                          color: "#898F63",
+                          borderColor: "#898F63",
+                          "&:hover": {
+                            borderColor: "#7C8F59",
+                            backgroundColor: "rgba(137, 143, 99, 0.04)",
+                          },
+                        }}
                       >
                         Select LINE Contact
                       </Button>
@@ -447,7 +469,7 @@ export default function TenantDetails({ params }) {
                 </Typography>
                 <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
                   <Box sx={{ display: "flex", alignItems: "center" }}>
-                    <CalendarIcon sx={{ mr: 2, color: "primary.main" }} />
+                    <CalendarIcon sx={{ mr: 2, color: "#898F63" }} />
                     <Typography>
                       {tenant.leaseStartDate
                         ? new Date(tenant.leaseStartDate).toLocaleDateString()
@@ -459,7 +481,7 @@ export default function TenantDetails({ params }) {
                     </Typography>
                   </Box>
                   <Box sx={{ display: "flex", alignItems: "center" }}>
-                    <MoneyIcon sx={{ mr: 2, color: "primary.main" }} />
+                    <MoneyIcon sx={{ mr: 2, color: "#898F63" }} />
                     <Typography>
                       Deposit: ฿{(tenant.depositAmount || 0).toLocaleString()}
                     </Typography>
@@ -475,9 +497,15 @@ export default function TenantDetails({ params }) {
               <Button
                 variant="contained"
                 color="error"
-                startIcon={<DeleteIcon />}
+                startIcon={<DeleteIcon sx={{ color: "white" }} />}
                 onClick={() => setDeleteDialogOpen(true)}
-                sx={{ borderRadius: 2 }}
+                sx={{ 
+                  bgcolor: "#d32f2f", 
+                  '&:hover': { 
+                    bgcolor: "#d32f2f" 
+                  },
+                  color: "white"
+                }}
               >
                 Delete Tenant
               </Button>
@@ -566,11 +594,24 @@ export default function TenantDetails({ params }) {
                 </Grid>
               </DialogContent>
               <DialogActions>
-                <Button onClick={() => setEditDialogOpen(false)}>Cancel</Button>
+                <Button onClick={() => setEditDialogOpen(false)}
+                sx={{
+                  color: "#d32f2f", 
+                  "&:hover": {
+                    backgroundColor: "rgba(66, 133, 244, 0.04)",
+                  },
+                }}
+                  >Cancel</Button>
                 <Button
                   onClick={handleUpdateTenant}
                   variant="contained"
-                  color="primary"
+                  sx={{
+                    bgcolor: "#898F63",
+                    "&:hover": {
+                      bgcolor: "#7C8F59",
+                    },
+                    textTransform: "none",
+                  }}
                 >
                   Save Changes
                 </Button>
@@ -747,7 +788,7 @@ export default function TenantDetails({ params }) {
                 <Box
                   sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}
                 >
-                  <Button onClick={handleCloseContactModal}>Cancel</Button>
+                  <Button onClick={handleCloseContactModal} >Cancel</Button>
                 </Box>
               </Box>
             </Modal>
@@ -765,8 +806,25 @@ export default function TenantDetails({ params }) {
             undone.
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleDelete} color="error" autoFocus>
+            <Button onClick={() => setDeleteDialogOpen(false)}
+            sx={{
+              color: "#d32f2f", // Red cancel button
+              "&:hover": {
+                backgroundColor: "rgba(148, 80, 80, 0.04)",
+              },
+            }}
+              >Cancel</Button>
+            <Button onClick={handleDelete} 
+            variant="contained"
+            sx={{
+              bgcolor: "#d32f2f", // Red delete button
+              color: "white",
+              "&:hover": {
+                bgcolor: "#7a4040",
+              },
+            }}
+            autoFocus
+            >
               Delete
             </Button>
           </DialogActions>
