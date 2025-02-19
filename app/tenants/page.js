@@ -225,7 +225,7 @@ export default function TenantsPage() {
                 <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
                   <Avatar
                     sx={{
-                      bgcolor: "primary.main",
+                      bgcolor: "#898F63",
                       width: 56,
                       height: 56,
                       mr: 2,

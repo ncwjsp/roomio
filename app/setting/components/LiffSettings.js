@@ -273,7 +273,7 @@ const LiffSettings = () => {
             { key: "parcels", label: "Parcels URL" },
             { key: "payment", label: "Payment URL" },
             { key: "announcement", label: "Announcement URL" },
-            { key: "tenantInfo", label: "Tenant Information URL" },
+            { key: "tenantinfo", label: "Tenant Information URL" },
             { key: "schedule", label: "Schedule URL" },
             { key: "tasks", label: "Tasks URL" },
           ].map(({ key, label }) => (

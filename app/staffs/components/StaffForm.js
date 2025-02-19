@@ -31,16 +31,18 @@ const StaffForm = ({ onSubmit, initialData = {}, onCancel }) => {
     lastName: "",
     phone: "",
     email: "",
-    role: "",
+    role: "General",
     specialization: "",
-    building: "", // For housekeepers
     lineId: "", // Basic LINE ID
-    lineUserId: "", // For Housekeeper and Technician
+    lineUserId: "", // LINE Official Account user ID
+    lineDisplayName: "",
+    linePicture: "",
     salary: "",
     startDate: "",
     ...initialData,
   });
 
+  const [errors, setErrors] = useState({});
   const [lineContacts, setLineContacts] = useState([]);
   const [lineContactsLoading, setLineContactsLoading] = useState(false);
   const { data: session } = useSession();
@@ -53,13 +55,10 @@ const StaffForm = ({ onSubmit, initialData = {}, onCancel }) => {
   const [page, setPage] = useState(1);
 
   const roles = [
-    { id: "", label: "Select a role" },
+    { id: "General", label: "General Staff" },
     { id: "Housekeeper", label: "Housekeeper" },
     { id: "Technician", label: "Technician" },
-    { id: "General", label: "General Staff" },
   ];
-
-  const buildings = ["A", "B", "C", "D"]; // Your building list
 
   useEffect(() => {
     if (["Housekeeper", "Technician"].includes(formData.role)) {
@@ -68,11 +67,14 @@ const StaffForm = ({ onSubmit, initialData = {}, onCancel }) => {
   }, [formData.role]);
 
   const fetchLineContacts = async () => {
+    if (!session?.user?.id) return;
+    
     setLineContactsLoading(true);
     try {
       const response = await fetch(`/api/linecontact?id=${session.user.id}`);
       if (!response.ok) throw new Error("Failed to fetch LINE contacts");
       const data = await response.json();
+      console.log("Fetched LINE contacts:", data);
       setLineContacts(data.lineContacts || []);
     } catch (error) {
       console.error("Failed to fetch LINE contacts:", error);
@@ -88,7 +90,8 @@ const StaffForm = ({ onSubmit, initialData = {}, onCancel }) => {
       ...prev,
       role: newRole || "",
       lineUserId: newRole === "General" ? "" : prev.lineUserId || "",
-      building: newRole !== "Housekeeper" ? "" : prev.building || "",
+      lineDisplayName: newRole === "General" ? "" : prev.lineDisplayName || "",
+      linePicture: newRole === "General" ? "" : prev.linePicture || "",
     }));
     setShowLineSelect(["Housekeeper", "Technician"].includes(newRole));
   };
@@ -106,7 +109,8 @@ const StaffForm = ({ onSubmit, initialData = {}, onCancel }) => {
     setFormData((prev) => ({
       ...prev,
       lineUserId: contact.userId || "",
-      lineId: contact.lineId || "",
+      lineDisplayName: contact.name || "",
+      linePicture: contact.pfp || "",
     }));
     setOpenContactModal(false);
   };
@@ -116,23 +120,50 @@ const StaffForm = ({ onSubmit, initialData = {}, onCancel }) => {
     setFormData((prev) => ({
       ...prev,
       lineUserId: "",
-      lineId: "",
+      lineDisplayName: "",
+      linePicture: "",
     }));
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+    
+    if (!formData.firstName.trim()) newErrors.firstName = "First name is required";
+    if (!formData.lastName.trim()) newErrors.lastName = "Last name is required";
+    if (!formData.phone.trim()) newErrors.phone = "Phone is required";
+    if (!formData.email.trim()) newErrors.email = "Email is required";
+    if (!formData.role) newErrors.role = "Role is required";
+    if (!formData.salary) newErrors.salary = "Salary is required";
+    if (!formData.startDate) newErrors.startDate = "Start date is required";
+    
+    if (["Housekeeper", "Technician"].includes(formData.role) && !formData.lineUserId) {
+      newErrors.contact = "LINE contact is required for this role";
+    }
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (formData.email && !emailRegex.test(formData.email)) {
+      newErrors.email = "Invalid email format";
+    }
+    
+    const phoneRegex = /^\+?[\d\s-]{10,}$/;
+    if (formData.phone && !phoneRegex.test(formData.phone)) {
+      newErrors.phone = "Invalid phone number format";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        if (!formData.role) {
-          showNotification("Please select a role", "error");
-          return;
+        if (validateForm()) {
+          onSubmit(formData);
         }
-        onSubmit(formData);
       }}
       className="space-y-4"
     >
-      {/* Basic Info */}
       <div className="grid grid-cols-2 gap-4">
         <TextField
           label="First Name"
@@ -141,6 +172,8 @@ const StaffForm = ({ onSubmit, initialData = {}, onCancel }) => {
           onChange={(e) =>
             setFormData({ ...formData, firstName: e.target.value })
           }
+          error={!!errors.firstName}
+          helperText={errors.firstName}
         />
         <TextField
           label="Last Name"
@@ -149,41 +182,23 @@ const StaffForm = ({ onSubmit, initialData = {}, onCancel }) => {
           onChange={(e) =>
             setFormData({ ...formData, lastName: e.target.value })
           }
+          error={!!errors.lastName}
+          helperText={errors.lastName}
         />
       </div>
 
-      {/* Role Selection */}
-      <FormControl fullWidth required>
+      <FormControl fullWidth required error={!!errors.role}>
         <InputLabel>Role</InputLabel>
-        <Select value={formData.role} onChange={handleRoleChange} required>
+        <Select value={formData.role} onChange={handleRoleChange}>
           {roles.map((role) => (
-            <MenuItem key={role.id} value={role.id} disabled={role.id === ""}>
+            <MenuItem key={role.id} value={role.id}>
               {role.label}
             </MenuItem>
           ))}
         </Select>
+        {errors.role && <FormHelperText>{errors.role}</FormHelperText>}
       </FormControl>
 
-      {/* Building Selection (Housekeepers only) */}
-      {formData.role === "Housekeeper" && (
-        <FormControl fullWidth required>
-          <InputLabel>Assigned Building</InputLabel>
-          <Select
-            value={formData.building}
-            onChange={(e) =>
-              setFormData({ ...formData, building: e.target.value })
-            }
-          >
-            {buildings.map((building) => (
-              <MenuItem key={building} value={building}>
-                Building {building}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-      )}
-
-      {/* Specialization for all roles */}
       {formData.role && (
         <TextField
           label="Specialization"
@@ -204,16 +219,14 @@ const StaffForm = ({ onSubmit, initialData = {}, onCancel }) => {
         />
       )}
 
-      {/* LINE ID (Basic) */}
       <TextField
         label="LINE ID"
         fullWidth
         value={formData.lineId}
         onChange={(e) => setFormData({ ...formData, lineId: e.target.value })}
-        helperText="Staff's LINE ID (@example)"
+        helperText="Optional: Staff's LINE ID (@example)"
       />
 
-      {/* LINE User Selection for Housekeeper and Technician */}
       {showLineSelect && (
         <Box sx={{ mb: 3 }}>
           <Box
@@ -226,7 +239,7 @@ const StaffForm = ({ onSubmit, initialData = {}, onCancel }) => {
           >
             <Button
               variant="outlined"
-              startIcon={<Icon />}
+              startIcon={<PersonAddIcon />}
               onClick={handleOpenContactModal}
               sx={{
                 borderRadius: 2,
@@ -244,6 +257,9 @@ const StaffForm = ({ onSubmit, initialData = {}, onCancel }) => {
                 ? "Change LINE Contact"
                 : "Select LINE Contact *"}
             </Button>
+            {errors.contact && (
+              <FormHelperText error>{errors.contact}</FormHelperText>
+            )}
             {selectedContact && (
               <Box
                 sx={{
@@ -257,13 +273,13 @@ const StaffForm = ({ onSubmit, initialData = {}, onCancel }) => {
                 }}
               >
                 <Avatar
-                  src={selectedContact.pfp}
-                  alt={selectedContact.name}
+                  src={formData.linePicture}
+                  alt={formData.lineDisplayName}
                   sx={{ width: 40, height: 40 }}
                 />
                 <Box>
                   <Typography variant="subtitle2">
-                    {selectedContact.name}
+                    {formData.lineDisplayName}
                   </Typography>
                   <Typography variant="caption" color="textSecondary">
                     {selectedContact.lineId}
@@ -286,13 +302,14 @@ const StaffForm = ({ onSubmit, initialData = {}, onCancel }) => {
         </Box>
       )}
 
-      {/* Other fields */}
       <div className="grid grid-cols-2 gap-4">
         <TextField
           label="Phone"
           required
           value={formData.phone}
           onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+          error={!!errors.phone}
+          helperText={errors.phone}
         />
         <TextField
           label="Email"
@@ -300,6 +317,8 @@ const StaffForm = ({ onSubmit, initialData = {}, onCancel }) => {
           required
           value={formData.email}
           onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+          error={!!errors.email}
+          helperText={errors.email}
         />
       </div>
 
@@ -313,6 +332,8 @@ const StaffForm = ({ onSubmit, initialData = {}, onCancel }) => {
             setFormData({ ...formData, startDate: e.target.value })
           }
           InputLabelProps={{ shrink: true }}
+          error={!!errors.startDate}
+          helperText={errors.startDate}
         />
         <TextField
           label="Salary"
@@ -320,6 +341,8 @@ const StaffForm = ({ onSubmit, initialData = {}, onCancel }) => {
           required
           value={formData.salary}
           onChange={(e) => setFormData({ ...formData, salary: e.target.value })}
+          error={!!errors.salary}
+          helperText={errors.salary}
         />
       </div>
 

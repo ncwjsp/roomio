@@ -9,8 +9,8 @@ import Link from "next/link";
 
 const StaffPage = () => {
   const { data: session } = useSession();
-  const [staffData, setStaffData] = useState({});
-  const [selectedRole, setSelectedRole] = useState("Housekeeper");
+  const [staffData, setStaffData] = useState([]);
+  const [selectedRole, setSelectedRole] = useState("All");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [notification, setNotification] = useState({
@@ -19,65 +19,50 @@ const StaffPage = () => {
     type: "",
   });
 
-  // Form states
-  const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
-    phone: "",
-    email: "",
-    role: "Housekeeper",
-    specialization: "", // For technicians
-    salary: "",
-    startDate: "",
-    status: "Active",
-  });
-
-  // New role form state
-  const [newRole, setNewRole] = useState({
-    name: "",
-    category: "General", // or "Technical"
-  });
-
   const [roles] = useState([
+    { id: "All", label: "All" },
     { id: "Housekeeper", label: "Housekeeper" },
     { id: "Technician", label: "Technician" },
     { id: "General", label: "General Staff" },
   ]);
 
   useEffect(() => {
-    if (session) {
-      fetchStaffByRole(selectedRole);
-    }
-  }, [session, selectedRole]);
+    const fetchStaff = async () => {
+      if (!session?.user?.id) return;
+      
+      try {
+        setIsLoading(true);
+        const res = await fetch('/api/staff');
+        if (!res.ok) throw new Error('Failed to fetch staff');
+        const data = await res.json();
+        setStaffData(data);
+      } catch (error) {
+        console.error('Error fetching staff:', error);
+        setError(error.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  const fetchStaffByRole = async (role) => {
-    try {
-      setIsLoading(true);
-      const res = await fetch(`/api/staff?role=${role}`);
-      if (!res.ok) throw new Error(`Failed to fetch ${role}s`);
-      const data = await res.json();
-      setStaffData((prev) => ({ ...prev, [role]: data }));
-    } catch (error) {
-      setError(error.message);
-      showNotification(error.message, "error");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    fetchStaff();
+  }, [session?.user?.id]);
 
-  const handleAddStaff = async (e) => {
-    e.preventDefault();
+  const filteredStaff = selectedRole === "All" 
+    ? staffData 
+    : staffData.filter(staff => staff.role === selectedRole);
+
+  const handleAddStaff = async (staffData) => {
     try {
       const res = await fetch("/api/staff", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, landlordId: session.user.id }),
+        body: JSON.stringify({ ...staffData, landlordId: session.user.id }),
       });
 
       if (!res.ok) throw new Error("Failed to add staff member");
-
+      const newStaff = await res.json();
+      setStaffData(prev => [...prev, newStaff]);
       showNotification("Staff member added successfully", "success");
-      fetchStaffByRole(formData.role);
     } catch (error) {
       showNotification(error.message, "error");
     }
@@ -92,109 +77,93 @@ const StaffPage = () => {
       });
 
       if (!res.ok) throw new Error("Failed to update staff member");
-
+      const updatedStaff = await res.json();
+      setStaffData(prev => prev.map(staff => 
+        staff._id === staffId ? updatedStaff : staff
+      ));
       showNotification("Staff member updated successfully", "success");
-      fetchStaffByRole(selectedRole);
     } catch (error) {
       showNotification(error.message, "error");
     }
   };
 
   const handleDeleteStaff = async (staffId) => {
-    if (!confirm("Are you sure you want to delete this staff member?")) return;
-
     try {
       const res = await fetch(`/api/staff/${staffId}`, {
         method: "DELETE",
       });
 
       if (!res.ok) throw new Error("Failed to delete staff member");
-
+      setStaffData(prev => prev.filter(staff => staff._id !== staffId));
       showNotification("Staff member deleted successfully", "success");
-      fetchStaffByRole(selectedRole);
     } catch (error) {
       showNotification(error.message, "error");
     }
   };
 
-  const resetForm = () => {
-    setFormData({
-      firstName: "",
-      lastName: "",
-      phone: "",
-      email: "",
-      role: "Housekeeper",
-      specialization: "",
-      salary: "",
-      startDate: "",
-      status: "Active",
-    });
-  };
-
   const showNotification = (message, type) => {
-    setNotification({ show: true, message, type });
-    setTimeout(
-      () => setNotification({ show: false, message: "", type: "" }),
-      3000
-    );
+    setNotification({
+      show: true,
+      message,
+      type,
+    });
+    setTimeout(() => {
+      setNotification((prev) => ({ ...prev, show: false }));
+    }, 3000);
   };
 
   return (
-    <div className="min-h-screen bg-[#EBECE1] p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-800">Staff Management</h1>
+    <div className="container mx-auto px-4 py-8">
+      <div className="mb-6">
+        <div className="flex justify-between items-center mb-4">
+          <h1 className="text-2xl font-bold">Staff Management</h1>
           <div className="space-x-2">
             <Link
               href="/staffs/add"
-              className="px-4 py-2 bg-[#898F63] text-white rounded-lg hover:bg-[#6B7355]"
+              className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
             >
-              Add Staff Member
+              Add Staff
             </Link>
           </div>
         </div>
 
-        {/* Role Tabs */}
-        <div className="flex flex-wrap gap-2 mb-6">
+        <div className="flex space-x-2 mb-4">
           {roles.map((role) => (
             <button
               key={role.id}
               onClick={() => setSelectedRole(role.id)}
-              className={`px-4 py-2 rounded-lg transition-colors ${
+              className={`px-4 py-2 rounded-lg ${
                 selectedRole === role.id
-                  ? "bg-[#898F63] text-white"
-                  : "bg-white text-gray-700 hover:bg-gray-100"
+                  ? "bg-blue-500 text-white"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
               }`}
             >
               {role.label}
             </button>
           ))}
         </div>
-
-        {/* Staff List */}
-        {isLoading ? (
-          <div className="flex justify-center py-8">
-            <CircularProgress sx={{ color: "#898F63" }} />
-          </div>
-        ) : (
-          <StaffList
-            staffData={staffData}
-            selectedRole={selectedRole}
-            onEdit={(staff) => {
-              setFormData(staff);
-            }}
-            onDelete={handleDeleteStaff}
-          />
-        )}
       </div>
+
+      {isLoading ? (
+        <div className="flex justify-center items-center h-64">
+          <CircularProgress />
+        </div>
+      ) : error ? (
+        <div className="text-center text-red-500">{error}</div>
+      ) : (
+        <StaffList
+          staffData={filteredStaff}
+          selectedRole={selectedRole}
+          onEdit={handleEditStaff}
+          onDelete={handleDeleteStaff}
+        />
+      )}
 
       {notification.show && (
         <Notification
           message={notification.message}
           type={notification.type}
-          onClose={() =>
-            setNotification({ show: false, message: "", type: "" })
-          }
+          onClose={() => setNotification((prev) => ({ ...prev, show: false }))}
         />
       )}
     </div>

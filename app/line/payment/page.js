@@ -32,23 +32,22 @@ function PaymentPage() {
   const initializeLiff = async () => {
     try {
       const { searchParams } = new URL(window.location.href);
-      const id = searchParams.get("id"); // landlord's id
+      const id = searchParams.get("id");
 
       if (!id) {
         throw new Error("ID not provided in URL");
       }
 
-      // Get the payment-specific LIFF ID for this landlord
       const response = await fetch(`/api/user/line-config?id=${id}`);
       const data = await response.json();
 
-      if (!data.liffIds.payment) {
+      if (!data.lineConfig.liffIds.payment) {
         throw new Error("LIFF ID not configured for payment feature");
       }
 
       const liff = (await import("@line/liff")).default;
       await liff.init({
-        liffId: data.liffIds.payment,
+        liffId: data.lineConfig.liffIds.payment,
       });
 
       if (!liff.isLoggedIn()) {

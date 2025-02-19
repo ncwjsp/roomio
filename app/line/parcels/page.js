@@ -33,13 +33,13 @@ const ParcelsPage = () => {
         const response = await fetch(`/api/user/line-config?id=${id}`);
         const data = await response.json();
 
-        if (!data.liffIds.parcels) {
+        if (!data.lineConfig.liffIds.parcels) {
           throw new Error("LIFF ID not configured for parcels feature");
         }
 
         const liff = (await import("@line/liff")).default;
         await liff.init({
-          liffId: data.liffIds.parcels,
+          liffId: data.lineConfig.liffIds.parcels,
         });
 
         if (!liff.isLoggedIn()) {

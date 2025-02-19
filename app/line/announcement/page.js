@@ -16,7 +16,6 @@ const AnnouncementPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [sortOrder, setSortOrder] = useState("desc");
-  const [tenantInfo, setTenantInfo] = useState(null);
 
   useEffect(() => {
     const initializeLiff = async () => {
@@ -32,13 +31,13 @@ const AnnouncementPage = () => {
         const response = await fetch(`/api/user/line-config?id=${id}`);
         const data = await response.json();
 
-        if (!data.liffId) {
+        if (!data.lineConfig.liffIds.announcement) {
           throw new Error("LIFF ID not configured for announcement feature");
         }
 
         const liff = (await import("@line/liff")).default;
         await liff.init({
-          liffId: data.liffIds.announcement,
+          liffId: data.lineConfig.liffIds.announcement,
         });
 
         if (!liff.isLoggedIn()) {
@@ -111,14 +110,8 @@ const AnnouncementPage = () => {
         <div className="p-4 text-center text-red-500">{error}</div>
       ) : (
         <div className="p-4 min-h-screen">
+          <div className="flex justify-between">
           <h1 className="text-2xl font-semibold mb-2">Announcement</h1>
-          {tenantInfo && (tenantInfo.roomNo || tenantInfo.building) && (
-            <div className="mb-4 text-gray-600">
-              {tenantInfo.roomNo && `Room ${tenantInfo.roomNo}`}
-              {tenantInfo.roomNo && tenantInfo.building && ` • `}
-              {tenantInfo.building && `Building ${tenantInfo.building}`}
-            </div>
-          )}
 
           <div className="flex justify-end mb-4">
             <IconButton
@@ -134,6 +127,9 @@ const AnnouncementPage = () => {
               {sortOrder === "asc" ? <ArrowUpward /> : <ArrowDownward />}
             </IconButton>
           </div>
+          </div>
+
+          
 
           {isLoading ? (
             <div className="flex justify-center items-center py-8">
