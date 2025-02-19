@@ -24,10 +24,31 @@ export async function POST(request) {
       );
     }
 
+    // Validate price
+    if (price <= 0) {
+      return NextResponse.json(
+        { error: "Room price must be greater than 0" },
+        { status: 400 }
+      );
+    }
+
     // First get the floor to get its building ID
     const floor = await Floor.findById(floorId).populate("building");
     if (!floor) {
       return NextResponse.json({ error: "Floor not found" }, { status: 404 });
+    }
+
+    // Check for existing room with same number in the building
+    const existingRoom = await Room.findOne({
+      building: floor.building._id,
+      roomNumber: roomNumber
+    });
+
+    if (existingRoom) {
+      return NextResponse.json(
+        { error: "A room with this number already exists in this building" },
+        { status: 400 }
+      );
     }
 
     // Create new room
@@ -79,7 +100,9 @@ export async function GET(request) {
     const status = searchParams.get("status");
 
     // Build query
-    let query = {};
+    let query = {
+      createdBy: session.user.id
+    };
     if (status) {
       query.status = status;
     }

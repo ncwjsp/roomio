@@ -9,16 +9,31 @@ export async function POST(request) {
     await dbConnect();
     const data = await request.json();
 
-    // Check for existing rooms with similar numbers first
-    const existingRooms = await Room.find({
-      roomNumber: new RegExp(`^${data.name}\\d+`, "i"),
-      createdBy: data.userId,
+    // Validate utility rates
+    if (!data.electricityRate || data.electricityRate <= 0) {
+      return NextResponse.json(
+        { error: "Electricity rate must be greater than 0" },
+        { status: 400 }
+      );
+    }
+
+    if (!data.waterRate || data.waterRate <= 0) {
+      return NextResponse.json(
+        { error: "Water rate must be greater than 0" },
+        { status: 400 }
+      );
+    }
+
+    // Check for existing building with the same name for this user
+    const existingBuilding = await Building.findOne({
+      name: data.name,
+      createdBy: data.userId
     });
 
-    if (existingRooms.length > 0) {
+    if (existingBuilding) {
       return NextResponse.json(
         {
-          error: `Building ${data.name} already exists. Please use a different building name.`,
+          error: `You already have a building named ${data.name}. Please use a different building name.`,
         },
         { status: 400 }
       );
@@ -35,49 +50,37 @@ export async function POST(request) {
     await building.save();
 
     // Create floors and rooms
-    const floorPromises = Array.from(
-      { length: data.totalFloors },
-      async (_, index) => {
-        const floorNum = index + 1;
+    for (let i = 1; i <= data.totalFloors; i++) {
+      const floor = new Floor({
+        building: building._id,
+        floorNumber: i,
+        rooms: [],
+        createdBy: data.userId,
+      });
+      await floor.save();
 
-        const floor = new Floor({
-          floorNumber: floorNum,
+      // Create rooms for this floor
+      for (let j = 1; j <= data.roomsPerFloor; j++) {
+        // Format: A101, A102, etc. (no leading zeros for floor number)
+        const roomNumber = `${building.name}${i}${j.toString().padStart(2, "0")}`;
+        const room = new Room({
           building: building._id,
-          rooms: [],
+          floor: floor._id,
+          roomNumber,
+          status: "Available",
+          price: data.basePrice,
+          createdBy: data.userId,
         });
+        await room.save();
 
-        // Create rooms for this floor
-        const roomPromises = Array.from(
-          { length: data.roomsPerFloor },
-          async (_, roomIndex) => {
-            const roomNum = roomIndex + 1;
-            const roomNumber = `${data.name}${floorNum}${String(
-              roomNum
-            ).padStart(2, "0")}`;
-
-            const room = new Room({
-              roomNumber,
-              floor: floor._id,
-              building: building._id,
-              price: data.price,
-              status: "Available",
-              createdBy: data.userId,
-            });
-
-            await room.save();
-            floor.rooms.push(room._id);
-            return room;
-          }
-        );
-
-        await Promise.all(roomPromises);
-        await floor.save();
-        building.floors.push(floor._id);
-        return floor;
+        // Add room to floor
+        floor.rooms.push(room._id);
       }
-    );
+      await floor.save();
 
-    await Promise.all(floorPromises);
+      // Add floor to building
+      building.floors.push(floor._id);
+    }
     await building.save();
 
     return NextResponse.json({

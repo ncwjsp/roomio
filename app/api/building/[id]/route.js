@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import Building from "@/app/models/Building";
 import Room from "@/app/models/Room";
+import Floor from "@/app/models/Floor"; // Added missing import
 import mongoose from "mongoose";
 
 // GET building by ID
@@ -86,14 +87,19 @@ export async function PUT(request, { params }) {
   }
 }
 
-// DELETE building and its rooms
 export async function DELETE(request, { params }) {
-  const { id } = await params;
-
   try {
     await dbConnect();
 
-    const building = await Building.findById(id);
+    const { id } = await params;
+
+    const building = await Building.findById(id).populate({
+      path: "floors",
+      populate: {
+        path: "rooms",
+      },
+    });
+
     if (!building) {
       return NextResponse.json(
         { error: "Building not found" },
@@ -101,25 +107,34 @@ export async function DELETE(request, { params }) {
       );
     }
 
-    const occupiedRooms = await Room.findOne({
-      building: id,
-      status: "Occupied",
-    });
+    // Check if any rooms are occupied
+    const hasOccupiedRooms = building.floors.some((floor) =>
+      floor.rooms.some((room) => room.status === "Occupied")
+    );
 
-    if (occupiedRooms) {
+    if (hasOccupiedRooms) {
       return NextResponse.json(
-        { error: "Cannot delete building with occupied rooms" },
+        {
+          error: "Cannot delete building with occupied rooms",
+        },
         { status: 400 }
       );
     }
 
-    await Room.deleteMany({ building: id });
+    // Delete all associated rooms first
+    for (const floor of building.floors) {
+      await Room.deleteMany({ _id: { $in: floor.rooms } });
+    }
+
+    // Delete all floors
+    await Floor.deleteMany({ _id: { $in: building.floors } });
+
+    // Finally delete the building
     await Building.findByIdAndDelete(id);
 
-    return NextResponse.json({
-      message: "Building and associated rooms deleted successfully",
-    });
+    return NextResponse.json({ success: true });
   } catch (error) {
+    console.error("Building deletion error:", error);
     return NextResponse.json(
       { error: "Failed to delete building" },
       { status: 500 }

@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { CircularProgress } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
-import { useRouter } from "next/navigation";
 import {
   Dialog,
   DialogTitle,
@@ -46,7 +46,8 @@ const Buildings = () => {
   const [buildings, setBuildings] = useState([]);
   const [roomCards, setRoomCards] = useState([]);
   const [selectedBuilding, setSelectedBuilding] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
+  const [selectedFloor, setSelectedFloor] = useState("");
+  const [selectedStatus, setSelectedStatus] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
@@ -54,28 +55,22 @@ const Buildings = () => {
   const [newPrice, setNewPrice] = useState(5000);
   const [numFloors, setNumFloors] = useState(4);
   const [roomsPerFloor, setRoomsPerFloor] = useState(10);
+  const [electricityRate, setElectricityRate] = useState(7);
+  const [waterRate, setWaterRate] = useState(15);
 
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const [showAddRoomModal, setShowAddRoomModal] = useState(false);
-  const [newRoomNumber, setNewRoomNumber] = useState("");
-  const [selectedBuildingForRoom, setSelectedBuildingForRoom] = useState("");
-  const [selectedFloor, setSelectedFloor] = useState("");
+  const [modalBuildingId, setModalBuildingId] = useState("");
+  const [modalFloorNumber, setModalFloorNumber] = useState("");
+  const [modalBuildingData, setModalBuildingData] = useState(null);
   const [roomPrice, setRoomPrice] = useState(5000);
-  const [selectedBuildingData, setSelectedBuildingData] = useState(null);
+  const [roomNumber, setRoomNumber] = useState("");
+  const [roomFormErrors, setRoomFormErrors] = useState({});
 
   const [hasLoaded, setHasLoaded] = useState(false);
 
-  const router = useRouter();
-
-  // Add new state variables for utility rates
-  const [electricityRate, setElectricityRate] = useState(0);
-  const [waterRate, setWaterRate] = useState(0);
-
-  const [formErrors, setFormErrors] = useState({
-    electricityRate: "",
-    waterRate: "",
-  });
+  const [formErrors, setFormErrors] = useState({});
 
   const [anchorEl, setAnchorEl] = useState(null);
   const [showDeleteBuildingDialog, setShowDeleteBuildingDialog] =
@@ -85,14 +80,18 @@ const Buildings = () => {
 
   // Add these state variables
   const [floors, setFloors] = useState([]);
+  const [roomNumberPreview, setRoomNumberPreview] = useState("");
+  const [showDeleteBuildingConfirm, setShowDeleteBuildingConfirm] = useState(false);
+  const [buildingToDelete, setBuildingToDelete] = useState(null);
 
   const resetForm = () => {
     setNewBuilding("");
     setNewPrice(5000);
     setNumFloors(4);
     setRoomsPerFloor(10);
-    setElectricityRate(0);
-    setWaterRate(0);
+    setElectricityRate(7);
+    setWaterRate(15);
+    setFormErrors({});
   };
 
   const fetchBuildings = async () => {
@@ -105,11 +104,6 @@ const Buildings = () => {
       setIsLoading(true);
       setError(null);
 
-      // First, fetch all rooms directly
-      const roomsResponse = await fetch("/api/room");
-      const roomsData = await roomsResponse.json();
-      console.log("Direct rooms fetch:", roomsData);
-
       // Then fetch buildings
       const buildingsResponse = await fetch(
         `/api/building?id=${session.user.id}`
@@ -118,20 +112,18 @@ const Buildings = () => {
 
       if (buildingsData.buildings) {
         setBuildings(buildingsData.buildings);
-
-        // Use the directly fetched rooms instead of extracting from buildings
-        const allRooms = roomsData.rooms.map((room) => ({
-          ...room,
-          building: room.building,
-          floor: room.floor,
-        }));
-
-        console.log("Room data structure:", allRooms[0]); // Log first room to see structure
-        setRoomCards(allRooms);
+        
+        // Fetch rooms after getting buildings
+        const roomsResponse = await fetch("/api/room");
+        const roomsData = await roomsResponse.json();
+        
+        if (roomsData.rooms) {
+          setRoomCards(roomsData.rooms);
+        }
+        
         setHasLoaded(true);
       }
     } catch (error) {
-      console.error("Error fetching data:", error);
       setError(error.message || "Failed to fetch data");
     } finally {
       setIsLoading(false);
@@ -150,48 +142,65 @@ const Buildings = () => {
       return;
     }
 
-    if (status === "authenticated" && session?.user?.id && !hasLoaded) {
-      fetchBuildings();
-    } else if (status === "authenticated" && hasLoaded) {
-      setIsLoading(false);
-    }
-  }, [status, session, hasLoaded]);
-
-  useEffect(() => {
-    if (session?.user?.id) {
+    if (status === "authenticated" && session?.user?.id) {
       fetchBuildings();
     }
-  }, [session, refreshTrigger]);
+  }, [status, session?.user?.id, refreshTrigger]);
 
-  const handleRefresh = async () => {
-    try {
-      // Fetch without parameters to get all rooms
-      const response = await fetch("/api/room");
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to fetch rooms");
-      }
-      const data = await response.json();
-      setRoomCards(data.rooms);
-    } catch (error) {
-      setSnackbar({
-        open: true,
-        message: error.message,
-        severity: "error",
-      });
+  const getNextRoomNumber = (building, floor) => {
+    if (!building || !floor) {
+      console.log("Missing building or floor");
+      return null;
     }
+
+    // Add defensive checks for the room data
+    const validRooms = roomCards.filter(room => 
+      room?.floor?.building?._id && 
+      room?.floor?.floorNumber && 
+      room?.roomNumber
+    );
+
+    // Filter rooms for this specific building and floor
+    const floorRooms = validRooms.filter(
+      (room) =>
+        room.floor.building._id === building._id &&
+        room.floor.floorNumber === parseInt(floor)
+    );
+
+    console.log(
+      "Existing rooms for this floor:",
+      floorRooms.map((r) => r.roomNumber)
+    );
+
+    if (floorRooms.length === 0) {
+      // First room on this floor
+      return `${building.name}${floor}01`;
+    }
+
+    // Find the highest room number
+    const roomNumbers = floorRooms.map((room) => {
+      // Extract only the last two digits
+      const match = room.roomNumber.match(/\d{2}$/);
+      return match ? parseInt(match[0]) : 0;
+    }).filter(num => !isNaN(num)); // Filter out any NaN values
+
+    if (roomNumbers.length === 0) {
+      return `${building.name}${floor}01`;
+    }
+
+    console.log("Room numbers found:", roomNumbers);
+    const highestNumber = Math.max(...roomNumbers);
+    console.log("Highest number:", highestNumber);
+
+    // Add 1 to the highest number and ensure it's two digits
+    const nextNumber = highestNumber + 1;
+    return `${building.name}${floor}${String(nextNumber).padStart(2, "0")}`;
   };
-
-  useEffect(() => {
-    if (session) {
-      handleRefresh();
-    }
-  }, [session]);
 
   const getFloorOptions = () => {
     if (selectedBuilding && selectedBuilding !== "") {
       // If a building is selected, only show floors from that building
-      const building = buildings.find((b) => b.name === selectedBuilding);
+      const building = buildings.find((b) => b._id === selectedBuilding);
       if (building) {
         return building.floors
           .map((floor) => floor.floorNumber)
@@ -216,9 +225,9 @@ const Buildings = () => {
       }
 
       const matchesBuilding = selectedBuilding
-        ? room.floor.building.name === selectedBuilding
+        ? room.floor.building._id === selectedBuilding
         : true;
-      const matchesStatus = filterStatus ? room.status === filterStatus : true;
+      const matchesStatus = selectedStatus ? room.status === selectedStatus : true;
       const matchesSearch = searchQuery
         ? room.roomNumber.toLowerCase().includes(searchQuery.toLowerCase())
         : true;
@@ -250,26 +259,44 @@ const Buildings = () => {
     }
   };
 
-  const validateUtilityRates = () => {
-    const errors = {
-      electricityRate: "",
-      waterRate: "",
-    };
+  const validateForm = () => {
+    const errors = {};
 
-    if (!electricityRate || Number(electricityRate) <= 0) {
+    if (!numFloors || isNaN(Number(numFloors)) || Number(numFloors) <= 0) {
+      errors.numFloors = "Number of floors must be greater than 0";
+    }
+
+    if (!roomsPerFloor || isNaN(Number(roomsPerFloor)) || Number(roomsPerFloor) <= 0) {
+      errors.roomsPerFloor = "Rooms per floor must be greater than 0";
+    }
+
+    if (!newPrice || isNaN(Number(newPrice)) || Number(newPrice) <= 0) {
+      errors.basePrice = "Base price must be greater than 0";
+    }
+
+    if (!electricityRate || isNaN(Number(electricityRate)) || Number(electricityRate) <= 0) {
       errors.electricityRate = "Electricity rate must be greater than 0";
     }
 
-    if (!waterRate || Number(waterRate) <= 0) {
+    if (!waterRate || isNaN(Number(waterRate)) || Number(waterRate) <= 0) {
       errors.waterRate = "Water rate must be greater than 0";
     }
 
-    setFormErrors(errors);
-    return !errors.electricityRate && !errors.waterRate;
+    if (!newBuilding || !newBuilding.trim()) {
+      errors.buildingName = "Building name is required";
+    }
+
+    return errors;
   };
 
   const handleAddBuilding = async () => {
     try {
+      const errors = validateForm();
+      if (Object.keys(errors).length > 0) {
+        setFormErrors(errors);
+        return;
+      }
+
       setIsLoading(true);
       const response = await fetch("/api/building", {
         method: "POST",
@@ -278,35 +305,33 @@ const Buildings = () => {
         },
         body: JSON.stringify({
           name: newBuilding.trim(),
-          price: Number(newPrice),
           totalFloors: Number(numFloors),
           roomsPerFloor: Number(roomsPerFloor),
           electricityRate: Number(electricityRate),
           waterRate: Number(waterRate),
+          basePrice: Number(newPrice),
           userId: session?.user?.id,
         }),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to add building");
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to add building");
       }
 
       setShowModal(false);
       resetForm();
+      setRefreshTrigger((prev) => prev + 1);
+
       setSnackbar({
         open: true,
         message: "Building added successfully",
         severity: "success",
       });
-
-      // Trigger refresh
-      setRefreshTrigger((prev) => prev + 1);
-
     } catch (error) {
-      console.error("Error adding building:", error);
       setSnackbar({
         open: true,
-        message: "Failed to add building",
+        message: error.message,
         severity: "error",
       });
     } finally {
@@ -315,82 +340,120 @@ const Buildings = () => {
   };
 
   useEffect(() => {
-    if (selectedBuildingForRoom) {
-      const building = buildings.find((b) => b._id === selectedBuildingForRoom);
-      setSelectedBuildingData(building);
+    if (modalBuildingId) {
+      const building = buildings.find((b) => b._id === modalBuildingId);
+      setModalBuildingData(building);
       // Reset floor when building changes
-      setSelectedFloor("");
+      setModalFloorNumber("");
     }
-  }, [selectedBuildingForRoom, buildings]);
+  }, [modalBuildingId, buildings]);
 
-  // Update the getNextRoomNumber function
-  const getNextRoomNumber = (building, floor) => {
-    if (!building || !floor) return null;
-
-    // Filter rooms for this specific building and floor
-    const floorRooms = roomCards.filter(
-      (room) =>
-        room.floor.building._id === building._id &&
-        room.floor.floorNumber === parseInt(floor)
-    );
-
-    console.log(
-      "Existing rooms for this floor:",
-      floorRooms.map((r) => r.roomNumber)
-    );
-
-    if (floorRooms.length === 0) {
-      // First room on this floor
-      return `${building.name}${floor}01`;
-    }
-
-    // Find the highest room number
-    const roomNumbers = floorRooms.map((room) => {
-      // Extract only the last two digits
-      const match = room.roomNumber.match(/\d{2}$/);
-      return match ? parseInt(match[0]) : 0;
-    });
-
-    console.log("Room numbers found:", roomNumbers);
-    const highestNumber = Math.max(...roomNumbers);
-    console.log("Highest number:", highestNumber);
-
-    // Add 1 to the highest number and ensure it's two digits
-    const nextNumber = highestNumber + 1;
-    return `${building.name}${floor}${String(nextNumber).padStart(2, "0")}`;
+  const validateRoomPrice = (price) => {
+    if (!price) return "";
+    if (Number(price) <= 0) return "Price must be greater than 0";
+    return "";
   };
 
-  // Update the handleAddRoom function
+  const validateRoomNumber = (number) => {
+    if (!number) return "";
+    if (!/^\d+$/.test(number)) return "Room number must contain only numbers";
+    return "";
+  };
+
+  const updateRoomNumberPreview = (number, buildingId) => {
+    if (!buildingId || !number) {
+      setRoomNumberPreview("");
+      return;
+    }
+
+    const building = buildings.find(b => b._id === buildingId);
+    if (building) {
+      setRoomNumberPreview(`${building.name}${number}`);
+    }
+  };
+
   const handleAddRoom = async () => {
     try {
+      // Reset form errors
+      setRoomFormErrors({});
+      let hasErrors = false;
+
+      // Validate all fields
+      const priceError = validateRoomPrice(roomPrice);
+      if (priceError) {
+        setRoomFormErrors(prev => ({
+          ...prev,
+          price: priceError
+        }));
+        hasErrors = true;
+      }
+
+      const roomNumberError = validateRoomNumber(roomNumber);
+      if (roomNumberError) {
+        setRoomFormErrors(prev => ({
+          ...prev,
+          roomNumber: roomNumberError
+        }));
+        hasErrors = true;
+      }
+
+      if (!modalBuildingId || !modalFloorNumber) {
+        setSnackbar({
+          open: true,
+          message: "Please fill in all required fields",
+          severity: "error",
+        });
+        return;
+      }
+
+      if (hasErrors) {
+        return;
+      }
+
+      const building = buildings.find((b) => b._id === modalBuildingId);
+      if (!building) {
+        setSnackbar({
+          open: true,
+          message: "Selected building not found",
+          severity: "error",
+        });
+        return;
+      }
+
+      const floor = building.floors.find(
+        (f) => f.floorNumber === parseInt(modalFloorNumber)
+      );
+      if (!floor) {
+        setSnackbar({
+          open: true,
+          message: "Selected floor not found",
+          severity: "error",
+        });
+        return;
+      }
+
       setIsLoading(true);
+
       const response = await fetch("/api/room", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          buildingId: selectedBuildingForRoom,
-          roomNumber: getNextRoomNumber(
-            buildings.find((b) => b._id === selectedBuildingForRoom),
-            selectedFloor
-          ),
-          floor: selectedBuildingData.floors.find(
-            (f) => f.floorNumber === parseInt(selectedFloor)
-          )._id,
-          price: roomPrice,
+          floor: floor._id,
+          roomNumber: `${building.name}${roomNumber}`,
+          price: Number(roomPrice),
           createdBy: session?.user?.id,
         }),
       });
 
+      const data = await response.json();
       if (!response.ok) {
-        throw new Error("Failed to add room");
+        throw new Error(data.error || "Failed to add room");
       }
 
       setShowAddRoomModal(false);
       resetRoomForm();
-
-      // Trigger refresh
       setRefreshTrigger((prev) => prev + 1);
 
       setSnackbar({
@@ -399,10 +462,9 @@ const Buildings = () => {
         severity: "success",
       });
     } catch (error) {
-      console.error("Error in handleAddRoom:", error);
       setSnackbar({
         open: true,
-        message: "Failed to add room",
+        message: error.message,
         severity: "error",
       });
     } finally {
@@ -411,10 +473,12 @@ const Buildings = () => {
   };
 
   const resetRoomForm = () => {
-    setSelectedBuildingForRoom("");
-    setSelectedBuildingData(null);
-    setSelectedFloor("");
+    setModalBuildingId("");
+    setModalBuildingData(null);
+    setModalFloorNumber("");
     setRoomPrice(5000);
+    setRoomNumber("");
+    setRoomFormErrors({});
   };
 
   // Use this when closing the modal
@@ -455,6 +519,8 @@ const Buildings = () => {
     return rangeWithDots;
   };
 
+  const router = useRouter();
+
   const handleRoomClick = (room) => {
     router.push(`/buildings/${room._id}`);
   };
@@ -481,8 +547,37 @@ const Buildings = () => {
   };
 
   const handleDeleteBuilding = async () => {
-    // Implement building deletion
-    handleMenuClose();
+    try {
+      setIsLoading(true);
+      const response = await fetch(`/api/building/${buildingToDelete._id}`, {
+        method: "DELETE",
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to delete building");
+      }
+
+      setSnackbar({
+        open: true,
+        message: "Building deleted successfully",
+        severity: "success",
+      });
+      
+      // Refresh buildings list
+      setRefreshTrigger(prev => prev + 1);
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: error.message,
+        severity: "error",
+      });
+    } finally {
+      setIsLoading(false);
+      setShowDeleteBuildingConfirm(false);
+      setBuildingToDelete(null);
+    }
   };
 
   const handleDeleteRoom = () => {
@@ -498,10 +593,10 @@ const Buildings = () => {
   // Add this effect to fetch floors when a building is selected
   useEffect(() => {
     const fetchFloors = async () => {
-      if (selectedBuildingForRoom) {
+      if (modalBuildingId) {
         try {
           const response = await fetch(
-            `/api/building/${selectedBuildingForRoom}/floors`
+            `/api/building/${modalBuildingId}/floors`
           );
           if (!response.ok) throw new Error("Failed to fetch floors");
           const data = await response.json();
@@ -517,16 +612,28 @@ const Buildings = () => {
     };
 
     fetchFloors();
-  }, [selectedBuildingForRoom]);
+  }, [modalBuildingId]);
 
   // Add console logs to debug
-  const handleBuildingSelect = (buildingId) => {
+  const handleBuildingSelect = async (buildingId) => {
     console.log("Selected Building ID:", buildingId);
-    setSelectedBuildingForRoom(buildingId);
+    setModalBuildingId(buildingId);
+    
+    if (!buildingId) {
+      setModalBuildingData(null);
+      setModalFloorNumber("");
+      return;
+    }
+
     const building = buildings.find((b) => b._id === buildingId);
-    console.log("Found Building Data:", building); // Check if totalFloors exists
-    setSelectedBuildingData(building);
-    setSelectedFloor("");
+    console.log("Found Building Data:", building);
+    
+    if (building) {
+      setModalBuildingData(building);
+      // Reset floor selection when building changes
+      setModalFloorNumber("");
+    }
+    updateRoomNumberPreview(roomNumber, buildingId);
   };
 
   return (
@@ -662,6 +769,11 @@ const Buildings = () => {
                         setSelectedFloor("");
                         setCurrentPage(1);
                       }}
+                      renderValue={(value) => {
+                        if (!value) return "All Buildings";
+                        const building = buildings.find(b => b._id === value);
+                        return building ? `Building ${building.name}` : "";
+                      }}
                       sx={{
                         bgcolor: "white",
                         "& .MuiOutlinedInput-notchedOutline": {
@@ -674,8 +786,33 @@ const Buildings = () => {
                     >
                       <MenuItem value="">All Buildings</MenuItem>
                       {buildings.map((building) => (
-                        <MenuItem key={building._id} value={building.name}>
-                          Building {building.name}
+                        <MenuItem key={building._id} value={building._id}>
+                          <div className="flex justify-between items-center w-full">
+                            <span>Building {building.name}</span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setBuildingToDelete(building);
+                                setShowDeleteBuildingConfirm(true);
+                              }}
+                              className="ml-4 text-red-500 hover:text-red-700"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-5 w-5"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                />
+                              </svg>
+                            </button>
+                          </div>
                         </MenuItem>
                       ))}
                     </Select>
@@ -713,9 +850,9 @@ const Buildings = () => {
                   <FormControl fullWidth size="small">
                     <InputLabel sx={{ color: "black" }}>Status</InputLabel>
                     <Select
-                      value={filterStatus}
+                      value={selectedStatus}
                       onChange={(e) => {
-                        setFilterStatus(e.target.value);
+                        setSelectedStatus(e.target.value);
                         setCurrentPage(1);
                       }}
                       sx={{
@@ -848,7 +985,7 @@ const Buildings = () => {
         <DialogTitle>Add New Building</DialogTitle>
         <DialogContent>
           <Box component="form" noValidate sx={{ mt: 2 }}>
-            <Grid container spacing={2}>
+            <Grid container spacing={3}>
               {/* Building Name */}
               <Grid item xs={12}>
                 <TextField
@@ -856,6 +993,8 @@ const Buildings = () => {
                   label="Building Name"
                   value={newBuilding}
                   onChange={(e) => setNewBuilding(e.target.value)}
+                  error={!!formErrors.buildingName}
+                  helperText={formErrors.buildingName}
                   required
                 />
               </Grid>
@@ -873,6 +1012,8 @@ const Buildings = () => {
                       <InputAdornment position="start">฿</InputAdornment>
                     ),
                   }}
+                  error={!!formErrors.basePrice}
+                  helperText={formErrors.basePrice}
                   required
                 />
               </Grid>
@@ -885,6 +1026,8 @@ const Buildings = () => {
                   type="number"
                   value={numFloors}
                   onChange={(e) => setNumFloors(e.target.value)}
+                  error={!!formErrors.numFloors}
+                  helperText={formErrors.numFloors}
                   required
                 />
               </Grid>
@@ -897,6 +1040,8 @@ const Buildings = () => {
                   type="number"
                   value={roomsPerFloor}
                   onChange={(e) => setRoomsPerFloor(e.target.value)}
+                  error={!!formErrors.roomsPerFloor}
+                  helperText={formErrors.roomsPerFloor}
                   required
                 />
               </Grid>
@@ -943,16 +1088,7 @@ const Buildings = () => {
                   label="Electricity Rate (per unit)"
                   type="number"
                   value={electricityRate}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setElectricityRate(value);
-                    if (value && Number(value) > 0) {
-                      setFormErrors((prev) => ({
-                        ...prev,
-                        electricityRate: "",
-                      }));
-                    }
-                  }}
+                  onChange={(e) => setElectricityRate(e.target.value)}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">฿</InputAdornment>
@@ -971,13 +1107,7 @@ const Buildings = () => {
                   label="Water Rate (per unit)"
                   type="number"
                   value={waterRate}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setWaterRate(value);
-                    if (value && Number(value) > 0) {
-                      setFormErrors((prev) => ({ ...prev, waterRate: "" }));
-                    }
-                  }}
+                  onChange={(e) => setWaterRate(e.target.value)}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">฿</InputAdornment>
@@ -1010,7 +1140,17 @@ const Buildings = () => {
           <Button
             variant="contained"
             onClick={handleAddBuilding}
-            disabled={!newBuilding || !numFloors || !roomsPerFloor}
+            disabled={
+              !newBuilding?.trim() || 
+              !numFloors || 
+              !roomsPerFloor || 
+              !newPrice || 
+              Number(newPrice) <= 0 ||
+              !electricityRate || 
+              !waterRate || 
+              Number(electricityRate) <= 0 || 
+              Number(waterRate) <= 0
+            }
             sx={{
               bgcolor: "#889F63",
               "&:hover": {
@@ -1046,7 +1186,7 @@ const Buildings = () => {
               <FormControl fullWidth>
                 <InputLabel>Select Building</InputLabel>
                 <Select
-                  value={selectedBuildingForRoom}
+                  value={modalBuildingId}
                   onChange={(e) => handleBuildingSelect(e.target.value)}
                   label="Select Building"
                 >
@@ -1064,19 +1204,19 @@ const Buildings = () => {
 
             {/* Floor Selection */}
             <Grid item xs={12}>
-              <FormControl fullWidth disabled={!selectedBuildingForRoom}>
+              <FormControl fullWidth disabled={!modalBuildingId}>
                 <InputLabel>Floor Number</InputLabel>
                 <Select
-                  value={selectedFloor}
-                  onChange={(e) => setSelectedFloor(e.target.value)}
+                  value={modalFloorNumber}
+                  onChange={(e) => setModalFloorNumber(e.target.value)}
                   label="Floor Number"
                 >
                   <MenuItem value="">
                     <em>Select floor</em>
                   </MenuItem>
-                  {selectedBuildingData &&
-                    selectedBuildingData.floors &&
-                    selectedBuildingData.floors
+                  {modalBuildingData &&
+                    modalBuildingData.floors &&
+                    modalBuildingData.floors
                       .sort((a, b) => a.floorNumber - b.floorNumber)
                       .map((floor) => (
                         <MenuItem key={floor._id} value={floor.floorNumber}>
@@ -1087,24 +1227,37 @@ const Buildings = () => {
               </FormControl>
             </Grid>
 
-            {/* Room Price */}
+            {/* Room Number */}
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Room Price"
-                type="number"
-                value={roomPrice}
-                onChange={(e) => setRoomPrice(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">฿</InputAdornment>
-                  ),
+                label="Room Number"
+                value={roomNumber}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  // Only allow numbers
+                  if (value === '' || /^\d+$/.test(value)) {
+                    setRoomNumber(value);
+                    updateRoomNumberPreview(value, modalBuildingId);
+                    const error = validateRoomNumber(value);
+                    setRoomFormErrors(prev => ({
+                      ...prev,
+                      roomNumber: error
+                    }));
+                  }
+                }}
+                error={!!roomFormErrors.roomNumber}
+                helperText={roomFormErrors.roomNumber}
+                required
+                inputProps={{
+                  inputMode: 'numeric',
+                  pattern: '[0-9]*'
                 }}
               />
             </Grid>
 
-            {/* Preview Section */}
-            {selectedBuildingForRoom && selectedFloor && (
+            {/* Room Number Preview */}
+            {roomNumberPreview && (
               <Grid item xs={12}>
                 <Box
                   sx={{
@@ -1115,28 +1268,46 @@ const Buildings = () => {
                   }}
                 >
                   <Typography variant="subtitle2" color="textSecondary">
-                    Next Room Number:
+                    Room Number Preview:
                   </Typography>
                   <Typography variant="h6" color="#898F63">
-                    {getNextRoomNumber(
-                      buildings.find((b) => b._id === selectedBuildingForRoom),
-                      selectedFloor
-                    )}
+                    {roomNumberPreview}
                   </Typography>
                 </Box>
               </Grid>
             )}
+
+            {/* Room Price */}
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Room Price"
+                type="number"
+                value={roomPrice}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setRoomPrice(value);
+                  const error = validateRoomPrice(value);
+                  setRoomFormErrors(prev => ({
+                    ...prev,
+                    price: error
+                  }));
+                }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">฿</InputAdornment>
+                  ),
+                }}
+                error={!!roomFormErrors.price}
+                helperText={roomFormErrors.price}
+                required
+              />
+            </Grid>
           </Grid>
         </DialogContent>
         <DialogActions sx={{ p: 2.5 }}>
           <Button
-            onClick={() => {
-              setShowAddRoomModal(false);
-              setNewRoomNumber("");
-              setSelectedBuildingForRoom("");
-              setSelectedFloor("");
-              setRoomPrice(5000);
-            }}
+            onClick={handleCloseModal}
             sx={{
               color: "#889F63",
               "&:hover": {
@@ -1150,7 +1321,13 @@ const Buildings = () => {
           <Button
             variant="contained"
             onClick={handleAddRoom}
-            disabled={!selectedBuildingForRoom || !selectedFloor || !newRoomNumber}
+            disabled={
+              !modalBuildingId || 
+              !modalFloorNumber || 
+              !roomNumber || 
+              Number(roomPrice) <= 0 ||
+              isLoading
+            }
             sx={{
               bgcolor: "#889F63",
               "&:hover": {
@@ -1159,7 +1336,7 @@ const Buildings = () => {
               textTransform: "none",
             }}
           >
-            Add Room
+            {isLoading ? <CircularProgress size={24} /> : "Add Room"}
           </Button>
         </DialogActions>
       </Dialog>
@@ -1190,7 +1367,10 @@ const Buildings = () => {
           <DeleteIcon sx={{ mr: 1, fontSize: 20, color: "orange" }} />
           Delete Room
         </MenuItem>
-        <MenuItem onClick={handleDeleteBuilding} sx={{ color: "red" }}>
+        <MenuItem onClick={() => {
+          setBuildingToDelete(selectedBuilding);
+          setShowDeleteBuildingConfirm(true);
+        }} sx={{ color: "red" }}>
           <DeleteIcon sx={{ mr: 1, fontSize: 20 }} />
           Delete Building
         </MenuItem>
@@ -1198,14 +1378,47 @@ const Buildings = () => {
 
       {/* Confirmation Dialogs */}
       <Dialog
+        open={showDeleteBuildingConfirm}
+        onClose={() => {
+          setShowDeleteBuildingConfirm(false);
+          setBuildingToDelete(null);
+        }}
+      >
+        <DialogTitle>Delete Building</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to delete building {buildingToDelete?.name}? This will delete all floors and rooms in this building. This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setShowDeleteBuildingConfirm(false);
+              setBuildingToDelete(null);
+            }}
+            sx={{ color: "#889F63" }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDeleteBuilding}
+            variant="contained"
+            color="error"
+            disabled={isLoading}
+          >
+            {isLoading ? <CircularProgress size={24} /> : "Delete"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
         open={showDeleteBuildingDialog}
         onClose={() => setShowDeleteBuildingDialog(false)}
       >
         <DialogTitle>Delete Building</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Are you sure you want to delete this building? This action cannot be
-            undone.
+            Are you sure you want to delete this building? This action cannot be undone.
           </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ p: 2.5 }}>
@@ -1263,7 +1476,7 @@ const Buildings = () => {
           <Button
             variant="contained"
             onClick={handleEditBuilding}
-            disabled={!selectedBuildingData?.name}
+            disabled={!selectedBuilding}
             sx={{
               bgcolor: "#889F63",
               "&:hover": {
@@ -1284,8 +1497,7 @@ const Buildings = () => {
         <DialogTitle>Delete Room</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Are you sure you want to delete this room? This action cannot be
-            undone.
+            Are you sure you want to delete this room? This action cannot be undone.
           </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ p: 2.5 }}>

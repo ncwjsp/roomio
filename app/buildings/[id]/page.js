@@ -4,7 +4,7 @@ import { use } from "react";
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { CircularProgress, Snackbar, Alert } from "@mui/material";
+import { CircularProgress, Snackbar, Alert, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button } from "@mui/material";
 
 export default function RoomDetails({ params }) {
   const roomId = use(params).id;
@@ -20,6 +20,7 @@ export default function RoomDetails({ params }) {
     message: "",
     severity: "success",
   });
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     if (status === "authenticated") {
@@ -76,6 +77,40 @@ export default function RoomDetails({ params }) {
   const handleCancel = () => {
     setEditedRoom(room);
     setIsEditing(false);
+  };
+
+  const handleDelete = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch(`/api/room/${room._id}`, {
+        method: "DELETE",
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to delete room");
+      }
+
+      setSnackbar({
+        open: true,
+        message: "Room deleted successfully",
+        severity: "success",
+      });
+      
+      // Redirect back to building page
+      router.push(`/buildings`);
+    } catch (error) {
+      console.error("Error deleting room:", error);
+      setSnackbar({
+        open: true,
+        message: error.message,
+        severity: "error",
+      });
+    } finally {
+      setIsLoading(false);
+      setShowDeleteConfirm(false);
+    }
   };
 
   if (isLoading) {
@@ -278,7 +313,15 @@ export default function RoomDetails({ params }) {
                 </div>
               )}
 
-              <div className="flex justify-end pt-4">
+              <div className="flex justify-end space-x-4 pt-4">
+                {room?.status !== "Occupied" && (
+                  <button
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                  >
+                    Delete Room
+                  </button>
+                )}
                 <button
                   onClick={handleEdit}
                   className="px-4 py-2 bg-[#898F63] text-white rounded-lg hover:bg-[#6B7355]"
@@ -306,6 +349,34 @@ export default function RoomDetails({ params }) {
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+      <Dialog
+        open={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+      >
+        <DialogTitle>Delete Room</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to delete room {room?.roomNumber}? This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setShowDeleteConfirm(false)}
+            sx={{ color: "#889F63" }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDelete}
+            variant="contained"
+            color="error"
+            disabled={isLoading}
+          >
+            {isLoading ? <CircularProgress size={24} /> : "Delete"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 }
