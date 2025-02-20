@@ -207,8 +207,14 @@ const AccountSettings = () => {
           <Button
             type="submit"
             variant="contained"
-            color="primary"
             className="mt-4"
+            sx={{
+              backgroundColor: "#898F63",
+              color: "white",
+              "&:hover": {
+                backgroundColor: "#777c54"
+              }
+            }}
           >
             Update Profile
           </Button>
@@ -264,8 +270,14 @@ const AccountSettings = () => {
           <Button
             type="submit"
             variant="contained"
-            color="primary"
             className="mt-4"
+            sx={{
+              backgroundColor: "#898F63",
+              color: "white",
+              "&:hover": {
+                backgroundColor: "#777c54"
+              }
+            }}
           >
             Change Password
           </Button>

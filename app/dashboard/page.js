@@ -303,7 +303,7 @@ const Dashboard = () => {
   return (
     <div className="flex flex-col items-center min-h-screen bg-[#EBECE1]">
       <div className="w-full max-w-6xl p-5">
-        <h1 className="text-3xl font-semibold mb-4">Dashboard</h1>
+        <h1 className="text-4xl font-bold mb-6">Dashboard</h1>
 
         <div className="flex justify-between items-center mb-8">
           <div className="flex items-center rounded-[10px] overflow-hidden">

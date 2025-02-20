@@ -50,18 +50,13 @@ const AddStaffPage = () => {
     );
   };
 
+
   return (
     <div className="min-h-screen bg-[#EBECE1] p-6">
       <div className="max-w-2xl mx-auto">
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-bold text-gray-800">Add New Staff</h1>
-            <button
-              onClick={() => router.push("/staffs")}
-              className="px-4 py-2 text-gray-600 hover:text-gray-800"
-            >
-              Cancel
-            </button>
           </div>
 
           <StaffForm

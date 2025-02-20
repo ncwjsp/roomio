@@ -448,17 +448,17 @@ const ParcelsPage = () => {
         <Typography
           variant="h4"
           component="h1"
-          sx={{ fontWeight: "bold", color: "#333" }}
+          sx={{ fontWeight: "bold", color: "#898F63" }}
         >
           Parcels Management
         </Typography>
         <Button
           variant="contained"
-          startIcon={<AddIcon />}
+          startIcon={<AddIcon sx={{ color: "white" }}/>}
           onClick={() => setShowAddForm(true)}
           sx={{
-            backgroundColor: "#4CAF50",
-            "&:hover": { backgroundColor: "#45a049" },
+            backgroundColor: "#898F63",
+            "&:hover": { backgroundColor: "#777c54" },
           }}
         >
           Add Parcel
@@ -574,16 +574,16 @@ const ParcelsPage = () => {
                         variant="contained"
                         startIcon={
                           parcel.status === "uncollected" ? (
-                            <CheckCircle />
+                            <CheckCircle sx={{ color: "white" }}/>
                           ) : (
-                            <LocalShipping />
+                            <LocalShipping sx={{ color: "white" }}/>
                           )
                         }
                         onClick={() => handleToggleStatus(parcel)}
                         sx={{
                           backgroundColor:
                             parcel.status === "uncollected"
-                              ? "#4CAF50"
+                              ? "#898F63"
                               : "#FF9800",
                         }}
                       >
@@ -594,7 +594,7 @@ const ParcelsPage = () => {
                       <Button
                         size="small"
                         variant="contained"
-                        startIcon={<Edit />}
+                        startIcon={<Edit sx={{ color: "white" }} />}
                         onClick={() => handleEditClick(parcel)}
                         sx={{ backgroundColor: "#FFA000" }}
                       >
@@ -603,9 +603,13 @@ const ParcelsPage = () => {
                       <Button
                         size="small"
                         variant="contained"
-                        startIcon={<Delete />}
+                        startIcon={<Delete sx={{ color: "white" }} />}
                         onClick={() => handleDeleteClick(parcel.trackingNumber)}
-                        color="error"
+                        sx={{ 
+                          backgroundColor: "#d32f2f",
+                          color: "white",
+                          "&:hover": { backgroundColor: "#b71c1c" }
+                        }}
                       >
                         Delete
                       </Button>
@@ -718,7 +722,12 @@ const ParcelsPage = () => {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseModal}>Cancel</Button>
+          <Button onClick={handleCloseModal}
+          sx={{ 
+            color: "#d32f2f",
+            "&:hover": { backgroundColor: "rgba(211, 47, 47, 0.04)" } 
+          }}
+          >Cancel</Button>
           <Button
             onClick={handleAddParcel}
             variant="contained"
@@ -727,7 +736,11 @@ const ParcelsPage = () => {
               !newParcel.recipient ||
               !newParcel.trackingNumber
             }
-            sx={{ backgroundColor: "#4CAF50" }}
+            sx={{ 
+              backgroundColor: "#898F63",
+              color: "white",
+              "&:hover": { backgroundColor: "#777c54" }
+            }}
           >
             Add Parcel
           </Button>

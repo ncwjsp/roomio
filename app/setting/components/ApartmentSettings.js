@@ -334,7 +334,17 @@ const ApartmentSettings = () => {
         <Alert severity="success">Settings updated successfully</Alert>
       )}
 
-      <Button type="submit" variant="contained" color="primary" size="large">
+      <Button type="submit" 
+      variant="contained"  
+      size="large"
+      sx={{
+        backgroundColor: "#898F63",
+        color: "white",
+        "&:hover": {
+          backgroundColor: "#777c54"
+        }
+      }}
+      >
         Save All Settings
       </Button>
     </form>

@@ -204,8 +204,14 @@ const PaymentSettings = () => {
             <Button
               type="submit"
               variant="contained"
-              color="primary"
-              sx={{ mt: 2 }}
+              sx={{ 
+                mt: 2,
+                backgroundColor: "#898F63",
+                color: "white",
+                "&:hover": {
+                  backgroundColor: "#777c54"
+                }
+              }}
             >
               Save Bank Details
             </Button>

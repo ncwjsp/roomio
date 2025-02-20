@@ -514,7 +514,7 @@ export default function BillingPage() {
             <Typography
               variant="h4"
               component="h1"
-              sx={{ fontWeight: "medium" }}
+              sx={{ fontWeight: "600" }}
             >
               Billing Management{" "}
               <span style={{ fontSize: "18px" }}>(25th of each month)</span>
@@ -756,7 +756,7 @@ export default function BillingPage() {
                                 sx={{
                                   borderRadius: "8px",
                                   fontWeight: 500,
-                                  backgroundColor: "#0288d1",
+                                  backgroundColor: "#FF8A23",
                                   "& .MuiChip-label": {
                                     color: "white",
                                   },
@@ -935,7 +935,7 @@ export default function BillingPage() {
                           <Typography color="text.secondary" variant="body2">
                             Total Amount
                           </Typography>
-                          <Typography variant="h6" color="primary">
+                          <Typography variant="h6" color="black" fontWeight={600}>
                             ฿
                             {(
                               bill.rentAmount +

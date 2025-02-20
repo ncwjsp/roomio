@@ -347,8 +347,26 @@ const StaffForm = ({ onSubmit, initialData = {}, onCancel }) => {
       </div>
 
       <div className="flex justify-end space-x-2 pt-4">
-        <Button onClick={onCancel}>Cancel</Button>
-        <Button type="submit" variant="contained" color="primary">
+        <Button 
+          onClick={onCancel}
+          sx={{
+            color: "#d32f2f",
+            "&:hover": {
+              backgroundColor: "rgba(112, 116, 84, 0.04)"
+            }
+          }}
+        >
+          Cancel</Button>
+        <Button 
+          type="submit" 
+          variant="contained" 
+          sx={{
+            backgroundColor: "#898F63",
+            "&:hover": {
+              backgroundColor: "#777c54"
+            }
+          }}
+          >
           {initialData._id ? "Update" : "Add"} Staff Member
         </Button>
       </div>

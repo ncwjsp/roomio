@@ -117,7 +117,7 @@ export default function Navbar() {
             href="/setting"
             className={`flex justify-center items-center px-6 py-3 rounded no-underline transition-all duration-200 ${
               isActive("/setting")
-                ? "bg-[#CED69C] text-white"
+                ? "bg-[#B3B7A0] text-white"
                 : "text-black hover:bg-gray-200"
             }`}
           >

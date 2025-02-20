@@ -262,7 +262,7 @@ export default function MaintenancePage() {
           variant="h4"
           component="h1"
           fontWeight="bold"
-          color="text.primary"
+          color="#898f36"
         >
           Maintenance Tickets
         </Typography>

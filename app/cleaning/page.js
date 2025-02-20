@@ -185,17 +185,22 @@ export default function CleaningManagementPage() {
           alignItems="center"
           mb={3}
         >
-          <Typography variant="h4" color="text.primary" fontWeight={500}>
+          <Typography variant="h4" color="#898f63" fontWeight={600}>
             Cleaning Schedule
           </Typography>
           <Button
             variant="contained"
-            startIcon={<AddIcon />}
+            startIcon={<AddIcon sx={{ color: 'white' }} />}
             onClick={() => router.push("/cleaning/add")}
             sx={{
               textTransform: "none",
               borderRadius: 2,
               px: 3,
+              backgroundColor: "#898F63",
+              color: "white",
+              "&:hover": {
+                backgroundColor: "#777c54"
+              }
             }}
           >
             Add Schedule

@@ -22,7 +22,7 @@ const SettingsPage = () => {
 
   return (
     <div className="p-4 max-w-6xl mx-auto">
-      <h1 className="text-2xl font-semibold mb-6">Settings</h1>
+      <h1 className="text-3xl font-bold mb-6 ">Settings</h1>
 
       <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 3 }}>
         <Tabs

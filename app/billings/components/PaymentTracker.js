@@ -224,7 +224,7 @@ const PaymentTracker = ({ bills, onUpdatePaymentStatus, buildings = [] }) => {
                     </Typography>
                     <Typography
                       variant="h6"
-                      color="primary"
+                      color="black"
                       sx={{ fontWeight: 500 }}
                     >
                       ฿{bill.totalAmount.toLocaleString()}

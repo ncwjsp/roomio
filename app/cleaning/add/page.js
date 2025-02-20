@@ -419,7 +419,7 @@ export default function CreateSchedulePage() {
                 {timeRanges.length > 1 && (
                   <button
                     onClick={() => handleRemoveTimeRange(index)}
-                    className="text-red-500 hover:text-red-700"
+                    className="text-red-500 hover:text-red-700 bg-transparent"
                   >
                     Remove
                   </button>
@@ -428,7 +428,7 @@ export default function CreateSchedulePage() {
             ))}
             <button
               onClick={handleAddTimeRange}
-              className="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-gray-400 hover:text-gray-600"
+              className="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-gray-400 hover:text-gray-600 bg-transparent"
             >
               + Add Time Range
             </button>

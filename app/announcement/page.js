@@ -155,7 +155,7 @@ export default function AnnouncementsPage() {
           component="h1" 
           sx={{ 
             fontWeight: 600,
-            color: colors.primary,
+            color: "898F63",
           }}
         >
           Announcements
@@ -163,9 +163,13 @@ export default function AnnouncementsPage() {
 
         <Button
           variant="contained"
-          startIcon={<AddIcon />}
+          startIcon={<AddIcon sx={{color: "white"}} />}
           onClick={() => setOpen(true)}
-          sx={buttonStyles.primary.contained}
+          sx={{ 
+            backgroundColor: "#898F63",
+            color: "white",
+            "&:hover": { backgroundColor: "#777c54" }
+          }}
         >
           New Announcement
         </Button>

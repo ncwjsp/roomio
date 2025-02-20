@@ -116,11 +116,11 @@ const StaffPage = () => {
     <div className="container mx-auto px-4 py-8">
       <div className="mb-6">
         <div className="flex justify-between items-center mb-4">
-          <h1 className="text-2xl font-bold">Staff Management</h1>
+          <h1 className="text-4xl font-bold mb-6">Staff Management</h1>
           <div className="space-x-2">
             <Link
               href="/staffs/add"
-              className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+              className="bg-[#898F63] text-white px-4 py-2 rounded hover:bg-[#707454]"
             >
               Add Staff
             </Link>
@@ -134,8 +134,8 @@ const StaffPage = () => {
               onClick={() => setSelectedRole(role.id)}
               className={`px-4 py-2 rounded-lg ${
                 selectedRole === role.id
-                  ? "bg-blue-500 text-white"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  ? "bg-[#898F63] text-white"
+                  : "bg-gray-100 text-gray-600 hover:bg-[#898F63]"
               }`}
             >
               {role.label}

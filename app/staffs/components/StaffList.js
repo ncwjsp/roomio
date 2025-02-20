@@ -17,13 +17,13 @@ const StaffList = ({ staffData, selectedRole, onEdit, onDelete }) => {
             <div className="flex space-x-2">
               <button
                 onClick={() => onEdit(staff)}
-                className="p-2 text-blue-500 hover:bg-blue-50 rounded"
+                className="p-2 text-blue-500 bg-white hover:bg-blue-50 rounded border border-gray-200"
               >
                 Edit
               </button>
               <button
                 onClick={() => onDelete(staff._id)}
-                className="p-2 text-red-500 hover:bg-red-50 rounded"
+                className="p-2 text-red-500 bg-white hover:bg-red-50 rounded border border-gray-200"
               >
                 Delete
               </button>

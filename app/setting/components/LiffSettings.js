@@ -254,8 +254,17 @@ const LiffSettings = () => {
               )
             }
             startIcon={
-              copySuccess["webhook-url"] ? <CheckIcon /> : <ContentCopyIcon />
+              copySuccess["webhook-url"] ? <CheckIcon sx={{ color: "#898f63" }} /> 
+              : <ContentCopyIcon sx={{ color: "#898f63" }} />
             }
+            sx={{
+              color: "#555",
+              borderColor: "#ccc",
+              "&:hover": {
+                backgroundColor: "#f5f5f5",
+                borderColor: "#aaa"
+              }
+            }}
           >
             {copySuccess["webhook-url"] ? "Copied!" : "Copy"}
           </Button>
@@ -301,11 +310,19 @@ const LiffSettings = () => {
                   }
                   startIcon={
                     copySuccess[`url-${key}`] ? (
-                      <CheckIcon />
+                      <CheckIcon sx={{ color: "#898f63" }}/>
                     ) : (
-                      <ContentCopyIcon />
+                      <ContentCopyIcon sx={{ color: "#898f63" }} />
                     )
                   }
+                  sx={{
+                    color: "#555",
+                    borderColor: "#ccc",
+                    "&:hover": {
+                      backgroundColor: "#f5f5f5",
+                      borderColor: "#aaa"
+                    }
+                  }}
                 >
                   {copySuccess[`url-${key}`] ? "Copied!" : "Copy"}
                 </Button>
@@ -322,8 +339,16 @@ const LiffSettings = () => {
           {!editMode.channel ? (
             <Button
               startIcon={<EditIcon />}
+              variant="outlined"
               onClick={() => handleEdit("channel")}
-              color="primary"
+              sx={{
+                color: "#555",
+                borderColor: "#ccc",
+                "&:hover": {
+                  backgroundColor: "#f5f5f5",
+                  borderColor: "#aaa"
+                }
+              }}
             >
               Edit
             </Button>
@@ -416,10 +441,18 @@ const LiffSettings = () => {
                   />
                   {!editMode[key] ? (
                     <Button
-                      variant="contained"
+                      variant="outlined"
                       color="primary"
                       onClick={() => handleEdit(key)}
                       startIcon={<EditIcon />}
+                      sx={{
+                        color: "#555",
+                        borderColor: "#ccc",
+                        "&:hover": {
+                          backgroundColor: "#f5f5f5",
+                          borderColor: "#aaa"
+                        }
+                      }}
                     >
                       Edit
                     </Button>
@@ -429,14 +462,29 @@ const LiffSettings = () => {
                         variant="contained"
                         color="primary"
                         onClick={() => handleLiffIdUpdate(key)}
-                        startIcon={<SaveIcon />}
+                        startIcon={<SaveIcon sx={{ color: "white"}} />}
+                        sx={{
+                          backgroundColor: "#898F63",
+                          color: "white",
+                          "&:hover": {
+                            backgroundColor: "#777c54"
+                          }
+                        }}
                       >
                         Save
                       </Button>
                       <Button
                         variant="outlined"
                         onClick={() => handleCancel(key)}
-                        startIcon={<CancelIcon />}
+                        startIcon={<CancelIcon sx={{ color: "#d32f2f"}}/>}
+                        sx={{
+                          color: "#d32f2f",
+                          borderColor: "#d32f2f",
+                          "&:hover": {
+                            backgroundColor: "rgba(211, 47, 47, 0.04)",
+                            borderColor: "#b71c1c"
+                          }
+                        }}
                       >
                         Cancel
                       </Button>
