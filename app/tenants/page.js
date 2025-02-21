@@ -32,6 +32,54 @@ import {
 import dayjs from "dayjs";
 import { useRouter } from "next/navigation";
 
+// Loading Spinner Component
+const LoadingSpinner = ({ size = 'large' }) => {
+  const sizes = {
+    small: {
+      wrapper: "w-6 h-6",
+      position: "left-[11px] top-[6px]",
+      bar: "w-[2px] h-[4px]",
+      origin: "origin-[1px_7px]"
+    },
+    medium: {
+      wrapper: "w-24 h-24",
+      position: "left-[47px] top-[24px]",
+      bar: "w-1.5 h-3",
+      origin: "origin-[3px_26px]"
+    },
+    large: {
+      wrapper: "w-48 h-48",
+      position: "left-[94px] top-[48px]",
+      bar: "w-3 h-6",
+      origin: "origin-[6px_52px]"
+    }
+  };
+
+  return (
+    <div className={`${sizes[size].wrapper} inline-block overflow-hidden bg-transparent`}>
+      <div className="w-full h-full relative transform scale-100 origin-[0_0]">
+        {[...Array(12)].map((_, i) => (
+          <div
+            key={i}
+            className={`absolute ${sizes[size].position} ${sizes[size].bar} rounded-[5.76px] bg-[#898f63] ${sizes[size].origin}`}
+            style={{
+              transform: `rotate(${i * 30}deg)`,
+              animation: `spinner-fade 1s linear infinite`,
+              animationDelay: `${-0.0833 * (12 - i)}s`
+            }}
+          />
+        ))}
+      </div>
+      <style jsx>{`
+        @keyframes spinner-fade {
+          0% { opacity: 1 }
+          100% { opacity: 0 }
+        }
+      `}</style>
+    </div>
+  );
+};
+
 export default function TenantsPage() {
   const { data: session, status } = useSession();
   const [tenants, setTenants] = useState([]);
@@ -107,20 +155,20 @@ export default function TenantsPage() {
   if (loading) {
     return (
       <Container maxWidth="lg" sx={{ py: 4 }}>
-        <Grid container spacing={3}>
-          {[1, 2, 3, 4].map((i) => (
-            <Grid item xs={12} md={6} lg={4} key={i}>
-              <Skeleton
-                variant="rectangular"
-                height={200}
-                sx={{ borderRadius: 2 }}
-              />
-            </Grid>
-          ))}
-        </Grid>
+        <Box 
+          display="flex" 
+          justifyContent="center" 
+          alignItems="center" 
+          minHeight="60vh"
+          flexDirection="column"
+          gap={3}
+        >
+          <LoadingSpinner size="large" />
+        </Box>
       </Container>
     );
   }
+
 
   if (error) {
     return (

@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import PieChartComponent from "@/app/components/chart/PieChartComponent";
 import LineChartComponent from "@/app/components/chart/LineChartComponent";
-import BarChartComponent from "@/app/components/chart/BarChartComponent"; // You'll need to create this component
+import BarChartComponent from "@/app/components/chart/BarChartComponent";
 import {
   monthlyRevenueExpenseData,
   yearlyRevenueExpenseData,
@@ -16,81 +16,141 @@ import {
   roomVacancyPieData,
   maintenancePieData,
   incomeSummaryCards,
-} from "@/app/data/chartData"; // Import data from a separate file
+} from "@/app/data/chartData";
+
+// Loading Spinner Component
+const LoadingSpinner = ({ size = 'large' }) => {
+  const sizes = {
+    small: {
+      wrapper: "w-6 h-6",
+      position: "left-[11px] top-[6px]",
+      bar: "w-[2px] h-[4px]",
+      origin: "origin-[1px_7px]"
+    },
+    medium: {
+      wrapper: "w-24 h-24",
+      position: "left-[47px] top-[24px]",
+      bar: "w-1.5 h-3",
+      origin: "origin-[3px_26px]"
+    },
+    large: {
+      wrapper: "w-48 h-48",
+      position: "left-[94px] top-[48px]",
+      bar: "w-3 h-6",
+      origin: "origin-[6px_52px]"
+    }
+  };
+
+  return (
+    <div className={`${sizes[size].wrapper} inline-block overflow-hidden bg-transparent`}>
+      <div className="w-full h-full relative transform scale-100 origin-[0_0]">
+        {[...Array(12)].map((_, i) => (
+          <div
+            key={i}
+            className={`absolute ${sizes[size].position} ${sizes[size].bar} rounded-[5.76px] bg-[#898f63] ${sizes[size].origin}`}
+            style={{
+              transform: `rotate(${i * 30}deg)`,
+              animation: `spinner-fade 1s linear infinite`,
+              animationDelay: `${-0.0833 * (12 - i)}s`
+            }}
+          />
+        ))}
+      </div>
+      <style jsx>{`
+        @keyframes spinner-fade {
+          0% { opacity: 1 }
+          100% { opacity: 0 }
+        }
+      `}</style>
+    </div>
+  );
+};
 
 const Dashboard = () => {
+  const [isLoading, setIsLoading] = useState(true);
+  const [isChartLoading, setIsChartLoading] = useState(false);
   const [tab, setTab] = useState("Overview");
   const [selectedCard, setSelectedCard] = useState(null);
   const [view, setView] = useState("Monthly");
   const [selectedYear, setSelectedYear] = useState("2024");
   const [selectedMonth, setSelectedMonth] = useState("Jan");
 
+  useEffect(() => {
+    // Simulate initial data loading
+    const loadInitialData = async () => {
+      try {
+        setIsLoading(true);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadInitialData();
+  }, []);
+
+  const handleTabChange = async (newTab) => {
+    setIsChartLoading(true);
+    setTab(newTab);
+    await new Promise(resolve => setTimeout(resolve, 500));
+    setIsChartLoading(false);
+  };
+
   const renderOverview = () => (
     <div>
-      <div className="grid grid-cols-4 gap-4 mb-8">
-        {overviewStats.map((stat, index) => (
-          <div
-            key={index}
-            className="p-4 bg-white rounded-[10px] shadow flex justify-between items-center"
-          >
-            <div>
-              <h3 className="text-sm text-gray-500">{stat.title}</h3>
-              <p className="text-2xl font-bold">{stat.value}</p>
-            </div>
-            <div
-              className={`w-10 h-10 flex items-center justify-center rounded-[10px] ${stat.iconBg}`}
-            >
-              <i className={`${stat.icon} ${stat.iconColor} text-3xl`}></i>
-            </div>
+      {isChartLoading ? (
+        <div className="flex justify-center items-center min-h-[400px]">
+          <LoadingSpinner size="medium" />
+        </div>
+      ) : (
+        <div>
+          <div className="grid grid-cols-4 gap-4 mb-8">
+            {overviewStats.map((stat, index) => (
+              <div
+                key={index}
+                className="p-4 bg-white rounded-[10px] shadow flex justify-between items-center"
+              >
+                <div>
+                  <h3 className="text-sm text-gray-500">{stat.title}</h3>
+                  <p className="text-2xl font-bold">{stat.value}</p>
+                </div>
+                <div
+                  className={`w-10 h-10 flex items-center justify-center rounded-[10px] ${stat.iconBg}`}
+                >
+                  <i className={`${stat.icon} ${stat.iconColor} text-3xl`}></i>
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
 
-      <div className="grid grid-cols-2 gap-4 mb-6">
-        <PieChartComponent
-          data={overduePaymentPieData}
-          title="Overdue Payments"
-        />
-        <PieChartComponent data={roomVacancyPieData} title="Room Vacancy" />
-      </div>
-
-      {/* Full-width maintenance card with centered pie chart */}
-      <div className="w-full mb-6">
-        <div className="bg-white rounded-[10px] shadow p-4 flex flex-col items-center">
-          <h3 className="text-lg font-semibold mb-4">Maintenance & Cleaning</h3>
-          <div className="w-full max-w-md">
+          <div className="grid grid-cols-2 gap-4 mb-6">
             <PieChartComponent
-              data={maintenancePieData}
-              title=""
+              data={overduePaymentPieData}
+              title="Overdue Payments"
             />
+            <PieChartComponent data={roomVacancyPieData} title="Room Vacancy" />
+          </div>
+
+          <div className="w-full mb-6">
+            <div className="bg-white rounded-[10px] shadow p-4 flex flex-col items-center">
+              <h3 className="text-lg font-semibold mb-4">Maintenance & Cleaning</h3>
+              <div className="w-full max-w-md">
+                <PieChartComponent
+                  data={maintenancePieData}
+                  title=""
+                />
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 
   const renderBarChart = () => {
-    // Filter data based on selected month/year
-    let chartData = [];
-    
-    if (view === "Monthly") {
-      // For monthly view, we'll show each month's data for the selected year
-      chartData = monthlyRevenueExpenseData;
-    } else {
-      // For yearly view, filter by the selected year
-      const yearData = yearlyRevenueExpenseData.find(
-        (data) => data.year === selectedYear
-      );
-      if (yearData) {
-        chartData = [
-          {
-            month: selectedYear,
-            revenue: yearData.revenue,
-            expense: yearData.expense,
-          },
-        ];
-      }
-    }
+    let chartData = view === "Monthly" ? monthlyRevenueExpenseData :
+      yearlyRevenueExpenseData.find(data => data.year === selectedYear)
+        ? [yearlyRevenueExpenseData.find(data => data.year === selectedYear)]
+        : [];
 
     return (
       <div className="mt-8">
@@ -113,7 +173,11 @@ const Dashboard = () => {
 
   const renderIncomeSummary = () => (
     <>
-      {selectedCard === null ? (
+      {isChartLoading ? (
+        <div className="flex justify-center items-center min-h-[400px]">
+          <LoadingSpinner size="medium" />
+        </div>
+      ) : selectedCard === null ? (
         <>
           <div className="grid grid-cols-4 gap-4 mb-8">
             {incomeSummaryCards.map((card, index) => (
@@ -135,7 +199,6 @@ const Dashboard = () => {
             ))}
           </div>
 
-          {/* Bar chart controls */}
           <div className="mb-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex">
@@ -189,7 +252,6 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Render the bar chart */}
           {renderBarChart()}
         </>
       ) : (
@@ -231,13 +293,8 @@ const Dashboard = () => {
 
           {selectedCard === "revenue" && (
             <LineChartComponent
-              data={
-                view === "Monthly"
-                  ? monthlyRevenueExpenseData
-                  : yearlyRevenueExpenseData.filter(
-                      (data) => data.year === selectedYear
-                    )
-              }
+              data={view === "Monthly" ? monthlyRevenueExpenseData : 
+                yearlyRevenueExpenseData.filter(data => data.year === selectedYear)}
               title="Revenue Graph"
               xKey={view === "Monthly" ? "month" : "year"}
               yKeys={[{ dataKey: "revenue", color: "#4AD991" }]}
@@ -245,13 +302,8 @@ const Dashboard = () => {
           )}
           {selectedCard === "expense" && (
             <LineChartComponent
-              data={
-                view === "Monthly"
-                  ? monthlyRevenueExpenseData
-                  : yearlyRevenueExpenseData.filter(
-                      (data) => data.year === selectedYear
-                    )
-              }
+              data={view === "Monthly" ? monthlyRevenueExpenseData :
+                yearlyRevenueExpenseData.filter(data => data.year === selectedYear)}
               title="Expense Graph"
               xKey={view === "Monthly" ? "month" : "year"}
               yKeys={[{ dataKey: "expense", color: "#F30505" }]}
@@ -259,13 +311,8 @@ const Dashboard = () => {
           )}
           {selectedCard === "net-profit" && (
             <LineChartComponent
-              data={
-                view === "Monthly"
-                  ? monthlyRevenueExpenseData
-                  : yearlyRevenueExpenseData.filter(
-                      (data) => data.year === selectedYear
-                    )
-              }
+              data={view === "Monthly" ? monthlyRevenueExpenseData :
+                yearlyRevenueExpenseData.filter(data => data.year === selectedYear)}
               title="Net Profit/Loss Graph"
               xKey={view === "Monthly" ? "month" : "year"}
               yKeys={[
@@ -300,6 +347,14 @@ const Dashboard = () => {
     </>
   );
 
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-[#EBECE1]">
+        <LoadingSpinner size="large" />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col items-center min-h-screen bg-[#EBECE1]">
       <div className="w-full max-w-6xl p-5">
@@ -308,7 +363,7 @@ const Dashboard = () => {
         <div className="flex justify-between items-center mb-8">
           <div className="flex items-center rounded-[10px] overflow-hidden">
             <button
-              onClick={() => setTab("Overview")}
+              onClick={() => handleTabChange("Overview")}
               className={`px-6 py-2 ${
                 tab === "Overview"
                   ? "bg-[#898F63] text-white"
@@ -318,7 +373,7 @@ const Dashboard = () => {
               Overview
             </button>
             <button
-              onClick={() => setTab("Income Summary")}
+              onClick={() => handleTabChange("Income Summary")}
               className={`px-6 py-2 ${
                 tab === "Income Summary"
                   ? "bg-[#898F63] text-white"

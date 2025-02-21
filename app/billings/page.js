@@ -31,6 +31,32 @@ import { format, isBefore, addDays, subMonths } from "date-fns";
 import { useRouter } from "next/navigation";
 import PaymentTracker from "./components/PaymentTracker";
 
+const LoadingSpinner = () => {
+  return (
+    <div className="w-48 h-48 inline-block overflow-hidden bg-transparent">
+      <div className="w-full h-full relative transform scale-100 origin-[0_0]">
+        {[...Array(12)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute left-[94px] top-[48px] w-3 h-6 rounded-[5.76px] bg-[#898f63] origin-[6px_52px]"
+            style={{
+              transform: `rotate(${i * 30}deg)`,
+              animation: `spinner-fade 1s linear infinite`,
+              animationDelay: `${-0.0833 * (12 - i)}s`
+            }}
+          />
+        ))}
+      </div>
+      <style jsx>{`
+        @keyframes spinner-fade {
+          0% { opacity: 1 }
+          100% { opacity: 0 }
+        }
+      `}</style>
+    </div>
+  );
+};
+
 const calculateRentAmount = (moveInDate, roomPrice, partialBillingEnabled) => {
   const billingDate = new Date();
   billingDate.setDate(25);
@@ -426,8 +452,16 @@ export default function BillingPage() {
 
   if (loading) {
     return (
-      <Box sx={{ width: "100%", mt: 4 }}>
-        <LinearProgress />
+      <Box 
+        sx={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          minHeight: '80vh',
+          width: '100%'
+        }}
+      >
+        <LoadingSpinner />
       </Box>
     );
   }

@@ -4,7 +4,55 @@ import { use } from "react";
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { CircularProgress, Snackbar, Alert, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button } from "@mui/material";
+import { Snackbar, Alert, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button } from "@mui/material";
+
+// Loading Spinner Component
+const LoadingSpinner = () => {
+  return (
+    <div className="w-48 h-48 inline-block overflow-hidden bg-transparent">
+      <div className="w-full h-full relative transform scale-100 origin-[0_0]">
+        {[...Array(12)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute left-[94px] top-[48px] w-3 h-6 rounded-[5.76px] bg-[#898f63] origin-[6px_52px]"
+            style={{
+              transform: `rotate(${i * 30}deg)`,
+              animation: `spinner-fade 1s linear infinite`,
+              animationDelay: `${-0.0833 * (12 - i)}s`
+            }}
+          />
+        ))}
+      </div>
+      <style jsx>{`
+        @keyframes spinner-fade {
+          0% { opacity: 1 }
+          100% { opacity: 0 }
+        }
+      `}</style>
+    </div>
+  );
+};
+
+// Small Loading Spinner for Buttons
+const SmallLoadingSpinner = () => {
+  return (
+    <div className="w-6 h-6 inline-block overflow-hidden bg-transparent">
+      <div className="w-full h-full relative transform scale-100 origin-[0_0]">
+        {[...Array(12)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute left-[11px] top-[6px] w-[2px] h-[4px] rounded-[1px] bg-white origin-[1px_7px]"
+            style={{
+              transform: `rotate(${i * 30}deg)`,
+              animation: `spinner-fade 1s linear infinite`,
+              animationDelay: `${-0.0833 * (12 - i)}s`
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
 
 export default function RoomDetails({ params }) {
   const roomId = use(params).id;
@@ -116,7 +164,7 @@ export default function RoomDetails({ params }) {
   if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen bg-[#EBECE1]">
-        <CircularProgress sx={{ color: "#898F63" }} />
+        <LoadingSpinner />
       </div>
     );
   }
@@ -373,7 +421,7 @@ export default function RoomDetails({ params }) {
             color="error"
             disabled={isLoading}
           >
-            {isLoading ? <CircularProgress size={24} /> : "Delete"}
+            {isLoading ? <SmallLoadingSpinner /> : "Delete"}
           </Button>
         </DialogActions>
       </Dialog>

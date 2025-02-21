@@ -28,6 +28,55 @@ import {
 } from "date-fns";
 import { ChevronLeft, ChevronRight, Add as AddIcon } from "@mui/icons-material";
 
+// Loading Spinner Component
+const LoadingSpinner = ({ size = 'large' }) => {
+  const sizes = {
+    small: {
+      wrapper: "w-6 h-6",
+      position: "left-[11px] top-[6px]",
+      bar: "w-[2px] h-[4px]",
+      origin: "origin-[1px_7px]"
+    },
+    medium: {
+      wrapper: "w-24 h-24",
+      position: "left-[47px] top-[24px]",
+      bar: "w-1.5 h-3",
+      origin: "origin-[3px_26px]"
+    },
+    large: {
+      wrapper: "w-48 h-48",
+      position: "left-[94px] top-[48px]",
+      bar: "w-3 h-6",
+      origin: "origin-[6px_52px]"
+    }
+  };
+
+  return (
+    <div className={`${sizes[size].wrapper} inline-block overflow-hidden bg-transparent`}>
+      <div className="w-full h-full relative transform scale-100 origin-[0_0]">
+        {[...Array(12)].map((_, i) => (
+          <div
+            key={i}
+            className={`absolute ${sizes[size].position} ${sizes[size].bar} rounded-[5.76px] bg-[#898f63] ${sizes[size].origin}`}
+            style={{
+              transform: `rotate(${i * 30}deg)`,
+              animation: `spinner-fade 1s linear infinite`,
+              animationDelay: `${-0.0833 * (12 - i)}s`
+            }}
+          />
+        ))}
+      </div>
+      <style jsx>{`
+        @keyframes spinner-fade {
+          0% { opacity: 1 }
+          100% { opacity: 0 }
+        }
+      `}</style>
+    </div>
+  );
+};
+
+
 // Add this helper function to get the first day offset
 const getMonthStartOffset = (date) => {
   return startOfMonth(date).getDay();
@@ -102,7 +151,7 @@ export default function CleaningManagementPage() {
         minHeight="100vh"
         bgcolor={theme.palette.grey[100]}
       >
-        <CircularProgress />
+        <LoadingSpinner size="large" />
       </Box>
     );
   }
@@ -215,7 +264,7 @@ export default function CleaningManagementPage() {
             </Typography>
             {isLoadingBuildings ? (
               <Box display="flex" justifyContent="center" p={2}>
-                <CircularProgress size={24} />
+                <LoadingSpinner size="small" />
               </Box>
             ) : (
               <FormControl fullWidth>
@@ -267,7 +316,7 @@ export default function CleaningManagementPage() {
 
                 {isLoadingSchedules ? (
                   <Box display="flex" justifyContent="center" p={3}>
-                    <CircularProgress />
+                    <LoadingSpinner size="medium" />
                   </Box>
                 ) : (
                   <Box>
@@ -349,8 +398,14 @@ export default function CleaningManagementPage() {
                   Booking Details
                 </Typography>
                 {isLoadingSchedules ? (
-                  <Box display="flex" justifyContent="center" p={3}>
-                    <CircularProgress />
+                  <Box 
+                  display="flex" 
+                  justifyContent="center" 
+                  alignItems="center"
+                  minHeight="200px" 
+                  p={3}
+                >
+                  <LoadingSpinner />
                   </Box>
                 ) : getCurrentMonthSchedule()?.slots?.length > 0 ? (
                   getCurrentMonthSchedule()?.slots.map((slot) => (
@@ -457,7 +512,16 @@ export default function CleaningManagementPage() {
                       variant="outlined"
                       startIcon={<AddIcon />}
                       onClick={() => router.push("/cleaning/add")}
-                      sx={{ mt: 2, textTransform: "none" }}
+                      sx={{ 
+                        mt: 2, 
+                        textTransform: "none",
+                        color: "#898F63",
+                        borderColor: "#898F63",
+                        '&:hover': {
+                          borderColor: "#707454",
+                          backgroundColor: "rgba(137, 143, 99, 0.04)"
+                        }
+                      }}
                     >
                       Add New Schedule
                     </Button>

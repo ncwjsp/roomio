@@ -14,16 +14,40 @@ import {
   DialogActions,
   IconButton,
   Stack,
-  CircularProgress,
   Fade,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
-import EditIcon from "@mui/icons-material/Edit";
-import CampaignIcon from "@mui/icons-material/Campaign";
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import { format } from "date-fns";
 import { colors, buttonStyles } from "lib/styles";
+
+// Loading Spinner Component
+const LoadingSpinner = () => {
+  return (
+    <div className="w-48 h-48 inline-block overflow-hidden bg-transparent">
+      <div className="w-full h-full relative transform scale-100 origin-[0_0]">
+        {[...Array(12)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute left-[94px] top-[48px] w-3 h-6 rounded-[5.76px] bg-[#898f63] origin-[6px_52px]"
+            style={{
+              transform: `rotate(${i * 30}deg)`,
+              animation: `spinner-fade 1s linear infinite`,
+              animationDelay: `${-0.0833 * (12 - i)}s`
+            }}
+          />
+        ))}
+      </div>
+      <style jsx>{`
+        @keyframes spinner-fade {
+          0% { opacity: 1 }
+          100% { opacity: 0 }
+        }
+      `}</style>
+    </div>
+  );
+};
 
 export default function AnnouncementsPage() {
   const [announcements, setAnnouncements] = useState(null);
@@ -155,7 +179,7 @@ export default function AnnouncementsPage() {
           component="h1" 
           sx={{ 
             fontWeight: 600,
-            color: "898F63",
+            color: "#898F63",
           }}
         >
           Announcements
@@ -176,8 +200,8 @@ export default function AnnouncementsPage() {
       </Box>
 
       {loading ? (
-        <Box display="flex" justifyContent="center" my={4}>
-          <CircularProgress sx={{ color: colors.primary }} />
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
+          <LoadingSpinner />
         </Box>
       ) : error ? (
         <Box textAlign="center" color="error.main" my={4}>

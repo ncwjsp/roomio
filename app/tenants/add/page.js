@@ -41,6 +41,54 @@ import Providers from "@/app/components/Providers";
 import { useRouter } from "next/navigation";
 import PersonIcon from "@mui/icons-material/Person";
 
+// Loading Spinner Component
+const LoadingSpinner = ({ size = 'large' }) => {
+  const sizes = {
+    small: {
+      wrapper: "w-6 h-6",
+      position: "left-[11px] top-[6px]",
+      bar: "w-[2px] h-[4px]",
+      origin: "origin-[1px_7px]"
+    },
+    medium: {
+      wrapper: "w-24 h-24",
+      position: "left-[47px] top-[24px]",
+      bar: "w-1.5 h-3",
+      origin: "origin-[3px_26px]"
+    },
+    large: {
+      wrapper: "w-48 h-48",
+      position: "left-[94px] top-[48px]",
+      bar: "w-3 h-6",
+      origin: "origin-[6px_52px]"
+    }
+  };
+
+  return (
+    <div className={`${sizes[size].wrapper} inline-block overflow-hidden bg-transparent`}>
+      <div className="w-full h-full relative transform scale-100 origin-[0_0]">
+        {[...Array(12)].map((_, i) => (
+          <div
+            key={i}
+            className={`absolute ${sizes[size].position} ${sizes[size].bar} rounded-[5.76px] bg-[#898f63] ${sizes[size].origin}`}
+            style={{
+              transform: `rotate(${i * 30}deg)`,
+              animation: `spinner-fade 1s linear infinite`,
+              animationDelay: `${-0.0833 * (12 - i)}s`
+            }}
+          />
+        ))}
+      </div>
+      <style jsx>{`
+        @keyframes spinner-fade {
+          0% { opacity: 1 }
+          100% { opacity: 0 }
+        }
+      `}</style>
+    </div>
+  );
+};
+
 const AddTenant = () => {
   const { data: session, status } = useSession();
   const [activeStep, setActiveStep] = useState(0);
@@ -922,7 +970,7 @@ const AddTenant = () => {
           </Step>
         </Stepper>
 
-        {loading && <CircularProgress />}
+        {loading && <LoadingSpinner size="medium" />}
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
             {error}
@@ -940,7 +988,10 @@ const AddTenant = () => {
               sx={{
                 color: "#898F63",
                 borderColor: "#898F63",
-                /* hover styles */
+                "&:hover": {
+                  borderColor: "#7C8F59",
+                  backgroundColor: "rgba(137, 143, 99, 0.04)"
+                }
               }}
             >
               Back
@@ -953,12 +1004,11 @@ const AddTenant = () => {
                 disabled={loading}
                 sx={{
                   bgcolor: "#898F63",
-                  "&:hover": {
-                    bgcolor: "#7C8F59",
-                  },
+                  "&:hover": { bgcolor: "#7C8F59" },
+                  minWidth: '100px'
                 }}
               >
-                Submit
+                {loading ? <LoadingSpinner size="small" /> : "Submit"}
               </Button>
             ) : (
               <Button variant="contained" onClick={handleNext} sx={{
@@ -1049,7 +1099,7 @@ const AddTenant = () => {
 
           {loadingContacts ? (
             <Box sx={{ display: "flex", justifyContent: "center", p: 2 }}>
-              <CircularProgress />
+               <LoadingSpinner size="medium" />
             </Box>
           ) : getPaginatedContacts().paginatedContacts.length === 0 ? (
             <Box
@@ -1232,7 +1282,7 @@ const AddTenant = () => {
                   flex: 1,
                 }}
               >
-                <CircularProgress />
+                <LoadingSpinner size="medium" />
               </Box>
             ) : getPaginatedBuildingData().totalRooms === 0 ? (
               <Box
@@ -1322,6 +1372,12 @@ const AddTenant = () => {
           </Box>
         </Box>
       </Modal>
+      <Snackbar
+        open={success}
+        autoHideDuration={6000}
+        onClose={() => setSuccess(false)}
+        message="Tenant added successfully"
+      />
     </Box>
   );
 };

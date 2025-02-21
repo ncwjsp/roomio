@@ -12,7 +12,57 @@ import {
   startOfToday,
 } from "date-fns";
 
+// Loading Spinner Component
+const LoadingSpinner = ({ size = 'large' }) => {
+  const sizes = {
+    small: {
+      wrapper: "w-6 h-6",
+      position: "left-[11px] top-[6px]",
+      bar: "w-[2px] h-[4px]",
+      origin: "origin-[1px_7px]"
+    },
+    medium: {
+      wrapper: "w-24 h-24",
+      position: "left-[47px] top-[24px]",
+      bar: "w-1.5 h-3",
+      origin: "origin-[3px_26px]"
+    },
+    large: {
+      wrapper: "w-48 h-48",
+      position: "left-[94px] top-[48px]",
+      bar: "w-3 h-6",
+      origin: "origin-[6px_52px]"
+    }
+  };
+
+  return (
+    <div className={`${sizes[size].wrapper} inline-block overflow-hidden bg-transparent`}>
+      <div className="w-full h-full relative transform scale-100 origin-[0_0]">
+        {[...Array(12)].map((_, i) => (
+          <div
+            key={i}
+            className={`absolute ${sizes[size].position} ${sizes[size].bar} rounded-[5.76px] bg-[#898f63] ${sizes[size].origin}`}
+            style={{
+              transform: `rotate(${i * 30}deg)`,
+              animation: `spinner-fade 1s linear infinite`,
+              animationDelay: `${-0.0833 * (12 - i)}s`
+            }}
+          />
+        ))}
+      </div>
+      <style jsx>{`
+        @keyframes spinner-fade {
+          0% { opacity: 1 }
+          100% { opacity: 0 }
+        }
+      `}</style>
+    </div>
+  );
+};
+
 export default function CreateSchedulePage() {
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(startOfMonth(new Date()));
   const [selectedDays, setSelectedDays] = useState([]);
   const [slotDuration, setSlotDuration] = useState(60);
@@ -33,12 +83,15 @@ export default function CreateSchedulePage() {
   useEffect(() => {
     const fetchBuildings = async () => {
       try {
+        setIsLoading(true);
         const response = await fetch("/api/cleaning/schedule");
         if (!response.ok) throw new Error("Failed to fetch buildings");
         const data = await response.json();
         setBuildings(data.buildings || []);
       } catch (error) {
         console.error("Error fetching buildings:", error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -108,6 +161,8 @@ export default function CreateSchedulePage() {
         return;
       }
 
+      setIsSubmitting(true);
+
       // Get all dates in the selected month
       const [year, monthStr] = month.split("-");
       const startDate = new Date(parseInt(year), parseInt(monthStr) - 1, 1);
@@ -172,6 +227,8 @@ export default function CreateSchedulePage() {
     } catch (error) {
       console.error("Error creating schedule:", error);
       alert(`Failed to create schedule: ${error.message}`);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -232,6 +289,14 @@ export default function CreateSchedulePage() {
     addMonths(selectedMonth, -1),
     startOfMonth(new Date())
   );
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex justify-center items-center bg-[#EBECE1]">
+        <LoadingSpinner size="large" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen p-6">
@@ -316,7 +381,7 @@ export default function CreateSchedulePage() {
                 onClick={() => handleDayToggle(day)}
                 className={`p-2 rounded ${
                   selectedDays.includes(day)
-                    ? "bg-blue-500 text-white"
+                    ? "bg-[#898f63] text-white"
                     : "bg-white border hover:bg-gray-50"
                 }`}
               >
@@ -448,7 +513,7 @@ export default function CreateSchedulePage() {
                   {getPreviewDays().map((date) => (
                     <div
                       key={date.toString()}
-                      className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm"
+                      className="bg-[#898f63] text-white px-3 py-1 rounded-full text-sm"
                     >
                       {format(date, "EEE, MMM d")}
                     </div>
@@ -470,9 +535,9 @@ export default function CreateSchedulePage() {
                 </div>
               </div>
 
-              <div className="mt-4 bg-yellow-50 p-4 rounded-lg">
+              <div className="mt-4 bg-[#898f63]/10 p-4 rounded-lg">
                 <h3 className="font-medium text-yellow-800 mb-2">Summary:</h3>
-                <ul className="text-sm text-yellow-800 space-y-1">
+                <ul className="text-sm text-{yellow-800} space-y-1">
                   <li>
                     • {getPreviewDays().length} cleaning days in{" "}
                     {format(selectedMonth, "MMMM")}
@@ -506,17 +571,23 @@ export default function CreateSchedulePage() {
           disabled={
             selectedDays.length === 0 ||
             slotDuration === 0 ||
-            isBefore(selectedMonth, startOfMonth(new Date()))
+            isBefore(selectedMonth, startOfMonth(new Date())) ||
+            isSubmitting
           }
-          className={`w-full mt-6 py-2 rounded ${
+          className={`w-full mt-6 py-2 rounded flex items-center justify-center ${
             selectedDays.length === 0 ||
             slotDuration === 0 ||
-            isBefore(selectedMonth, startOfMonth(new Date()))
+            isBefore(selectedMonth, startOfMonth(new Date())) ||
+            isSubmitting
               ? "bg-gray-300 cursor-not-allowed"
-              : "bg-blue-500 hover:bg-blue-600"
+              : "bg-[#898F63] hover:bg-[#707454]"
           } text-white`}
         >
-          Create Schedule
+          {isSubmitting ? (
+            <LoadingSpinner size="small" />
+          ) : (
+            "Create Schedule"
+          )}
         </button>
       </div>
     </div>

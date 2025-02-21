@@ -54,6 +54,54 @@ import {
   Search as SearchIcon,
 } from "@mui/icons-material";
 
+// Loading Spinner Component
+const LoadingSpinner = ({ size = 'large' }) => {
+  const sizes = {
+    small: {
+      wrapper: "w-6 h-6",
+      position: "left-[11px] top-[6px]",
+      bar: "w-[2px] h-[4px]",
+      origin: "origin-[1px_7px]"
+    },
+    medium: {
+      wrapper: "w-24 h-24",
+      position: "left-[47px] top-[24px]",
+      bar: "w-1.5 h-3",
+      origin: "origin-[3px_26px]"
+    },
+    large: {
+      wrapper: "w-48 h-48",
+      position: "left-[94px] top-[48px]",
+      bar: "w-3 h-6",
+      origin: "origin-[6px_52px]"
+    }
+  };
+
+  return (
+    <div className={`${sizes[size].wrapper} inline-block overflow-hidden bg-transparent`}>
+      <div className="w-full h-full relative transform scale-100 origin-[0_0]">
+        {[...Array(12)].map((_, i) => (
+          <div
+            key={i}
+            className={`absolute ${sizes[size].position} ${sizes[size].bar} rounded-[5.76px] bg-[#898f63] ${sizes[size].origin}`}
+            style={{
+              transform: `rotate(${i * 30}deg)`,
+              animation: `spinner-fade 1s linear infinite`,
+              animationDelay: `${-0.0833 * (12 - i)}s`
+            }}
+          />
+        ))}
+      </div>
+      <style jsx>{`
+        @keyframes spinner-fade {
+          0% { opacity: 1 }
+          100% { opacity: 0 }
+        }
+      `}</style>
+    </div>
+  );
+};
+
 export default function TenantDetails({ params }) {
   const router = useRouter();
   const tenantId = use(params).id;
@@ -84,6 +132,8 @@ export default function TenantDetails({ params }) {
   const itemsPerPage = 5;
   const [selectedContact, setSelectedContact] = useState(null);
   const [currentLineContact, setCurrentLineContact] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+
 
   useEffect(() => {
     fetchTenant();
@@ -132,6 +182,7 @@ export default function TenantDetails({ params }) {
 
   const handleDelete = async () => {
     try {
+      setSubmitting(true);
       const response = await fetch(`/api/tenant/${tenantId}`, {
         method: "DELETE",
       });
@@ -145,11 +196,14 @@ export default function TenantDetails({ params }) {
     } catch (error) {
       console.error("Error deleting tenant:", error);
       setError(error.message);
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleUpdateTenant = async () => {
     try {
+      setSubmitting(true);
       const response = await fetch(`/api/tenant/${tenantId}`, {
         method: "PUT",
         headers: {
@@ -167,6 +221,8 @@ export default function TenantDetails({ params }) {
     } catch (error) {
       console.error("Error updating tenant:", error);
       setError(error.message);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -289,11 +345,19 @@ export default function TenantDetails({ params }) {
     return (
       <LocalizationProvider dateAdapter={AdapterDayjs}>
         <Container maxWidth="lg" sx={{ py: 4 }}>
-          <Skeleton
-            variant="rectangular"
-            height={400}
-            sx={{ borderRadius: 2 }}
-          />
+          <Box 
+            display="flex" 
+            flexDirection="column" 
+            alignItems="center" 
+            justifyContent="center" 
+            minHeight="60vh"
+            gap={3}
+          >
+            <LoadingSpinner size="large" />
+            <Typography color="text.secondary">
+              Loading tenant details...
+            </Typography>
+          </Box>
         </Container>
       </LocalizationProvider>
     );
@@ -605,15 +669,14 @@ export default function TenantDetails({ params }) {
                 <Button
                   onClick={handleUpdateTenant}
                   variant="contained"
+                  disabled={submitting}
                   sx={{
                     bgcolor: "#898F63",
-                    "&:hover": {
-                      bgcolor: "#7C8F59",
-                    },
-                    textTransform: "none",
+                    "&:hover": { bgcolor: "#7C8F59" },
+                    minWidth: '120px'
                   }}
                 >
-                  Save Changes
+                   {submitting ? <LoadingSpinner size="small" /> : "Save Changes"}
                 </Button>
               </DialogActions>
             </Dialog>
@@ -686,7 +749,7 @@ export default function TenantDetails({ params }) {
 
                 {loadingContacts ? (
                   <Box sx={{ display: "flex", justifyContent: "center", p: 2 }}>
-                    <CircularProgress />
+                    <LoadingSpinner size="medium" />
                   </Box>
                 ) : getPaginatedContacts().paginatedContacts.length === 0 ? (
                   <Box
@@ -816,16 +879,16 @@ export default function TenantDetails({ params }) {
               >Cancel</Button>
             <Button onClick={handleDelete} 
             variant="contained"
+            disabled={submitting}
             sx={{
-              bgcolor: "#d32f2f", // Red delete button
+              bgcolor: "#d32f2f",
               color: "white",
-              "&:hover": {
-                bgcolor: "#7a4040",
-              },
+              "&:hover": { bgcolor: "#7a4040" },
+              minWidth: '100px'
             }}
             autoFocus
             >
-              Delete
+            {submitting ? <LoadingSpinner size="small" /> : "Delete"}
             </Button>
           </DialogActions>
         </Dialog>

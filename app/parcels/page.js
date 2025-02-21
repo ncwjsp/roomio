@@ -15,7 +15,6 @@ import {
   Button,
   Box,
   Chip,
-  CircularProgress,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -37,6 +36,54 @@ import {
   Search as SearchIcon,
 } from "@mui/icons-material";
 import { useSession } from "next-auth/react";
+
+// Loading Spinner Component
+const LoadingSpinner = ({ size = 'large' }) => {
+  const sizes = {
+    small: {
+      wrapper: "w-6 h-6",
+      position: "left-[11px] top-[6px]",
+      bar: "w-[2px] h-[4px]",
+      origin: "origin-[1px_7px]"
+    },
+    medium: {
+      wrapper: "w-24 h-24",
+      position: "left-[47px] top-[24px]",
+      bar: "w-1.5 h-3",
+      origin: "origin-[3px_26px]"
+    },
+    large: {
+      wrapper: "w-48 h-48",
+      position: "left-[94px] top-[48px]",
+      bar: "w-3 h-6",
+      origin: "origin-[6px_52px]"
+    }
+  };
+
+  return (
+    <div className={`${sizes[size].wrapper} inline-block overflow-hidden bg-transparent`}>
+      <div className="w-full h-full relative transform scale-100 origin-[0_0]">
+        {[...Array(12)].map((_, i) => (
+          <div
+            key={i}
+            className={`absolute ${sizes[size].position} ${sizes[size].bar} rounded-[5.76px] bg-[#898f63] ${sizes[size].origin}`}
+            style={{
+              transform: `rotate(${i * 30}deg)`,
+              animation: `spinner-fade 1s linear infinite`,
+              animationDelay: `${-0.0833 * (12 - i)}s`
+            }}
+          />
+        ))}
+      </div>
+      <style jsx>{`
+        @keyframes spinner-fade {
+          0% { opacity: 1 }
+          100% { opacity: 0 }
+        }
+      `}</style>
+    </div>
+  );
+};
 
 const ParcelsPage = () => {
   const { data: session } = useSession();
@@ -432,7 +479,7 @@ const ParcelsPage = () => {
         alignItems="center"
         minHeight="80vh"
       >
-        <CircularProgress />
+        <LoadingSpinner size="large" />
       </Box>
     );
   }
@@ -672,10 +719,10 @@ const ParcelsPage = () => {
                   >
                     {isRoomsLoading ? (
                       <MenuItem value="">
-                        <div style={{ display: "flex", alignItems: "center" }}>
-                          <CircularProgress size={20} sx={{ mr: 1 }} />
+                        <Box display="flex" alignItems="center" gap={1}>
+                          <LoadingSpinner size="small" />
                           Loading rooms...
-                        </div>
+                        </Box>
                       </MenuItem>
                     ) : !Array.isArray(availableRooms) ||
                       availableRooms.length === 0 ? (
@@ -742,10 +789,11 @@ const ParcelsPage = () => {
               "&:hover": { backgroundColor: "#777c54" }
             }}
           >
-            Add Parcel
-          </Button>
-        </DialogActions>
-      </Dialog>
+            {isRoomsLoading ? <LoadingSpinner size="small" /> : "Add Parcel"}
+      </Button>
+    </DialogActions>
+  </Dialog>
+
 
       {/* Edit Dialog */}
       <Dialog
@@ -791,15 +839,29 @@ const ParcelsPage = () => {
               setIsEditing(false);
               setEditingParcel(null);
             }}
+            sx={{ 
+              color: "#d32f2f",
+              "&:hover": { 
+                backgroundColor: "rgba(137, 143, 99, 0.04)" 
+              } 
+            }}
           >
             Cancel
           </Button>
           <Button
             onClick={handleEditParcel}
             variant="contained"
-            color="primary"
+            disabled={loading}
+            sx={{ 
+              minWidth: '100px',
+              backgroundColor: "#898F63",
+              color: "white",
+              "&:hover": { 
+                backgroundColor: "#777c54" 
+              },
+            }}
           >
-            Save Changes
+            {loading ? <LoadingSpinner size="small" /> : "Save Changes"}
           </Button>
         </DialogActions>
       </Dialog>
@@ -829,11 +891,14 @@ const ParcelsPage = () => {
             onClick={handleDeleteParcels}
             color="error"
             variant="contained"
+            disabled={loading}
+            sx={{ minWidth: '100px' }}
           >
-            Delete
+            {loading ? <LoadingSpinner size="small" /> : "Delete"}
           </Button>
         </DialogActions>
       </Dialog>
+    
 
       {/* Empty state message when no parcels */}
       {filteredParcels.length === 0 && (
