@@ -20,14 +20,10 @@ export async function GET(request) {
     }
 
     const user = await User.findById(id);
-    console.log("Found user:", user); // Debug log
     
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
-
-    // Debug log
-    console.log("Line config:", user.lineConfig);
 
     return NextResponse.json({ lineConfig: user.lineConfig || {} });
   } catch (error) {

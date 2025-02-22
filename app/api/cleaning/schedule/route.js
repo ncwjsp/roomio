@@ -29,7 +29,6 @@ export async function GET(request) {
 
     // Get buildings owned by the landlord
     const buildings = await Building.find({ createdBy: session.user.id });
-    console.log("Found buildings:", buildings);
 
     // Get schedules if needed
     const { searchParams } = new URL(request.url);

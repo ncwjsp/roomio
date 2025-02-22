@@ -33,7 +33,6 @@ export async function PUT(request) {
     }
 
     const user = await User.findById(id);
-    console.log("Found user:", user ? "Yes" : "No"); // Debug log
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });

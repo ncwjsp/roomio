@@ -4,15 +4,15 @@ import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import StaffForm from "@/app/staffs/components/StaffForm";
-import Notification from "@/app/ui/notification";
+import { Snackbar, Alert } from "@mui/material";
 
 const AddStaffPage = () => {
   const router = useRouter();
   const { data: session } = useSession();
   const [notification, setNotification] = useState({
-    show: false,
+    open: false,
     message: "",
-    type: "",
+    severity: "success",
   });
 
   const handleAddStaff = async (formData) => {
@@ -42,14 +42,20 @@ const AddStaffPage = () => {
     }
   };
 
-  const showNotification = (message, type) => {
-    setNotification({ show: true, message, type });
-    setTimeout(
-      () => setNotification({ show: false, message: "", type: "" }),
-      3000
-    );
+  const showNotification = (message, severity) => {
+    setNotification({
+      open: true,
+      message,
+      severity,
+    });
   };
 
+  const handleCloseNotification = (event, reason) => {
+    if (reason === 'clickaway') {
+      return;
+    }
+    setNotification(prev => ({ ...prev, open: false }));
+  };
 
   return (
     <div className="min-h-screen bg-[#EBECE1] p-6">
@@ -66,15 +72,21 @@ const AddStaffPage = () => {
         </div>
       </div>
 
-      {notification.show && (
-        <Notification
-          message={notification.message}
-          type={notification.type}
-          onClose={() =>
-            setNotification({ show: false, message: "", type: "" })
-          }
-        />
-      )}
+      <Snackbar
+        open={notification.open}
+        autoHideDuration={6000}
+        onClose={handleCloseNotification}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert 
+          onClose={handleCloseNotification} 
+          severity={notification.severity}
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          {notification.message}
+        </Alert>
+      </Snackbar>
     </div>
   );
 };

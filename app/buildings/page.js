@@ -653,7 +653,6 @@ const Buildings = () => {
     }
 
     const building = buildings.find((b) => b._id === buildingId);
-    console.log("Found Building Data:", building);
     
     if (building) {
       setModalBuildingData(building);

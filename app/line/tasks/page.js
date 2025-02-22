@@ -46,8 +46,10 @@ export default function TasksPage() {
   const [activeTab, setActiveTab] = useState(0);
   const [newStatus, setNewStatus] = useState("");
   const [lineUserId, setLineUserId] = useState("");
-  const [technicianId, setTechnicianId] = useState("");
+  const [staffId, setStaffId] = useState("");
+  const [staffRole, setStaffRole] = useState("");
   const [sortOrder, setSortOrder] = useState("desc");
+  const [assignedBuildings, setAssignedBuildings] = useState([]);
 
   const formatDate = (dateString) => {
     try {
@@ -71,6 +73,35 @@ export default function TasksPage() {
   };
 
   useEffect(() => {
+    const fetchTasks = async () => {
+      if (!lineUserId || !staffRole) return;
+      
+      try {
+        setIsLoading(true);
+        const endpoint = staffRole === "Technician" 
+          ? `/api/technician/tasks?lineUserId=${lineUserId}`
+          : `/api/housekeeper/tasks?lineUserId=${lineUserId}`;
+          
+        const response = await fetch(endpoint);
+        if (!response.ok) throw new Error("Failed to fetch tasks");
+        const data = await response.json();
+        setActiveTasks(data.activeTasks || []);
+        setCompletedTasks(data.completedTasks || []);
+        if (staffRole === "Housekeeper") {
+          setAssignedBuildings(data.assignedBuildings || []);
+        }
+      } catch (error) {
+        console.error("Error fetching tasks:", error);
+        setError(error.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchTasks();
+  }, [lineUserId, staffRole]);
+
+  useEffect(() => {
     const initializeLiff = async () => {
       try {
         const { searchParams } = new URL(window.location.href);
@@ -83,7 +114,6 @@ export default function TasksPage() {
         // Get the tasks-specific LIFF ID for this landlord
         const response = await fetch(`/api/user/line-config?id=${id}`);
         const data = await response.json();
-        console.log("Line config response:", data);
 
         if (!data.lineConfig?.liffIds?.tasks) {
           throw new Error("LIFF ID not configured for tasks feature");
@@ -101,15 +131,6 @@ export default function TasksPage() {
 
         const profile = await liff.getProfile();
         setLineUserId(profile.userId);
-        const techResponse = await fetch(`/api/technician/tasks?lineUserId=${profile.userId}`);
-        if (!techResponse.ok) {
-          throw new Error("Failed to fetch technician data");
-        }
-        const techData = await techResponse.json();
-        setTechnicianId(techData.technicianId);
-        setActiveTasks(techData.activeTasks);
-        setCompletedTasks(techData.completedTasks);
-        setIsLoading(false);
       } catch (error) {
         console.error("Failed to initialize LIFF:", error);
         setError(error.message);
@@ -120,30 +141,34 @@ export default function TasksPage() {
     initializeLiff();
   }, []);
 
-  const fetchTasks = async (lineUserId) => {
-    try {
-      const response = await fetch(`/api/technician/tasks?lineUserId=${lineUserId}`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch tasks");
+  useEffect(() => {
+    const fetchStaffRole = async () => {
+      if (!lineUserId) return;
+      
+      try {
+        const response = await fetch(`/api/staff/role?lineUserId=${lineUserId}`);
+        if (!response.ok) throw new Error("Failed to fetch staff role");
+        const data = await response.json();
+        setStaffRole(data.role);
+      } catch (error) {
+        console.error("Error fetching staff role:", error);
+        setError(error.message);
       }
+    };
 
-      const data = await response.json();
-      setActiveTasks(data.activeTasks);
-      setCompletedTasks(data.completedTasks);
-    } catch (error) {
-      console.error("Error fetching tasks:", error);
-      setError(error.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    fetchStaffRole();
+  }, [lineUserId]);
 
   const handleUpdateStatus = async () => {
     if (!selectedTask || !newStatus) return;
 
     try {
       setIsLoading(true);
-      const response = await fetch("/api/technician/tasks", {
+      const endpoint = staffRole === "Technician" 
+        ? "/api/technician/tasks"
+        : "/api/housekeeper/tasks";
+        
+      const response = await fetch(endpoint, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -152,7 +177,7 @@ export default function TasksPage() {
           taskId: selectedTask._id,
           status: newStatus,
           comment: statusComment,
-          technicianId: technicianId
+          [staffRole === "Technician" ? "technicianId" : "housekeeperId"]: staffId
         }),
       });
 
@@ -198,7 +223,7 @@ export default function TasksPage() {
   if (isLoading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
-        <CircularProgress sx={{ color: "#889F63" }} />
+        <CircularProgress />
       </Box>
     );
   }
@@ -212,179 +237,70 @@ export default function TasksPage() {
   }
 
   return (
-    <Container maxWidth="md" sx={{ py: 4 }}>
-      <Typography variant="h4" component="h1" gutterBottom fontWeight="bold">
-        My Tasks
-      </Typography>
-
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-        <Tabs 
-          value={activeTab} 
-          onChange={(e, newValue) => setActiveTab(newValue)}
-          sx={{
-            '& .MuiTab-root.Mui-selected': {
-              color: '#889F63',
-            },
-            '& .MuiTabs-indicator': {
-              backgroundColor: '#889F63',
-            },
-          }}
-        >
-          <Tab label="Active Tasks" />
-          <Tab label="Completed Tasks" />
-        </Tabs>
-      </Box>
-
-      {/* Sort Order */}
-      <Box sx={{ mb: 2 }}>
-        <FormControl size="small" sx={{ minWidth: 200 }}>
-          <InputLabel>Sort by Date</InputLabel>
-          <Select
-            value={sortOrder}
-            onChange={(e) => setSortOrder(e.target.value)}
-            label="Sort by Date"
-          >
-            <MenuItem value="desc">Newest First</MenuItem>
-            <MenuItem value="asc">Oldest First</MenuItem>
-          </Select>
-        </FormControl>
-      </Box>
-
-      {activeTab === 0 ? (
-        <List>
-          {sortTasks(activeTasks).map((task) => (
-            <Paper
-              key={task._id}
-              elevation={2}
-              sx={{ mb: 2, overflow: "hidden" }}
-            >
-              <ListItem
-                sx={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "flex-start",
-                  bgcolor: "#fff",
-                  borderRadius: 1,
-                  mb: 1,
-                  p: 2,
-                  border: "1px solid",
-                  borderColor: "divider",
-                }}
-              >
-                <Box
-                  sx={{
-                    width: "100%",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "flex-start",
-                    mb: 1,
-                  }}
-                >
-                  <Box>
-                    <Typography variant="subtitle1" fontWeight="medium">
-                      {task.problem}
-                    </Typography>
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{ mb: 1 }}
-                    >
-                      {task.description}
-                    </Typography>
-                  </Box>
-                  {!["Completed", "Cancelled"].includes(task.currentStatus) && (
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      onClick={() => {
-                        setSelectedTask(task);
-                        setShowUpdateModal(true);
-                      }}
-                      sx={{
-                        color: "#889F63",
-                        borderColor: "#889F63",
-                        "&:hover": {
-                          borderColor: "#889F63",
-                          bgcolor: "rgba(136, 159, 99, 0.08)",
-                        },
-                      }}
-                    >
-                      Update Status
-                    </Button>
-                  )}
-                </Box>
-                <Box sx={{ mt: 1 }}>
-                  <Box display="flex" alignItems="center" gap={1} mb={0.5}>
-                    <RoomIcon fontSize="small" color="action" />
-                    <Typography variant="body2" component="span">
-                      Building {task.room?.building?.name}, Floor {task.room?.floor?.floorNumber}, Room {task.room?.roomNumber}
-                    </Typography>
-                  </Box>
-                  <Box display="flex" alignItems="center" gap={1}>
-                    <ScheduleIcon fontSize="small" color="action" />
-                    <Typography variant="body2" component="span">
-                      Created: {format(new Date(task.createdAt), "MMM d, yyyy 'at' h:mm a")}
-                    </Typography>
-                  </Box>
-                </Box>
-              </ListItem>
-            </Paper>
-          ))}
-          {activeTasks.length === 0 && (
-            <Typography color="text.secondary" align="center" py={4}>
-              No active tasks
-            </Typography>
+    <Box sx={{ pb: 7 }}>
+      <Container maxWidth="md">
+        <Box sx={{ my: 4 }}>
+          <Typography variant="h4" component="h1" gutterBottom>
+            {staffRole === "Technician" ? "Maintenance Tasks" : "Cleaning Tasks"}
+          </Typography>
+          
+          {staffRole === "Housekeeper" && assignedBuildings?.length > 0 && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="subtitle1" gutterBottom>
+                Assigned Buildings:
+              </Typography>
+              <List>
+                {assignedBuildings.map((building) => (
+                  <ListItem key={building._id}>
+                    <ListItemText primary={building.name} />
+                  </ListItem>
+                ))}
+              </List>
+            </Box>
           )}
-        </List>
-      ) : (
-        <List>
-          {sortTasks(completedTasks).map((task) => (
-            <Paper
-              key={task._id}
-              elevation={2}
-              sx={{ mb: 2, overflow: "hidden" }}
-            >
-              <ListItem>
-                <ListItemText
-                  primaryTypographyProps={{ component: "div" }}
-                  secondaryTypographyProps={{ component: "div" }}
-                  primary={
-                    <Box display="flex" justifyContent="space-between" alignItems="center">
-                      <Typography variant="h6" component="div">{task.problem}</Typography>
-                      <Chip
-                        label={task.currentStatus}
-                        color={getStatusColor(task.currentStatus)}
-                        size="small"
-                      />
-                    </Box>
-                  }
-                  secondary={
-                    <Box sx={{ mt: 1 }}>
-                      <Box display="flex" alignItems="center" gap={1} mb={0.5}>
-                        <RoomIcon fontSize="small" color="action" />
-                        <Typography variant="body2" component="span">
-                          Building {task.room?.building?.name}, Floor {task.room?.floor?.floorNumber}, Room {task.room?.roomNumber}
-                        </Typography>
-                      </Box>
-                      <Box display="flex" alignItems="center" gap={1}>
-                        <ScheduleIcon fontSize="small" color="action" />
-                        <Typography variant="body2" component="span">
-                          Completed: {format(new Date(task.updatedAt), "MMM d, yyyy 'at' h:mm a")}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  }
-                />
-              </ListItem>
-            </Paper>
-          ))}
-          {completedTasks.length === 0 && (
-            <Typography color="text.secondary" align="center" py={4}>
-              No completed tasks
+          <Box sx={{ mb: 4 }}>
+            <Typography variant="h6" gutterBottom>
+              Active Tasks
             </Typography>
-          )}
-        </List>
-      )}
+            {activeTasks?.length > 0 ? (
+              <List>
+                {activeTasks.map((task) => (
+                  <TaskItem
+                    key={task._id}
+                    task={task}
+                    onStatusUpdate={() => handleTaskClick(task)}
+                  />
+                ))}
+              </List>
+            ) : (
+              <Typography color="textSecondary">
+                No active tasks found
+              </Typography>
+            )}
+          </Box>
+
+          <Box>
+            <Typography variant="h6" gutterBottom>
+              Completed Tasks
+            </Typography>
+            {completedTasks?.length > 0 ? (
+              <List>
+                {completedTasks.map((task) => (
+                  <TaskItem
+                    key={task._id}
+                    task={task}
+                    completed
+                  />
+                ))}
+              </List>
+            ) : (
+              <Typography color="textSecondary">
+                No completed tasks found
+              </Typography>
+            )}
+          </Box>
+        </Box>
+      </Container>
 
       {/* Update Status Modal */}
       <Dialog 
@@ -511,6 +427,62 @@ export default function TasksPage() {
           </Button>
         </DialogActions>
       </Dialog>
-    </Container>
+    </Box>
+  );
+}
+
+function TaskItem({ task, onStatusUpdate, completed }) {
+  return (
+    <Paper elevation={2} sx={{ mb: 2, overflow: "hidden" }}>
+      <ListItem>
+        <ListItemText
+          primaryTypographyProps={{ component: "div" }}
+          secondaryTypographyProps={{ component: "div" }}
+          primary={
+            <Box display="flex" justifyContent="space-between" alignItems="center">
+              <Typography variant="h6" component="div">{task.problem}</Typography>
+              <Chip
+                label={task.currentStatus}
+                color={getStatusColor(task.currentStatus)}
+                size="small"
+              />
+            </Box>
+          }
+          secondary={
+            <Box sx={{ mt: 1 }}>
+              <Box display="flex" alignItems="center" gap={1} mb={0.5}>
+                <RoomIcon fontSize="small" color="action" />
+                <Typography variant="body2" component="span">
+                  Building {task.room?.building?.name}, Floor {task.room?.floor?.floorNumber}, Room {task.room?.roomNumber}
+                </Typography>
+              </Box>
+              <Box display="flex" alignItems="center" gap={1}>
+                <ScheduleIcon fontSize="small" color="action" />
+                <Typography variant="body2" component="span">
+                  {completed ? `Completed: ${format(new Date(task.updatedAt), "MMM d, yyyy 'at' h:mm a")}` : `Created: ${format(new Date(task.createdAt), "MMM d, yyyy 'at' h:mm a")}`}
+                </Typography>
+              </Box>
+            </Box>
+          }
+        />
+      </ListItem>
+      {!completed && (
+        <Button
+          variant="outlined"
+          size="small"
+          onClick={onStatusUpdate}
+          sx={{
+            color: "#889F63",
+            borderColor: "#889F63",
+            "&:hover": {
+              borderColor: "#889F63",
+              bgcolor: "rgba(136, 159, 99, 0.08)",
+            },
+          }}
+        >
+          Update Status
+        </Button>
+      )}
+    </Paper>
   );
 }

@@ -234,7 +234,6 @@ export default function CleaningBookingPage() {
   };
 
   const handleBookSlot = async (scheduleId, slot) => {
-    console.log("Booking slot:", { scheduleId, slot }); // Debug log
     setSelectedSlot({
       ...slot,
       scheduleId, // Make sure scheduleId is included

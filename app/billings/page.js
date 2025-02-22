@@ -302,7 +302,6 @@ export default function BillingPage() {
         25 // Fixed billing date
       );
 
-      console.log("Creating bills for:", format(billingDate, "yyyy-MM-dd")); // Debug log
 
       const response = await fetch("/api/bills/create", {
         method: "POST",
@@ -398,7 +397,6 @@ export default function BillingPage() {
         `/api/tenant/check-new?month=${selectedMonth}`
       );
       const data = await response.json();
-      console.log("Check new tenants response:", data); // Debug log
       setTenantsWithoutBills({
         count: data.count || 0,
         hasNewTenants: data.hasNewTenants || false,

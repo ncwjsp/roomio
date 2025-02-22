@@ -110,16 +110,7 @@ const EditBillPage = () => {
       const proRatedAmount = Math.round(
         (rentAmount / daysInMonth) * daysStayed
       );
-      console.log("Pro-rated calculation:", {
-        // Debug log
-        rentAmount,
-        daysInMonth,
-        daysStayed,
-        proRatedAmount,
-        moveInDate: moveInDate.toISOString(),
-        billingCycleDate: billingCycleDate.toISOString(),
-        nextBillingDate: nextBillingDate.toISOString(),
-      });
+
 
       return proRatedAmount;
     } catch (error) {

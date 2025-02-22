@@ -370,18 +370,6 @@ export async function POST(request) {
       ],
     });
 
-    console.log("📄 Found populated bills:", {
-      requested: billIds.length,
-      found: populatedBills.length,
-      bills: populatedBills.map((b) => ({
-        id: b._id,
-        room: b.roomId?.roomNumber,
-        building: b.roomId?.floor?.building?.name,
-        hasRoom: !!b.roomId,
-        hasFloor: !!b.roomId?.floor,
-        hasBuilding: !!b.roomId?.floor?.building,
-      })),
-    });
 
     const results = await Promise.all(
       populatedBills.map(async (bill) => {
@@ -422,10 +410,7 @@ export async function POST(request) {
 
           // Get tenant's LINE userId
           const tenant = await Tenant.findOne({ room: updatedBill.roomId });
-          console.log("👥 Found tenant:", {
-            hasLineId: !!tenant?.lineUserId,
-            room: updatedBill.roomId?.roomNumber,
-          });
+   
 
           if (!tenant?.lineUserId) {
             console.warn(

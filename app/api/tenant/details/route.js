@@ -33,7 +33,6 @@ export async function GET(request) {
       },
     });
 
-    console.log("Found tenant:", tenant);
 
     if (!tenant) {
       return NextResponse.json(

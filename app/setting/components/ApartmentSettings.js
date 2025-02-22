@@ -15,63 +15,42 @@ import {
   MenuItem,
   CircularProgress,
   Box,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Switch,
+  FormControlLabel,
+  Stack,
+  FormHelperText
 } from "@mui/material";
 
 const ApartmentSettings = () => {
-  const [settings, setSettings] = useState({
-    utilities: {
-      water: {
-        pricePerUnit: "",
-        unit: "cubic meter",
-      },
-      electricity: {
-        pricePerUnit: "",
-        unit: "kWh",
-      },
-      billingCycleDate: "",
-      latePaymentFee: "",
-      selectedBuilding: "",
-    },
-    commonFees: {
-      basePrice: "",
-      cleaningFee: "",
-      securityFee: "",
-      parkingFee: "",
-    },
-    lateFees: {
-      percentage: "",
-      gracePeriod: "", // days
-      maxAmount: "",
-    },
-  });
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(false);
   const [buildings, setBuildings] = useState([]);
+  const [selectedBuilding, setSelectedBuilding] = useState(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    waterRate: 0,
+    electricityRate: 0,
+    billingConfig: {
+      dueDate: 5,
+      latePaymentCharge: 0,
+    }
+  });
   const [billingCycle, setBillingCycle] = useState({
     startDate: 1,
     endDate: 28,
     dueDate: 5,
   });
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-    fetchSettings();
     fetchBuildings();
+    fetchBillingCycle();
   }, []);
-
-  const fetchSettings = async () => {
-    try {
-      const response = await fetch("/api/settings/billing");
-      const data = await response.json();
-      if (data.settings) {
-        setSettings(data.settings);
-      }
-    } catch (error) {
-      setError("Failed to load billing settings");
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const fetchBuildings = async () => {
     try {
@@ -82,272 +61,309 @@ const ApartmentSettings = () => {
       }
     } catch (error) {
       setError("Failed to load buildings");
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  const fetchBillingCycle = async () => {
+    try {
+      const response = await fetch("/api/settings/billing-cycle");
+      const data = await response.json();
+      if (data.billingCycle) {
+        setBillingCycle(data.billingCycle);
+      }
+    } catch (error) {
+      setError("Failed to load billing cycle settings");
+    }
+  };
+
+  const handleEditBuilding = (building) => {
+    setSelectedBuilding(building);
+    setFormData({
+      name: building.name || "",
+      waterRate: building.waterRate || 0,
+      electricityRate: building.electricityRate || 0,
+      billingConfig: {
+        dueDate: building.billingConfig?.dueDate || 5,
+        latePaymentCharge: building.billingConfig?.latePaymentCharge || 0,
+      }
+    });
+    setEditModalOpen(true);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError(null);
-    setSuccess(false);
+    if (!selectedBuilding) return;
 
     try {
-      const response = await fetch("/api/settings/billing", {
+      setIsLoading(true);
+      const response = await fetch(`/api/buildings/${selectedBuilding._id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ settings }),
+        body: JSON.stringify({
+          name: formData.name,
+          waterRate: formData.waterRate,
+          electricityRate: formData.electricityRate,
+          billingConfig: {
+            dueDate: formData.billingConfig?.dueDate || 5,
+            latePaymentCharge: formData.billingConfig?.latePaymentCharge || 0,
+          }
+        }),
       });
 
-      if (!response.ok) throw new Error("Failed to update settings");
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || "Failed to update building");
+        return;
+      }
+
+      // Update rooms with new building name
+      if (formData.name !== selectedBuilding.name) {
+        const roomResponse = await fetch(`/api/buildings/${selectedBuilding._id}/rooms/update-names`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ buildingName: formData.name }),
+        });
+        
+        if (!roomResponse.ok) throw new Error("Failed to update room names");
+      }
+
+      // Update buildings list with new data
+      setBuildings((prevBuildings) =>
+        prevBuildings.map((b) =>
+          b._id === selectedBuilding._id ? data.building : b
+        )
+      );
+
+      setSelectedBuilding(null);
+      setFormData({});
+      setError(null);
+      setSuccess(true);
+      setEditModalOpen(false);
+    } catch (error) {
+      setError("Failed to update building");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSaveBillingCycle = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch("/api/settings/billing-cycle", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(billingCycle),
+      });
+
+      if (!response.ok) throw new Error("Failed to update billing cycle");
+
       setSuccess(true);
     } catch (error) {
       setError(error.message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   if (isLoading) {
     return (
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          minHeight: "300px",
-          width: "100%",
-        }}
-      >
+      <Box sx={{ display: "flex", justifyContent: "center", p: 3 }}>
         <CircularProgress />
       </Box>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Building-specific Utility Settings */}
-      <Paper className="p-6">
-        <Typography variant="h6" className="mb-4">
-          Building Utility Settings
-        </Typography>
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
-            <FormControl fullWidth>
-              <InputLabel>Select Building</InputLabel>
-              <Select
-                value={settings.utilities.selectedBuilding}
-                onChange={(e) =>
-                  setSettings({
-                    ...settings,
-                    utilities: {
-                      ...settings.utilities,
-                      selectedBuilding: e.target.value,
-                    },
-                  })
-                }
-              >
-                {buildings.map((building) => (
-                  <MenuItem key={building.id} value={building.id}>
-                    {building.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              label="Billing Cycle Date"
-              type="number"
-              value={settings.utilities.billingCycleDate}
-              onChange={(e) =>
-                setSettings({
-                  ...settings,
-                  utilities: {
-                    ...settings.utilities,
-                    billingCycleDate: e.target.value,
-                  },
-                })
-              }
-              InputProps={{
-                inputProps: { min: 1, max: 31 },
-                endAdornment: (
-                  <InputAdornment position="end">of month</InputAdornment>
-                ),
-              }}
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              label="Late Payment Fee"
-              type="number"
-              value={settings.utilities.latePaymentFee}
-              onChange={(e) =>
-                setSettings({
-                  ...settings,
-                  utilities: {
-                    ...settings.utilities,
-                    latePaymentFee: e.target.value,
-                  },
-                })
-              }
-              InputProps={{
-                endAdornment: <InputAdornment position="end">%</InputAdornment>,
-              }}
-            />
-          </Grid>
-        </Grid>
-      </Paper>
-
-      {/* Utility Rates */}
-      <Paper className="p-6">
-        <Typography variant="h6" className="mb-4">
-          Utility Rates
-        </Typography>
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              label="Water Rate"
-              type="number"
-              value={settings.utilities.water.pricePerUnit}
-              onChange={(e) =>
-                setSettings({
-                  ...settings,
-                  utilities: {
-                    ...settings.utilities,
-                    water: {
-                      ...settings.utilities.water,
-                      pricePerUnit: e.target.value,
-                    },
-                  },
-                })
-              }
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">฿</InputAdornment>
-                ),
-                endAdornment: (
-                  <InputAdornment position="end">/m³</InputAdornment>
-                ),
-              }}
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              label="Electricity Rate"
-              type="number"
-              value={settings.utilities.electricity.pricePerUnit}
-              onChange={(e) =>
-                setSettings({
-                  ...settings,
-                  utilities: {
-                    ...settings.utilities,
-                    electricity: {
-                      ...settings.utilities.electricity,
-                      pricePerUnit: e.target.value,
-                    },
-                  },
-                })
-              }
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">฿</InputAdornment>
-                ),
-                endAdornment: (
-                  <InputAdornment position="end">/kWh</InputAdornment>
-                ),
-              }}
-            />
-          </Grid>
-        </Grid>
-      </Paper>
-
-      <Paper className="p-6">
-        <Typography variant="h6" className="mb-4">
-          Billing Cycle Settings
-        </Typography>
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={4}>
-            <FormControl fullWidth>
-              <InputLabel>Billing Start Date</InputLabel>
-              <Select
-                value={billingCycle.startDate}
-                onChange={(e) =>
-                  setBillingCycle({
-                    ...billingCycle,
-                    startDate: e.target.value,
-                  })
-                }
-                label="Billing Start Date"
-              >
-                {Array.from({ length: 28 }, (_, i) => (
-                  <MenuItem key={i + 1} value={i + 1}>
-                    {i + 1}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-
-          <Grid item xs={12} md={4}>
-            <FormControl fullWidth>
-              <InputLabel>Billing End Date</InputLabel>
-              <Select
-                value={billingCycle.endDate}
-                onChange={(e) =>
-                  setBillingCycle({ ...billingCycle, endDate: e.target.value })
-                }
-                label="Billing End Date"
-              >
-                {Array.from({ length: 28 }, (_, i) => (
-                  <MenuItem key={i + 1} value={i + 1}>
-                    {i + 1}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-
-          <Grid item xs={12} md={4}>
-            <FormControl fullWidth>
-              <InputLabel>Due Date</InputLabel>
-              <Select
-                value={billingCycle.dueDate}
-                onChange={(e) =>
-                  setBillingCycle({ ...billingCycle, dueDate: e.target.value })
-                }
-                label="Due Date"
-              >
-                {Array.from({ length: 31 }, (_, i) => (
-                  <MenuItem key={i + 1} value={i + 1}>
-                    {i + 1}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-        </Grid>
-      </Paper>
-
-      {error && <Alert severity="error">{error}</Alert>}
-      {success && (
-        <Alert severity="success">Settings updated successfully</Alert>
+    <Box sx={{ p: 3 }}>
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
       )}
 
-      <Button type="submit" 
-      variant="contained"  
-      size="large"
-      sx={{
-        backgroundColor: "#898F63",
-        color: "white",
-        "&:hover": {
-          backgroundColor: "#777c54"
-        }
-      }}
+      {success && (
+        <Alert severity="success" sx={{ mb: 3 }}>
+          Settings updated successfully
+        </Alert>
+      )}
+
+      {/* Building Cards */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        {buildings.map((building) => (
+          <Grid item xs={12} key={building._id}>
+            <Paper sx={{ p: 3, borderRadius: 2 }}>
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
+                <Typography variant="h6">{building.name}</Typography>
+                <Button 
+                  variant="contained" 
+                  onClick={() => handleEditBuilding(building)}
+                  sx={{ 
+                    bgcolor: "#898F63",
+                    "&:hover": { bgcolor: "#7C8F59" }
+                  }}
+                >
+                  Edit
+                </Button>
+              </Box>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={4}>
+                  <Typography color="text.secondary">Water Rate</Typography>
+                  <Typography>฿{building.waterRate}/unit</Typography>
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <Typography color="text.secondary">Electricity Rate</Typography>
+                  <Typography>฿{building.electricityRate}/unit</Typography>
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <Typography color="text.secondary">Due Date</Typography>
+                  <Typography>
+                    {building.billingConfig?.dueDate}{building.billingConfig?.dueDate === 1 ? "st" : 
+                    building.billingConfig?.dueDate === 2 ? "nd" : 
+                    building.billingConfig?.dueDate === 3 ? "rd" : "th"} of next month
+                  </Typography>
+                </Grid>
+              </Grid>
+            </Paper>
+          </Grid>
+        ))}
+      </Grid>
+
+     
+      {/* Building Edit Dialog */}
+      <Dialog 
+        open={editModalOpen} 
+        onClose={() => setEditModalOpen(false)}
+        maxWidth="sm"
+        fullWidth
       >
-        Save All Settings
-      </Button>
-    </form>
+        <form onSubmit={handleSubmit}>
+          <DialogTitle sx={{ px: 3, pt: 3, pb: 2, borderBottom: 1, borderColor: 'divider' }}>
+            Edit Building
+          </DialogTitle>
+          <DialogContent sx={{ p: 3 }}>
+            <Stack spacing={3} sx={{ mt: 1 }}>
+              <TextField
+                label="Building Name"
+                fullWidth
+                required
+                value={formData.name}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
+                placeholder="e.g., A"
+              />
+              <TextField
+                label="Water Rate"
+                type="number"
+                fullWidth
+                required
+                value={formData.waterRate}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    waterRate: Number(e.target.value),
+                  })
+                }
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">฿</InputAdornment>
+                  ),
+                  endAdornment: (
+                    <InputAdornment position="end">/unit</InputAdornment>
+                  ),
+                }}
+                placeholder="e.g., 15"
+              />
+              <TextField
+                label="Electricity Rate"
+                type="number"
+                fullWidth
+                required
+                value={formData.electricityRate}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    electricityRate: Number(e.target.value),
+                  })
+                }
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">฿</InputAdornment>
+                  ),
+                  endAdornment: (
+                    <InputAdornment position="end">/unit</InputAdornment>
+                  ),
+                }}
+                placeholder="e.g., 5"
+              />
+              <FormControl fullWidth>
+                <InputLabel id="due-date-label">Due Date</InputLabel>
+                <Select
+                  labelId="due-date-label"
+                  value={formData.billingConfig?.dueDate || 5}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    billingConfig: {
+                      ...(formData.billingConfig || {}),
+                      dueDate: Number(e.target.value)
+                    }
+                  })}
+                  required
+                  label="Due Date"
+                >
+                  {[...Array(15)].map((_, i) => (
+                    <MenuItem key={i + 1} value={i + 1}>
+                      {i + 1}{i === 0 ? "st" : i === 1 ? "nd" : i === 2 ? "rd" : "th"} of next month
+                    </MenuItem>
+                  ))}
+                </Select>
+                <FormHelperText>
+                  Day of the next month when payment is due
+                </FormHelperText>
+              </FormControl>
+              <TextField
+                label="Late Payment Charge"
+                type="number"
+                fullWidth
+                value={formData.billingConfig?.latePaymentCharge || 0}
+                onChange={(e) => setFormData({
+                  ...formData,
+                  billingConfig: {
+                    ...(formData.billingConfig || {}),
+                    latePaymentCharge: Number(e.target.value)
+                  }
+                })}
+                required
+                helperText="Fixed amount charged for late payments"
+                inputProps={{ min: 0 }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">฿</InputAdornment>
+                  ),
+                }}
+                placeholder="e.g., 100"
+              />
+            </Stack>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, py: 2, borderTop: 1, borderColor: 'divider' }}>
+            <Button onClick={() => setEditModalOpen(false)}>Cancel</Button>
+            <Button 
+              type="submit" 
+              variant="contained"
+              sx={{ 
+                bgcolor: "#898F63",
+                "&:hover": { bgcolor: "#7C8F59" }
+              }}
+            >
+              Save Changes
+            </Button>
+          </DialogActions>
+        </form>
+      </Dialog>
+    </Box>
   );
 };
 

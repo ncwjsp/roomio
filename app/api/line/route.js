@@ -52,7 +52,6 @@ async function handleLineContact(lineUserId, landlordId) {
     }
 
     const lineUser = await response.json();
-    console.log("LINE user profile:", lineUser); // Debug log
 
     // Validate required fields from LINE API
     if (!lineUser.userId || !lineUser.displayName) {

@@ -1,5 +1,6 @@
-"use client";
+  "use client";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   format,
   addMonths,
@@ -11,6 +12,8 @@ import {
   isBefore,
   startOfToday,
 } from "date-fns";
+import Snackbar from '@mui/material/Snackbar';
+import Alert from '@mui/material/Alert';
 
 // Loading Spinner Component
 const LoadingSpinner = ({ size = 'large' }) => {
@@ -61,6 +64,7 @@ const LoadingSpinner = ({ size = 'large' }) => {
 };
 
 export default function CreateSchedulePage() {
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(startOfMonth(new Date()));
@@ -79,6 +83,11 @@ export default function CreateSchedulePage() {
   const [buildings, setBuildings] = useState([]);
   const [selectedBuilding, setSelectedBuilding] = useState("");
   const [month, setMonth] = useState(format(new Date(), "yyyy-MM"));
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success'
+  });
 
   useEffect(() => {
     const fetchBuildings = async () => {
@@ -117,6 +126,11 @@ export default function CreateSchedulePage() {
 
   // Calculate preview slots for all time ranges
   const getPreviewSlots = () => {
+    // Return empty array if slot duration is 0 or invalid
+    if (!slotDuration || slotDuration <= 0) {
+      return [];
+    }
+
     const allSlots = [];
 
     timeRanges.forEach((range) => {
@@ -157,7 +171,11 @@ export default function CreateSchedulePage() {
   const handleCreateSchedule = async () => {
     try {
       if (!selectedBuilding) {
-        alert("Please select a building");
+        setSnackbar({
+          open: true,
+          message: 'Please select a building',
+          severity: 'error'
+        });
         return;
       }
 
@@ -223,10 +241,21 @@ export default function CreateSchedulePage() {
         throw new Error(data.error || "Failed to create schedule");
       }
 
-      alert("Schedule created successfully!");
+      setSnackbar({
+        open: true,
+        message: 'Schedule created successfully!',
+        severity: 'success'
+      });
+      
+      // Navigate back to cleaning page after successful creation
+      router.push('/cleaning');
     } catch (error) {
       console.error("Error creating schedule:", error);
-      alert(`Failed to create schedule: ${error.message}`);
+      setSnackbar({
+        open: true,
+        message: `Failed to create schedule: ${error.message}`,
+        severity: 'error'
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -253,21 +282,23 @@ export default function CreateSchedulePage() {
 
   // Update slotDuration when customDuration changes
   const handleDurationChange = (field, value) => {
-    // Ensure value is not negative
-    const newValue = Math.max(0, parseInt(value) || 0);
-
-    setCustomDuration((prev) => ({
+    // Allow any input including empty string
+    const newValue = value;
+    
+    setCustomDuration(prev => ({
       ...prev,
-      [field]: newValue.toString(),
+      [field]: newValue
     }));
 
-    // Calculate total minutes
-    const totalMinutes =
-      field === "hours"
-        ? newValue * 60 + parseInt(customDuration.minutes || 0)
-        : parseInt(customDuration.hours || 0) * 60 + newValue;
-
-    setSlotDuration(totalMinutes);
+    // For calculations, treat empty or invalid as 0
+    const hours = parseInt(field === "hours" ? newValue : customDuration.hours) || 0;
+    const minutes = parseInt(field === "minutes" ? newValue : customDuration.minutes) || 0;
+    
+    // Ensure non-negative values
+    const validHours = Math.max(0, hours);
+    const validMinutes = Math.max(0, minutes);
+    
+    setSlotDuration(validHours * 60 + validMinutes);
   };
 
   const handleMonthChange = (direction) => {
@@ -289,6 +320,10 @@ export default function CreateSchedulePage() {
     addMonths(selectedMonth, -1),
     startOfMonth(new Date())
   );
+
+  const handleCloseSnackbar = () => {
+    setSnackbar(prev => ({ ...prev, open: false }));
+  };
 
   if (isLoading) {
     return (
@@ -324,7 +359,6 @@ export default function CreateSchedulePage() {
               <option value="" disabled>
                 No buildings available
               </option>
-              
             )}
           </select>
         </div>
@@ -403,13 +437,13 @@ export default function CreateSchedulePage() {
                   Hours
                 </label>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   min="0"
                   max="23"
                   value={customDuration.hours}
-                  onChange={(e) =>
-                    handleDurationChange("hours", e.target.value)
-                  }
+                  onChange={(e) => handleDurationChange("hours", e.target.value)}
                   className="w-full p-2 border rounded"
                   placeholder="0"
                 />
@@ -419,15 +453,15 @@ export default function CreateSchedulePage() {
                   Minutes
                 </label>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   min="0"
                   max="59"
                   value={customDuration.minutes}
-                  onChange={(e) =>
-                    handleDurationChange("minutes", e.target.value)
-                  }
+                  onChange={(e) => handleDurationChange("minutes", e.target.value)}
                   className="w-full p-2 border rounded"
-                  placeholder="30"
+                  placeholder="0"
                 />
               </div>
             </div>
@@ -523,16 +557,20 @@ export default function CreateSchedulePage() {
 
               <div>
                 <h3 className="font-medium text-gray-700 mb-2">Time Slots:</h3>
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
-                  {getPreviewSlots().map((slot, index) => (
-                    <div
-                      key={`${slot}-${index}`}
-                      className="bg-gray-100 text-gray-800 px-3 py-2 rounded text-sm text-center"
-                    >
-                      {slot}
-                    </div>
-                  ))}
-                </div>
+                {slotDuration > 0 ? (
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                    {getPreviewSlots().map((slot, index) => (
+                      <div
+                        key={`${slot}-${index}`}
+                        className="bg-gray-100 text-gray-800 px-3 py-2 rounded text-sm text-center"
+                      >
+                        {slot}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-red-500 text-sm">Please set a valid duration greater than 0 minutes</p>
+                )}
               </div>
 
               <div className="mt-4 bg-[#898f63]/10 p-4 rounded-lg">
@@ -590,6 +628,16 @@ export default function CreateSchedulePage() {
           )}
         </button>
       </div>
+      <Snackbar 
+        open={snackbar.open} 
+        autoHideDuration={6000} 
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </div>
   );
 }

@@ -220,7 +220,6 @@ const ParcelsPage = () => {
       if (!response.ok) throw new Error("Failed to fetch buildings");
 
       const data = await response.json();
-      console.log("Fetched buildings:", data); // Debug log
 
       if (data.buildings) {
         setBuildings(data.buildings);

@@ -915,7 +915,6 @@ const AddTenant = () => {
           }
 
           const data = await response.json();
-          console.log("Fetched buildings data:", data); // Debug log
 
           if (data.buildings) {
             setBuildings(data.buildings);

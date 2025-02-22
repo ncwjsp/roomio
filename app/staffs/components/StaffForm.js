@@ -19,27 +19,34 @@ import {
   ListItemText,
   InputAdornment,
   CircularProgress,
+  Snackbar,
+  Alert,
+  Pagination,
 } from "@mui/material";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import CloseIcon from "@mui/icons-material/Close";
 import PersonIcon from "@mui/icons-material/Person";
 import SearchIcon from "@mui/icons-material/Search";
+import { format } from "date-fns";
 
-const StaffForm = ({ onSubmit, initialData = {}, onCancel }) => {
+const StaffForm = ({ initialData, onSubmit, onCancel, submitButtonText = "Add Staff" }) => {
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
     phone: "",
-    email: "",
     role: "General",
     specialization: "",
-    lineId: "", // Basic LINE ID
-    lineUserId: "", // LINE Official Account user ID
+    lineId: "",
+    lineUserId: "",
     lineDisplayName: "",
     linePicture: "",
     salary: "",
-    startDate: "",
+    startDate: null,
     ...initialData,
+    startDate: initialData?.startDate ? new Date(initialData.startDate) : null,
   });
 
   const [errors, setErrors] = useState({});
@@ -53,6 +60,32 @@ const StaffForm = ({ onSubmit, initialData = {}, onCancel }) => {
   const [sortOrder, setSortOrder] = useState("asc");
   const [selectedContact, setSelectedContact] = useState(null);
   const [page, setPage] = useState(1);
+  const itemsPerPage = 5;
+
+  const handlePageChange = (event, value) => {
+    setPage(value);
+  };
+
+  const [notification, setNotification] = useState({
+    open: false,
+    message: "",
+    severity: "success",
+  });
+
+  const handleCloseNotification = (event, reason) => {
+    if (reason === 'clickaway') {
+      return;
+    }
+    setNotification(prev => ({ ...prev, open: false }));
+  };
+
+  const showNotification = (message, severity) => {
+    setNotification({
+      open: true,
+      message,
+      severity,
+    });
+  };
 
   const roles = [
     { id: "General", label: "General Staff" },
@@ -131,18 +164,12 @@ const StaffForm = ({ onSubmit, initialData = {}, onCancel }) => {
     if (!formData.firstName.trim()) newErrors.firstName = "First name is required";
     if (!formData.lastName.trim()) newErrors.lastName = "Last name is required";
     if (!formData.phone.trim()) newErrors.phone = "Phone is required";
-    if (!formData.email.trim()) newErrors.email = "Email is required";
     if (!formData.role) newErrors.role = "Role is required";
     if (!formData.salary) newErrors.salary = "Salary is required";
     if (!formData.startDate) newErrors.startDate = "Start date is required";
     
     if (["Housekeeper", "Technician"].includes(formData.role) && !formData.lineUserId) {
       newErrors.contact = "LINE contact is required for this role";
-    }
-    
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (formData.email && !emailRegex.test(formData.email)) {
-      newErrors.email = "Invalid email format";
     }
     
     const phoneRegex = /^\+?[\d\s-]{10,}$/;
@@ -160,11 +187,13 @@ const StaffForm = ({ onSubmit, initialData = {}, onCancel }) => {
         e.preventDefault();
         if (validateForm()) {
           onSubmit(formData);
+        } else {
+          showNotification("Please fix the errors in the form", "error");
         }
       }}
       className="space-y-4"
     >
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-6">
         <TextField
           label="First Name"
           required
@@ -174,6 +203,14 @@ const StaffForm = ({ onSubmit, initialData = {}, onCancel }) => {
           }
           error={!!errors.firstName}
           helperText={errors.firstName}
+          sx={{ 
+            '& .MuiInputLabel-root': { 
+              top: '-8px',
+              '&.Mui-focused': {
+                top: '0px'
+              }
+            }
+          }}
         />
         <TextField
           label="Last Name"
@@ -184,22 +221,48 @@ const StaffForm = ({ onSubmit, initialData = {}, onCancel }) => {
           }
           error={!!errors.lastName}
           helperText={errors.lastName}
+          sx={{ 
+            '& .MuiInputLabel-root': { 
+              top: '-8px',
+              '&.Mui-focused': {
+                top: '0px'
+              }
+            }
+          }}
         />
       </div>
 
-      <FormControl fullWidth required error={!!errors.role}>
-        <InputLabel>Role</InputLabel>
-        <Select value={formData.role} onChange={handleRoleChange}>
-          {roles.map((role) => (
-            <MenuItem key={role.id} value={role.id}>
-              {role.label}
-            </MenuItem>
-          ))}
-        </Select>
+      <FormControl fullWidth required error={!!errors.role} sx={{ '& .MuiFormLabel-root': { background: 'white', px: 1 } }}>
+        {initialData?._id ? (
+          <TextField
+            label="Role"
+            value={formData.role}
+            fullWidth
+            disabled
+            sx={{
+              "& .MuiInputBase-input.Mui-disabled": {
+                WebkitTextFillColor: "#1F2937",
+              },
+            }}
+          />
+        ) : (
+          <>
+            <InputLabel>Role</InputLabel>
+            <Select
+              value={formData.role}
+              onChange={handleRoleChange}
+              label="Role"
+            >
+              <MenuItem value="General">General Staff</MenuItem>
+              <MenuItem value="Housekeeper">Housekeeper</MenuItem>
+              <MenuItem value="Technician">Technician</MenuItem>
+            </Select>
+          </>
+        )}
         {errors.role && <FormHelperText>{errors.role}</FormHelperText>}
       </FormControl>
 
-      {formData.role && (
+      {formData.role === "Technician" && (
         <TextField
           label="Specialization"
           fullWidth
@@ -207,15 +270,7 @@ const StaffForm = ({ onSubmit, initialData = {}, onCancel }) => {
           onChange={(e) =>
             setFormData({ ...formData, specialization: e.target.value })
           }
-          helperText={
-            formData.role === "Housekeeper"
-              ? "e.g., Floor Manager, Deep Cleaning"
-              : formData.role === "Technician"
-              ? "e.g., Electrician, Plumber, HVAC"
-              : formData.role === "General"
-              ? "e.g., Security, Receptionist, Admin"
-              : "Specify staff specialization"
-          }
+          helperText="e.g., Electrician, Plumber, HVAC"
         />
       )}
 
@@ -224,7 +279,7 @@ const StaffForm = ({ onSubmit, initialData = {}, onCancel }) => {
         fullWidth
         value={formData.lineId}
         onChange={(e) => setFormData({ ...formData, lineId: e.target.value })}
-        helperText="Optional: Staff's LINE ID (@example)"
+        sx={{ '& .MuiFormLabel-root': { background: 'white', px: 1 } }}
       />
 
       {showLineSelect && (
@@ -266,10 +321,13 @@ const StaffForm = ({ onSubmit, initialData = {}, onCancel }) => {
                   display: "flex",
                   alignItems: "center",
                   gap: 2,
-                  p: 1,
-                  borderRadius: 1,
+                  p: 2,
+                  pl: 3,
+                  pr: 5,
+                  borderRadius: 2,
                   backgroundColor: "grey.50",
                   position: "relative",
+                  minWidth: 250,
                 }}
               >
                 <Avatar
@@ -277,11 +335,27 @@ const StaffForm = ({ onSubmit, initialData = {}, onCancel }) => {
                   alt={formData.lineDisplayName}
                   sx={{ width: 40, height: 40 }}
                 />
-                <Box>
-                  <Typography variant="subtitle2">
+                <Box sx={{ flex: 1, mr: 4 }}>
+                  <Typography 
+                    variant="subtitle2" 
+                    sx={{ 
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
+                    }}
+                  >
                     {formData.lineDisplayName}
                   </Typography>
-                  <Typography variant="caption" color="textSecondary">
+                  <Typography 
+                    variant="caption" 
+                    color="textSecondary"
+                    sx={{ 
+                      display: 'block',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
+                    }}
+                  >
                     {selectedContact.lineId}
                   </Typography>
                 </Box>
@@ -291,7 +365,13 @@ const StaffForm = ({ onSubmit, initialData = {}, onCancel }) => {
                   sx={{
                     position: "absolute",
                     right: 8,
-                    top: 8,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    color: "grey.500",
+                    "&:hover": {
+                      backgroundColor: "grey.100",
+                      color: "grey.700",
+                    },
                   }}
                 >
                   <CloseIcon fontSize="small" />
@@ -302,7 +382,7 @@ const StaffForm = ({ onSubmit, initialData = {}, onCancel }) => {
         </Box>
       )}
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-6">
         <TextField
           label="Phone"
           required
@@ -310,30 +390,14 @@ const StaffForm = ({ onSubmit, initialData = {}, onCancel }) => {
           onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
           error={!!errors.phone}
           helperText={errors.phone}
-        />
-        <TextField
-          label="Email"
-          type="email"
-          required
-          value={formData.email}
-          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-          error={!!errors.email}
-          helperText={errors.email}
-        />
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <TextField
-          label="Start Date"
-          type="date"
-          required
-          value={formData.startDate}
-          onChange={(e) =>
-            setFormData({ ...formData, startDate: e.target.value })
-          }
-          InputLabelProps={{ shrink: true }}
-          error={!!errors.startDate}
-          helperText={errors.startDate}
+          sx={{ 
+            '& .MuiInputLabel-root': { 
+              top: '-8px',
+              '&.Mui-focused': {
+                top: '0px'
+              }
+            }
+          }}
         />
         <TextField
           label="Salary"
@@ -343,33 +407,93 @@ const StaffForm = ({ onSubmit, initialData = {}, onCancel }) => {
           onChange={(e) => setFormData({ ...formData, salary: e.target.value })}
           error={!!errors.salary}
           helperText={errors.salary}
+          InputProps={{
+            startAdornment: <InputAdornment position="start">THB</InputAdornment>,
+          }}
+          sx={{ 
+            '& .MuiInputLabel-root': { 
+              top: '-8px',
+              '&.Mui-focused': {
+                top: '0px'
+              }
+            }
+          }}
         />
       </div>
 
-      <div className="flex justify-end space-x-2 pt-4">
-        <Button 
-          onClick={onCancel}
+      <div className="grid grid-cols-2 gap-6">
+        <LocalizationProvider dateAdapter={AdapterDateFns}>
+          <DatePicker
+            label="Start Date"
+            value={formData.startDate}
+            onChange={(newValue) => {
+              setFormData({ ...formData, startDate: newValue });
+            }}
+            slotProps={{
+              textField: {
+                required: true,
+                error: !!errors.startDate,
+                helperText: errors.startDate,
+                sx: { 
+                  '& .MuiInputLabel-root': { 
+                    top: '-8px',
+                    '&.Mui-focused': {
+                      top: '0px'
+                    }
+                  }
+                }
+              }
+            }}
+          />
+        </LocalizationProvider>
+      </div>
+
+      <div className="flex justify-end space-x-2 mt-6">
+        {onCancel && (
+          <Button
+            onClick={onCancel}
+            variant="outlined"
+            sx={{
+              borderColor: '#898F63',
+              color: '#898F63',
+              '&:hover': {
+                borderColor: '#7C8F59',
+                backgroundColor: 'rgba(137, 143, 99, 0.04)',
+              },
+            }}
+          >
+            Cancel
+          </Button>
+        )}
+        <Button
+          type="submit"
+          variant="contained"
           sx={{
-            color: "#d32f2f",
-            "&:hover": {
-              backgroundColor: "rgba(112, 116, 84, 0.04)"
-            }
+            bgcolor: '#898F63',
+            '&:hover': {
+              bgcolor: '#7C8F59',
+            },
           }}
         >
-          Cancel</Button>
-        <Button 
-          type="submit" 
-          variant="contained" 
-          sx={{
-            backgroundColor: "#898F63",
-            "&:hover": {
-              backgroundColor: "#777c54"
-            }
-          }}
-          >
-          {initialData._id ? "Update" : "Add"} Staff Member
+          {submitButtonText}
         </Button>
       </div>
+
+      <Snackbar
+        open={notification.open}
+        autoHideDuration={6000}
+        onClose={handleCloseNotification}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert 
+          onClose={handleCloseNotification} 
+          severity={notification.severity}
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          {notification.message}
+        </Alert>
+      </Snackbar>
 
       <Modal
         open={openContactModal}
@@ -418,21 +542,24 @@ const StaffForm = ({ onSubmit, initialData = {}, onCancel }) => {
                 onChange={(e) => setSortBy(e.target.value)}
               >
                 <MenuItem value="name">Name</MenuItem>
-                <MenuItem value="date">Date Added</MenuItem>
+                <MenuItem value="date">Added Date</MenuItem>
               </Select>
             </FormControl>
-            <IconButton
-              onClick={() =>
-                setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))
-              }
-              size="small"
-            >
-              {sortOrder === "asc" ? "↑" : "↓"}
-            </IconButton>
+            <FormControl size="small">
+              <InputLabel>Order</InputLabel>
+              <Select
+                value={sortOrder}
+                label="Order"
+                onChange={(e) => setSortOrder(e.target.value)}
+              >
+                <MenuItem value="asc">Ascending</MenuItem>
+                <MenuItem value="desc">Descending</MenuItem>
+              </Select>
+            </FormControl>
           </Box>
 
           {lineContactsLoading ? (
-            <Box sx={{ display: "flex", justifyContent: "center", p: 2 }}>
+            <Box sx={{ display: "flex", justifyContent: "center", p: 3 }}>
               <CircularProgress />
             </Box>
           ) : lineContacts.length === 0 ? (
@@ -461,50 +588,84 @@ const StaffForm = ({ onSubmit, initialData = {}, onCancel }) => {
           ) : (
             <List sx={{ width: "100%", bgcolor: "background.paper" }}>
               {lineContacts
-                .filter(
-                  (contact) =>
-                    contact.name
-                      .toLowerCase()
-                      .includes(searchQuery.toLowerCase()) ||
-                    contact.lineId
-                      .toLowerCase()
-                      .includes(searchQuery.toLowerCase())
-                )
+                .filter((contact) => {
+                  if (!searchQuery) return true;
+                  const query = searchQuery.toLowerCase();
+                  const name = (contact.name || '').toLowerCase();
+                  const lineId = (contact.lineId || '').toLowerCase();
+                  return name.includes(query) || lineId.includes(query);
+                })
                 .sort((a, b) => {
                   if (sortBy === "name") {
                     return sortOrder === "asc"
                       ? a.name.localeCompare(b.name)
                       : b.name.localeCompare(a.name);
-                  } else {
+                  } else if (sortBy === "date") {
+                    const dateA = new Date(a.addedAt);
+                    const dateB = new Date(b.addedAt);
                     return sortOrder === "asc"
-                      ? new Date(a.createdAt) - new Date(b.createdAt)
-                      : new Date(b.createdAt) - new Date(a.createdAt);
+                      ? dateA - dateB
+                      : dateB - dateA;
                   }
+                  return 0;
                 })
+                .slice((page - 1) * itemsPerPage, page * itemsPerPage)
                 .map((contact) => (
                   <ListItem
                     key={contact.userId}
-                    onClick={() => handleSelectContact(contact)}
                     sx={{
-                      mb: 1,
-                      border: "1px solid",
-                      borderColor: "divider",
-                      borderRadius: 1,
                       cursor: "pointer",
                       "&:hover": {
-                        backgroundColor: "action.hover",
+                        backgroundColor: "rgba(0, 0, 0, 0.04)",
                       },
                     }}
+                    onClick={() => handleSelectContact(contact)}
                   >
                     <ListItemAvatar>
-                      <Avatar src={contact.pfp} alt={contact.name} />
+                      <Avatar
+                        src={contact.pfp}
+                        alt={contact.name}
+                        sx={{ width: 40, height: 40 }}
+                      >
+                        <PersonIcon />
+                      </Avatar>
                     </ListItemAvatar>
                     <ListItemText
                       primary={contact.name}
-                      secondary={contact.lineId}
+                      secondary={
+                        <Box component="span" sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                          <Typography
+                            component="span"
+                            variant="body2"
+                            color="text.primary"
+                          >
+                            {contact.lineId}
+                          </Typography>
+                          <Typography
+                            component="span"
+                            variant="caption"
+                            color="text.secondary"
+                          >
+                            Added {format(new Date(contact.addedAt || Date.now()), "MMM d, yyyy")}
+                          </Typography>
+                        </Box>
+                      }
                     />
                   </ListItem>
                 ))}
+              {lineContacts.length > itemsPerPage && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2, mb: 1 }}>
+                  <Pagination
+                    count={Math.ceil(lineContacts.length / itemsPerPage)}
+                    page={page}
+                    onChange={handlePageChange}
+                    color="primary"
+                    size="medium"
+                    showFirstButton
+                    showLastButton
+                  />
+                </Box>
+              )}
             </List>
           )}
         </Box>

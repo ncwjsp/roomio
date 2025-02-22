@@ -47,7 +47,6 @@ const MaintenancePage = () => {
           throw new Error(errorData.error || 'Failed to fetch line configuration');
         }
         const { lineConfig } = await response.json();
-        console.log("Line config response:", lineConfig);
 
         if (!lineConfig?.liffIds?.maintenance) {
           throw new Error("LIFF ID not configured for maintenance feature");
@@ -332,7 +331,6 @@ const MaintenancePage = () => {
                         {selectedTicket.images.map((image, index) => {
                           // Construct the full S3 URL
                           const imageUrl = image.url;
-                          console.log("Image URL:", imageUrl); // Debug log
 
                           return (
                             <div key={index} className="relative aspect-square">

@@ -19,35 +19,32 @@ const BuildingSchema = new mongoose.Schema(
     },
     waterRate: {
       type: Number,
+      required: true,
       default: 0,
     },
     electricityRate: {
       type: Number,
+      required: true,
       default: 0,
     },
     billingConfig: {
-      dueDays: {
+      dueDate: {
         type: Number,
         required: true,
         min: 1,
-        max: 30,
-        default: 10,
+        max: 15,
+        default: 5,
       },
       latePaymentCharge: {
         type: Number,
+        required: true,
         default: 0,
-        min: 0,
-      },
-      latePaymentChargeType: {
-        type: String,
-        enum: ["fixed", "percentage"],
-        default: "fixed",
-      },
-      partialBillingEnabled: {
-        type: Boolean,
-        default: false,
       },
     },
+    housekeepers: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Staff",
+    }],
   },
   { timestamps: true }
 );

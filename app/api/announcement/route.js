@@ -76,12 +76,24 @@ async function sendLineAnnouncement(lineUserId, announcement, lineConfig) {
   }
 }
 
-export async function GET() {
+export async function GET(request) {
   try {
     await dbConnect();
-    const announcements = await Announcement.find()
+    
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get('userId');
+    
+    if (!userId) {
+      return NextResponse.json(
+        { error: "User ID is required" },
+        { status: 400 }
+      );
+    }
+
+    const announcements = await Announcement.find({ createdBy: userId })
       .sort({ createdAt: -1 })
       .populate("createdBy", "name");
+      
     return NextResponse.json({ announcements });
   } catch (error) {
     return NextResponse.json(

@@ -21,6 +21,7 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import { format } from "date-fns";
 import { colors, buttonStyles } from "lib/styles";
+import { useSession } from "next-auth/react";
 
 // Loading Spinner Component
 const LoadingSpinner = () => {
@@ -50,6 +51,7 @@ const LoadingSpinner = () => {
 };
 
 export default function AnnouncementsPage() {
+  const { data: session } = useSession();
   const [announcements, setAnnouncements] = useState(null);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -68,9 +70,11 @@ export default function AnnouncementsPage() {
   }, []);
 
   const fetchAnnouncements = async () => {
+    if (!session?.user?.id) return;
+    
     try {
       setLoading(true);
-      const response = await fetch("/api/announcement");
+      const response = await fetch(`/api/announcement?userId=${session.user.id}`);
       if (!response.ok) {
         throw new Error("Failed to fetch announcements");
       }
@@ -106,10 +110,14 @@ export default function AnnouncementsPage() {
   };
 
   const handleClose = () => {
+    // First close the dialog
     setOpen(false);
-    setIsEditing(false);
-    setSelectedAnnouncement(null);
-    setFormData({ title: "", content: "" });
+    // Reset other states after a small delay to ensure dialog is closed
+    setTimeout(() => {
+      setIsEditing(false);
+      setSelectedAnnouncement(null);
+      setFormData({ title: "", content: "" });
+    }, 200);
   };
 
   const handleDeleteConfirm = async () => {
@@ -258,11 +266,12 @@ export default function AnnouncementsPage() {
                 elevation={0}
                 sx={{ 
                   borderRadius: 2,
-                  transition: "all 0.3s ease-in-out",
+                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
                   cursor: "pointer",
                   border: '1px solid',
                   borderColor: 'divider',
                   bgcolor: 'background.paper',
+                  transform: "translateY(0)",
                   "&:hover": {
                     transform: "translateY(-4px)",
                     boxShadow: 3,

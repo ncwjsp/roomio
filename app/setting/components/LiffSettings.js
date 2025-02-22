@@ -61,13 +61,11 @@ const LiffSettings = () => {
       try {
         if (!session?.user?.id) return;
 
-        console.log("Fetching config for user:", session.user.id); // Debug log
         const response = await fetch(
           `/api/user/line-config?id=${session.user.id}`
         );
         const data = await response.json();
 
-        console.log("Received data:", data); // Debug log
 
         if (data.lineConfig) {
           setConfig({
@@ -98,10 +96,7 @@ const LiffSettings = () => {
     }
   }, [session, status]);
 
-  // Debug log current config
-  useEffect(() => {
-    console.log("Current config:", config);
-  }, [config]);
+
 
   const handleEdit = (section) => {
     setTempValues((prev) => ({

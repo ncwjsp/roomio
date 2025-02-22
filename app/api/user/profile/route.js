@@ -20,7 +20,6 @@ export async function GET(request) {
     }
 
     const user = await User.findById(id);
-    console.log("Found user:", user); // Debug log
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
@@ -32,7 +31,6 @@ export async function GET(request) {
       email: user.email || "",
     };
 
-    console.log("Returning profile:", profile); // Debug log
 
     return NextResponse.json(profile);
   } catch (error) {
