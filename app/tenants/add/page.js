@@ -6,7 +6,6 @@ import {
   Button,
   TextField,
   Grid,
-  CircularProgress,
   Alert,
   Snackbar,
   Paper,
@@ -42,35 +41,14 @@ import { useRouter } from "next/navigation";
 import PersonIcon from "@mui/icons-material/Person";
 
 // Loading Spinner Component
-const LoadingSpinner = ({ size = 'large' }) => {
-  const sizes = {
-    small: {
-      wrapper: "w-6 h-6",
-      position: "left-[11px] top-[6px]",
-      bar: "w-[2px] h-[4px]",
-      origin: "origin-[1px_7px]"
-    },
-    medium: {
-      wrapper: "w-24 h-24",
-      position: "left-[47px] top-[24px]",
-      bar: "w-1.5 h-3",
-      origin: "origin-[3px_26px]"
-    },
-    large: {
-      wrapper: "w-48 h-48",
-      position: "left-[94px] top-[48px]",
-      bar: "w-3 h-6",
-      origin: "origin-[6px_52px]"
-    }
-  };
-
+const LoadingSpinner = () => {
   return (
-    <div className={`${sizes[size].wrapper} inline-block overflow-hidden bg-transparent`}>
+    <div className="w-16 h-16 inline-block overflow-hidden bg-transparent">
       <div className="w-full h-full relative transform scale-100 origin-[0_0]">
         {[...Array(12)].map((_, i) => (
           <div
             key={i}
-            className={`absolute ${sizes[size].position} ${sizes[size].bar} rounded-[5.76px] bg-[#898f63] ${sizes[size].origin}`}
+            className="absolute left-[30px] top-[16px] w-[3px] h-[8px] rounded-[2px] bg-[#898f63] origin-[2px_20px]"
             style={{
               transform: `rotate(${i * 30}deg)`,
               animation: `spinner-fade 1s linear infinite`,
@@ -969,7 +947,7 @@ const AddTenant = () => {
           </Step>
         </Stepper>
 
-        {loading && <LoadingSpinner size="medium" />}
+        {loading && <LoadingSpinner  />}
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
             {error}
@@ -1007,7 +985,7 @@ const AddTenant = () => {
                   minWidth: '100px'
                 }}
               >
-                {loading ? <LoadingSpinner size="small" /> : "Submit"}
+                {loading ? <LoadingSpinner /> : "Submit"}
               </Button>
             ) : (
               <Button variant="contained" onClick={handleNext} sx={{
@@ -1097,8 +1075,8 @@ const AddTenant = () => {
           </Box>
 
           {loadingContacts ? (
-            <Box sx={{ display: "flex", justifyContent: "center", p: 2 }}>
-               <LoadingSpinner size="medium" />
+             <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
+               <LoadingSpinner  />
             </Box>
           ) : getPaginatedContacts().paginatedContacts.length === 0 ? (
             <Box
@@ -1273,15 +1251,8 @@ const AddTenant = () => {
             }}
           >
             {isLoading ? (
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  flex: 1,
-                }}
-              >
-                <LoadingSpinner size="medium" />
+               <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
+                <LoadingSpinner  />
               </Box>
             ) : getPaginatedBuildingData().totalRooms === 0 ? (
               <Box

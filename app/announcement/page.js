@@ -26,12 +26,12 @@ import { useSession } from "next-auth/react";
 // Loading Spinner Component
 const LoadingSpinner = () => {
   return (
-    <div className="w-48 h-48 inline-block overflow-hidden bg-transparent">
+    <div className="w-16 h-16 inline-block overflow-hidden bg-transparent">
       <div className="w-full h-full relative transform scale-100 origin-[0_0]">
         {[...Array(12)].map((_, i) => (
           <div
             key={i}
-            className="absolute left-[94px] top-[48px] w-3 h-6 rounded-[5.76px] bg-[#898f63] origin-[6px_52px]"
+            className="absolute left-[30px] top-[16px] w-[3px] h-[8px] rounded-[2px] bg-[#898f63] origin-[2px_20px]"
             style={{
               transform: `rotate(${i * 30}deg)`,
               animation: `spinner-fade 1s linear infinite`,

@@ -17,37 +17,17 @@ import {
   maintenancePieData,
   incomeSummaryCards,
 } from "@/app/data/chartData";
+import { Box} from "@mui/material";
 
 // Loading Spinner Component
-const LoadingSpinner = ({ size = 'large' }) => {
-  const sizes = {
-    small: {
-      wrapper: "w-6 h-6",
-      position: "left-[11px] top-[6px]",
-      bar: "w-[2px] h-[4px]",
-      origin: "origin-[1px_7px]"
-    },
-    medium: {
-      wrapper: "w-24 h-24",
-      position: "left-[47px] top-[24px]",
-      bar: "w-1.5 h-3",
-      origin: "origin-[3px_26px]"
-    },
-    large: {
-      wrapper: "w-48 h-48",
-      position: "left-[94px] top-[48px]",
-      bar: "w-3 h-6",
-      origin: "origin-[6px_52px]"
-    }
-  };
-
+const LoadingSpinner = () => {
   return (
-    <div className={`${sizes[size].wrapper} inline-block overflow-hidden bg-transparent`}>
+    <div className="w-16 h-16 inline-block overflow-hidden bg-transparent">
       <div className="w-full h-full relative transform scale-100 origin-[0_0]">
         {[...Array(12)].map((_, i) => (
           <div
             key={i}
-            className={`absolute ${sizes[size].position} ${sizes[size].bar} rounded-[5.76px] bg-[#898f63] ${sizes[size].origin}`}
+            className="absolute left-[30px] top-[16px] w-[3px] h-[8px] rounded-[2px] bg-[#898f63] origin-[2px_20px]"
             style={{
               transform: `rotate(${i * 30}deg)`,
               animation: `spinner-fade 1s linear infinite`,
@@ -99,7 +79,7 @@ const Dashboard = () => {
     <div>
       {isChartLoading ? (
         <div className="flex justify-center items-center min-h-[400px]">
-          <LoadingSpinner size="medium" />
+          <LoadingSpinner />
         </div>
       ) : (
         <div>
@@ -175,7 +155,7 @@ const Dashboard = () => {
     <>
       {isChartLoading ? (
         <div className="flex justify-center items-center min-h-[400px]">
-          <LoadingSpinner size="medium" />
+          <LoadingSpinner  />
         </div>
       ) : selectedCard === null ? (
         <>
@@ -347,11 +327,12 @@ const Dashboard = () => {
     </>
   );
 
+
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-[#EBECE1]">
-        <LoadingSpinner size="large" />
-      </div>
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
+        <LoadingSpinner />
+      </Box>
     );
   }
 

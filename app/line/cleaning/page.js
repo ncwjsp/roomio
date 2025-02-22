@@ -317,7 +317,7 @@ export default function CleaningBookingPage() {
         minHeight="100vh"
         gap={2}
       >
-        <CircularProgress sx={{ color: "#889F63" }} />
+        <CircularProgress sx={{ color: "#898F63" }} />
         <Typography color="text.secondary">Loading cleaning schedule...</Typography>
       </Box>
     );

@@ -18,7 +18,6 @@ import {
   ListItemAvatar,
   ListItemText,
   InputAdornment,
-  CircularProgress,
   Snackbar,
   Alert,
   Pagination,
@@ -31,6 +30,33 @@ import CloseIcon from "@mui/icons-material/Close";
 import PersonIcon from "@mui/icons-material/Person";
 import SearchIcon from "@mui/icons-material/Search";
 import { format } from "date-fns";
+
+// Loading Spinner Component
+const LoadingSpinner = () => {
+  return (
+    <div className="w-16 h-16 inline-block overflow-hidden bg-transparent">
+      <div className="w-full h-full relative transform scale-100 origin-[0_0]">
+        {[...Array(12)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute left-[30px] top-[16px] w-[3px] h-[8px] rounded-[2px] bg-[#898f63] origin-[2px_20px]"
+            style={{
+              transform: `rotate(${i * 30}deg)`,
+              animation: `spinner-fade 1s linear infinite`,
+              animationDelay: `${-0.0833 * (12 - i)}s`
+            }}
+          />
+        ))}
+      </div>
+      <style jsx>{`
+        @keyframes spinner-fade {
+          0% { opacity: 1 }
+          100% { opacity: 0 }
+        }
+      `}</style>
+    </div>
+  );
+};
 
 const StaffForm = ({ initialData, onSubmit, onCancel, submitButtonText = "Add Staff" }) => {
   const [formData, setFormData] = useState({
@@ -560,7 +586,7 @@ const StaffForm = ({ initialData, onSubmit, onCancel, submitButtonText = "Add St
 
           {lineContactsLoading ? (
             <Box sx={{ display: "flex", justifyContent: "center", p: 3 }}>
-              <CircularProgress />
+              <LoadingSpinner />
             </Box>
           ) : lineContacts.length === 0 ? (
             <Box

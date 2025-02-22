@@ -38,35 +38,14 @@ import {
 import { useSession } from "next-auth/react";
 
 // Loading Spinner Component
-const LoadingSpinner = ({ size = 'large' }) => {
-  const sizes = {
-    small: {
-      wrapper: "w-6 h-6",
-      position: "left-[11px] top-[6px]",
-      bar: "w-[2px] h-[4px]",
-      origin: "origin-[1px_7px]"
-    },
-    medium: {
-      wrapper: "w-24 h-24",
-      position: "left-[47px] top-[24px]",
-      bar: "w-1.5 h-3",
-      origin: "origin-[3px_26px]"
-    },
-    large: {
-      wrapper: "w-48 h-48",
-      position: "left-[94px] top-[48px]",
-      bar: "w-3 h-6",
-      origin: "origin-[6px_52px]"
-    }
-  };
-
+const LoadingSpinner = () => {
   return (
-    <div className={`${sizes[size].wrapper} inline-block overflow-hidden bg-transparent`}>
+    <div className="w-16 h-16 inline-block overflow-hidden bg-transparent">
       <div className="w-full h-full relative transform scale-100 origin-[0_0]">
         {[...Array(12)].map((_, i) => (
           <div
             key={i}
-            className={`absolute ${sizes[size].position} ${sizes[size].bar} rounded-[5.76px] bg-[#898f63] ${sizes[size].origin}`}
+            className="absolute left-[30px] top-[16px] w-[3px] h-[8px] rounded-[2px] bg-[#898f63] origin-[2px_20px]"
             style={{
               transform: `rotate(${i * 30}deg)`,
               animation: `spinner-fade 1s linear infinite`,
@@ -476,9 +455,9 @@ const ParcelsPage = () => {
         display="flex"
         justifyContent="center"
         alignItems="center"
-        minHeight="80vh"
+        minHeight="50vh"
       >
-        <LoadingSpinner size="large" />
+        <LoadingSpinner  />
       </Box>
     );
   }
@@ -718,8 +697,8 @@ const ParcelsPage = () => {
                   >
                     {isRoomsLoading ? (
                       <MenuItem value="">
-                        <Box display="flex" alignItems="center" gap={1}>
-                          <LoadingSpinner size="small" />
+                        <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
+                          <LoadingSpinner  />
                           Loading rooms...
                         </Box>
                       </MenuItem>
@@ -788,7 +767,7 @@ const ParcelsPage = () => {
               "&:hover": { backgroundColor: "#777c54" }
             }}
           >
-            {isRoomsLoading ? <LoadingSpinner size="small" /> : "Add Parcel"}
+            {isRoomsLoading ? <LoadingSpinner /> : "Add Parcel"}
       </Button>
     </DialogActions>
   </Dialog>
@@ -860,7 +839,7 @@ const ParcelsPage = () => {
               },
             }}
           >
-            {loading ? <LoadingSpinner size="small" /> : "Save Changes"}
+            {loading ? <LoadingSpinner /> : "Save Changes"}
           </Button>
         </DialogActions>
       </Dialog>
@@ -893,7 +872,7 @@ const ParcelsPage = () => {
             disabled={loading}
             sx={{ minWidth: '100px' }}
           >
-            {loading ? <LoadingSpinner size="small" /> : "Delete"}
+            {loading ? <LoadingSpinner  /> : "Delete"}
           </Button>
         </DialogActions>
       </Dialog>
