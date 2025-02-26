@@ -297,12 +297,13 @@ export default function BillingPage() {
   const handleCreateBills = async () => {
     try {
       // Format the date properly for the selected month
-      const billingDate = new Date(
-        selectedMonth.split("-")[0],
-        selectedMonth.split("-")[1] - 1,
-        25 // Fixed billing date
-      );
-
+      const [year, month] = selectedMonth.split("-");
+      const billingDate = new Date(parseInt(year), parseInt(month) - 1, 25);
+      
+      // Ensure the date is valid
+      if (isNaN(billingDate.getTime())) {
+        throw new Error("Invalid billing date");
+      }
 
       const response = await fetch("/api/bills/create", {
         method: "POST",
@@ -310,8 +311,7 @@ export default function BillingPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          month: format(billingDate, "yyyy-MM"), // Send as YYYY-MM format
-          billingDate: format(billingDate, "yyyy-MM-dd"), // Send full date for 25th
+          billingDate: format(billingDate, "yyyy-MM-dd"),
         }),
       });
 
@@ -321,6 +321,7 @@ export default function BillingPage() {
       }
 
       await fetchBills(); // Refresh bills after creation
+      setSuccess("Bills created successfully!");
     } catch (error) {
       console.error("Error creating bills:", error);
       setError(error.message);

@@ -278,19 +278,14 @@ function PaymentPage() {
     );
   };
 
-  if (loading)
+   if (loading) {
     return (
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          minHeight: "300px",
-        }}
-      >
-        <CircularProgress />
+      <Box display="flex" justifyContent="center" alignItems="center" p={4}>
+        <CircularProgress size={24} sx={{ color: '#889F63' }} />
       </Box>
     );
+  }
+
   if (error) return <div style={{ color: "red" }}>{error}</div>;
   if (!bill) return <div>No current bill found</div>;
 

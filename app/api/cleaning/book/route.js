@@ -45,6 +45,7 @@ export async function POST(request) {
     // Update the slot
     slot.bookedBy = tenant._id;
     slot.bookedAt = new Date();
+    slot.status = "pending"
     await schedule.save();
 
     // Send Line notification

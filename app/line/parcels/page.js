@@ -6,8 +6,11 @@ import {
   Select,
   MenuItem,
   IconButton,
+  CircularProgress,
+  Box,
 } from "@mui/material";
 import { ArrowUpward, ArrowDownward } from "@mui/icons-material";
+import Loading from "../components/loading";
 
 const ParcelsPage = () => {
   const [userId, setUserId] = useState("");
@@ -103,9 +106,9 @@ const ParcelsPage = () => {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-      </div>
+      <Box display="flex" justifyContent="center" alignItems="center" p={4}>
+        <CircularProgress size={24} sx={{ color: "#889F63" }} />
+      </Box>
     );
   }
 
@@ -156,9 +159,7 @@ const ParcelsPage = () => {
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center items-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-        </div>
+        <Loading />
       ) : error ? (
         <div className="p-4 text-center text-red-500">{error}</div>
       ) : parcels === null ? (

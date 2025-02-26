@@ -158,18 +158,6 @@ export default function CleaningBookingPage() {
     }
   };
 
-  // Add console logs to debug
-  console.log("Current schedules:", schedules);
-  console.log("Current month:", format(currentMonth, "yyyy-MM"));
-  console.log("Next month:", format(addMonths(currentMonth, 1), "yyyy-MM"));
-  console.log(
-    "Has schedule for next month:",
-    schedules?.some(
-      (schedule) =>
-        schedule.month === format(addMonths(currentMonth, 1), "yyyy-MM")
-    )
-  );
-
   // Check if a day is in the past
   const isDayInPast = (date) => {
     return isBefore(endOfDay(date), new Date());
@@ -183,7 +171,7 @@ export default function CleaningBookingPage() {
     return isBefore(slotTime, new Date());
   };
 
-  // Get days with available slots
+  // Get days with slots
   const getDaysWithSlots = () => {
     if (!schedules) return new Set();
     const monthSchedule = schedules.find(
@@ -195,13 +183,13 @@ export default function CleaningBookingPage() {
     return new Set(
       monthSchedule.slots
         .filter((slot) => {
-          const slotDate = toLocalDate(slot.date);
+          const slotDate = new Date(slot.date);
           if (isToday(slotDate)) {
             return !slot.bookedBy && !isTimeInPast(slotDate, slot.fromTime);
           }
-          return !slot.bookedBy && !isDayInPast(slotDate);
+          return !slot.bookedBy;
         })
-        .map((slot) => format(toLocalDate(slot.date), "yyyy-MM-dd"))
+        .map((slot) => format(new Date(slot.date), "yyyy-MM-dd"))
     );
   };
 
@@ -216,7 +204,7 @@ export default function CleaningBookingPage() {
 
     return monthSchedule.slots
       .filter((slot) => {
-        const slotDate = toLocalDate(slot.date);
+        const slotDate = new Date(slot.date);
         if (format(slotDate, "yyyy-MM-dd") !== format(date, "yyyy-MM-dd"))
           return false;
 
@@ -228,7 +216,7 @@ export default function CleaningBookingPage() {
       .map((slot) => ({
         ...slot,
         scheduleId: monthSchedule._id,
-        date: toLocalDate(slot.date),
+        date: new Date(slot.date),
       }))
       .sort((a, b) => a.fromTime.localeCompare(b.fromTime));
   };
@@ -307,19 +295,24 @@ export default function CleaningBookingPage() {
     return startOfMonthDay;
   };
 
+  // Add console logs to debug schedules
+  console.log("Current schedules:", schedules?.map(s => ({
+    month: s.month,
+    slots: s.slots?.length || 0,
+    selectedDays: s.selectedDays
+  })));
+  console.log("Current month:", format(currentMonth, "yyyy-MM"));
+  console.log("Next month:", format(addMonths(currentMonth, 1), "yyyy-MM"));
+  const nextMonthFormat = format(addMonths(currentMonth, 1), "yyyy-MM");
+  const hasNextMonth = schedules?.some(schedule => schedule.month === nextMonthFormat);
+  console.log("Has schedule for next month:", hasNextMonth, {
+    nextMonthFormat,
+    availableMonths: schedules?.map(s => s.month)
+  });
+
   if (isLoading) {
     return (
-      <Box
-        display="flex"
-        flexDirection="column"
-        alignItems="center"
-        justifyContent="center"
-        minHeight="100vh"
-        gap={2}
-      >
-        <CircularProgress sx={{ color: "#898F63" }} />
-        <Typography color="text.secondary">Loading cleaning schedule...</Typography>
-      </Box>
+      <Loading />
     );
   }
 

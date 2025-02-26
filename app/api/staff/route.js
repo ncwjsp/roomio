@@ -63,18 +63,45 @@ export async function POST(request) {
         const richMenuId = user.lineConfig?.staffRichMenuId;
 
         if (richMenuId) {
-          await client.linkRichMenuToUser(staff.lineUserId, richMenuId);
+          // Add retry logic for linking rich menu
+          let retries = 3;
+          while (retries > 0) {
+            try {
+              await client.linkRichMenuToUser(staff.lineUserId, richMenuId);
+              break;
+            } catch (error) {
+              if (retries === 1) throw error; // Last retry, throw the error
+              console.log(`Retrying LINE rich menu link... ${retries - 1} attempts remaining`);
+              retries--;
+              // Wait 1 second before retrying
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+          }
         }
 
-        // Send welcome message
-        await client.pushMessage(staff.lineUserId, {
-          type: "text",
-          text: `Welcome ${
-            staff.firstName
-          }! You have been registered as a ${staff.role.toLowerCase()}. Please use the menu below to manage your tasks.`,
-        });
+        // Add retry logic for sending welcome message
+        let retries = 3;
+        while (retries > 0) {
+          try {
+            await client.pushMessage(staff.lineUserId, {
+              type: "text",
+              text: `Welcome ${
+                staff.firstName
+              }! You have been registered as a ${staff.role.toLowerCase()}. Please use the menu below to manage your tasks.`,
+            });
+            break;
+          } catch (error) {
+            if (retries === 1) throw error; // Last retry, throw the error
+            console.log(`Retrying LINE welcome message... ${retries - 1} attempts remaining`);
+            retries--;
+            // Wait 1 second before retrying
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+        }
       } catch (error) {
         console.error("Error with LINE operations:", error);
+        // Don't block staff creation if LINE operations fail
+        console.log("Proceeding with staff creation despite LINE API errors");
       }
     }
 

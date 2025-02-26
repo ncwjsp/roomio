@@ -25,6 +25,7 @@ const staffSchema = new mongoose.Schema(
     role: {
       type: String,
       required: true,
+      enum: ["Housekeeper", "Technician", "Manager"],
     },
     specialization: {
       type: String,
@@ -43,10 +44,19 @@ const staffSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    assignedBuildings: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Building",
+    }],
   },
   {
     timestamps: true,
   }
 );
 
-export default mongoose.models.Staff || mongoose.model("Staff", staffSchema);
+// Add an index for faster lookups by lineUserId
+staffSchema.index({ lineUserId: 1 });
+
+const Staff = mongoose.models.Staff || mongoose.model("Staff", staffSchema);
+
+export default Staff;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { CircularProgress } from "@mui/material";
+import { CircularProgress, Box } from "@mui/material";
 import dayjs from "dayjs";
 import {
   Person,
@@ -86,11 +86,12 @@ export default function TenantInfoPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex justify-center items-center bg-[#EBECE1]">
-        <CircularProgress sx={{ color: "#898F63" }} />
-      </div>
+      <Box display="flex" justifyContent="center" alignItems="center" p={4}>
+        <CircularProgress size={24} sx={{ color: '#889F63' }} />
+      </Box>
     );
   }
+
 
   if (error) {
     return (

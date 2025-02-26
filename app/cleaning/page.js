@@ -93,6 +93,7 @@ export default function CleaningManagementPage() {
   const [availableHousekeepers, setAvailableHousekeepers] = useState([]);
   const [selectedHousekeeper, setSelectedHousekeeper] = useState("");
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
+  const [selectedDate, setSelectedDate] = useState(null);
   const theme = useTheme();
 
   useEffect(() => {
@@ -147,9 +148,12 @@ export default function CleaningManagementPage() {
       setIsLoadingSchedules(true);
       try {
         const response = await fetch(
-          `/api/cleaning/schedules?buildingId=${selectedBuilding}&landlordId=${session.user.id}`
+          `/api/cleaning/schedules?buildingId=${selectedBuilding}&landlordId=${session.user.id}&month=${format(currentMonth, "yyyy-MM")}`
         );
-        if (!response.ok) throw new Error("Failed to fetch schedules");
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || "Failed to fetch schedules");
+        }
         const data = await response.json();
         setSchedules(data.schedules);
       } catch (error) {
@@ -161,7 +165,7 @@ export default function CleaningManagementPage() {
     };
 
     fetchSchedules();
-  }, [selectedBuilding, session?.user?.id, status]);
+  }, [selectedBuilding, session?.user?.id, status, currentMonth]);
 
   if (status === "loading") {
     return (
@@ -224,6 +228,15 @@ export default function CleaningManagementPage() {
     return days;
   };
 
+  const getSlotsByDate = (dateStr) => {
+    const schedule = getCurrentMonthSchedule();
+    if (!schedule) return [];
+
+    return schedule.slots.filter(slot => 
+      format(parseISO(slot.date), "yyyy-MM-dd") === dateStr
+    );
+  };
+
   const handleAddHousekeeper = async () => {
     if (!selectedHousekeeper) return;
 
@@ -266,7 +279,11 @@ export default function CleaningManagementPage() {
         { method: "DELETE" }
       );
 
-      if (!response.ok) throw new Error("Failed to remove housekeeper");
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to remove housekeeper");
+      }
+
       const data = await response.json();
 
       const removedHousekeeper = assignedHousekeepers.find(h => h._id === housekeeperId);
@@ -281,7 +298,7 @@ export default function CleaningManagementPage() {
       console.error("Error removing housekeeper:", error);
       setSnackbar({
         open: true,
-        message: "Failed to remove housekeeper",
+        message: error.message || "Failed to remove housekeeper",
         severity: "error"
       });
     }
@@ -531,7 +548,10 @@ export default function CleaningManagementPage() {
               </Typography>
               <Box>
                 <Button
-                  onClick={() => handleMonthChange(-1)}
+                  onClick={() => {
+                    handleMonthChange(-1);
+                    setSelectedDate(null);
+                  }}
                   startIcon={<ChevronLeft />}
                 >
                   Previous
@@ -540,7 +560,10 @@ export default function CleaningManagementPage() {
                   {format(currentMonth, "MMMM yyyy")}
                 </Typography>
                 <Button
-                  onClick={() => handleMonthChange(1)}
+                  onClick={() => {
+                    handleMonthChange(1);
+                    setSelectedDate(null);
+                  }}
                   endIcon={<ChevronRight />}
                 >
                   Next
@@ -599,21 +622,34 @@ export default function CleaningManagementPage() {
                       }).map((day) => {
                         const dateStr = format(day, "yyyy-MM-dd");
                         const hasSlots = getDaysWithSlots().has(dateStr);
+                        const isSelected = selectedDate === dateStr;
 
                         return (
                           <Grid item xs={12 / 7} key={dateStr}>
                             <Paper
                               elevation={0}
+                              onClick={() => hasSlots && setSelectedDate(isSelected ? null : dateStr)}
                               sx={{
                                 p: 1,
                                 border: 1,
                                 borderColor: hasSlots
-                                  ? "primary.main"
+                                  ? isSelected ? "primary.dark" : "primary.main"
                                   : "divider",
                                 textAlign: "center",
-                                bgcolor: hasSlots
+                                bgcolor: isSelected
+                                  ? "primary.main"
+                                  : hasSlots
                                   ? "primary.lighter"
                                   : "transparent",
+                                cursor: hasSlots ? 'pointer' : 'default',
+                                color: isSelected ? 'white' : 'inherit',
+                                transition: 'all 0.2s',
+                                '&:hover': hasSlots ? {
+                                  bgcolor: isSelected ? 'primary.dark' : 'primary.light',
+                                  borderColor: 'primary.dark',
+                                  transform: 'translateY(-1px)',
+                                  boxShadow: 1
+                                } : {}
                               }}
                             >
                               <Typography>{format(day, "d")}</Typography>
@@ -622,6 +658,48 @@ export default function CleaningManagementPage() {
                         );
                       })}
                     </Grid>
+
+                    {/* Selected Date Slots */}
+                    {selectedDate && (
+                      <Box sx={{ mt: 3 }}>
+                        <Typography variant="subtitle1" fontWeight={500} sx={{ mb: 2 }}>
+                          Slots for {format(parseISO(selectedDate), "MMMM d, yyyy")}
+                        </Typography>
+                        <Grid container spacing={2}>
+                          {getSlotsByDate(selectedDate).map((slot) => (
+                            <Grid item xs={12} sm={6} md={4} key={slot._id}>
+                              <Paper
+                                sx={{
+                                  p: 2,
+                                  border: 1,
+                                  borderColor: 'divider',
+                                  borderRadius: 1,
+                                  bgcolor: slot.bookedBy ? 'warning.lighter' : 'success.lighter'
+                                }}
+                              >
+                                <Typography variant="subtitle2" gutterBottom>
+                                  {slot.fromTime} - {slot.toTime}
+                                </Typography>
+                                {slot.bookedBy ? (
+                                  <>
+                                    <Typography variant="body2" color="warning.dark">
+                                      Booked by Room {slot.bookedBy.room?.roomNumber}
+                                    </Typography>
+                                    <Typography variant="body2" color="text.secondary">
+                                      Tenant: {slot.bookedBy.name}
+                                    </Typography>
+                                  </>
+                                ) : (
+                                  <Typography variant="body2" color="success.dark">
+                                    Available
+                                  </Typography>
+                                )}
+                              </Paper>
+                            </Grid>
+                          ))}
+                        </Grid>
+                      </Box>
+                    )}
                   </Box>
                 )}
               </CardContent>

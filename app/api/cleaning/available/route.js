@@ -20,15 +20,28 @@ export async function GET(request) {
       );
     }
 
+    // Get current month in YYYY-MM format
+    const currentMonth = new Date().toISOString().slice(0, 7);
+
+    console.log("Fetching schedules for:", {
+      landlordId,
+      buildingId,
+      currentMonth
+    });
+
     // Find schedules for the specific building
     const schedules = await CleaningSchedule.find({
       landlordId,
       buildingId,
-      // Only get schedules for current and future months
       month: {
-        $gte: new Date().toISOString().slice(0, 7), // Format: YYYY-MM
+        $gte: currentMonth, // Format: YYYY-MM
       },
     }).sort({ month: 1 });
+
+    console.log("Found schedules:", schedules.map(s => ({
+      month: s.month,
+      slotsCount: s.slots?.length || 0
+    })));
 
     return NextResponse.json({ schedules });
   } catch (error) {

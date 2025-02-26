@@ -1,29 +1,5 @@
 import mongoose from "mongoose";
 
-const slotSchema = new mongoose.Schema({
-  fromTime: {
-    type: String,
-    required: true,
-  },
-  toTime: {
-    type: String,
-    required: true,
-  },
-  bookedBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Tenant",
-    default: null,
-  },
-  bookedAt: {
-    type: Date,
-    default: null,
-  },
-  date: {
-    type: Date,
-    required: true,
-  },
-});
-
 const cleaningScheduleSchema = new mongoose.Schema(
   {
     month: {
@@ -73,10 +49,27 @@ const cleaningScheduleSchema = new mongoose.Schema(
         toTime: String,
         bookedBy: {
           type: mongoose.Schema.Types.ObjectId,
-          ref: "User",
+          ref: "Tenant",
           default: null,
         },
-        bookedAt: { type: Date, default: null },
+        bookedAt: { 
+          type: Date, 
+          default: null 
+        },
+        status: {
+          type: String,
+          enum: ['available', 'pending', 'completed', 'cancelled'],
+          default: 'available'
+        },
+        completedAt: {
+          type: Date,
+          default: null
+        },
+        completedBy: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Staff",
+          default: null
+        }
       },
     ],
   },

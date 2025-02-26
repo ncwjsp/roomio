@@ -5,7 +5,7 @@ import Room from "@/app/models/Room";
 import Bill from "@/app/models/Bill";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
-import { addDays, format } from "date-fns";
+import { addDays, format, isValid, parseISO } from "date-fns";
 
 export async function POST(request) {
   try {
@@ -17,8 +17,18 @@ export async function POST(request) {
     }
 
     const { billingDate } = await request.json();
+    
+    // Validate billingDate
+    const parsedDate = parseISO(billingDate);
+    if (!isValid(parsedDate)) {
+      return NextResponse.json(
+        { error: "Invalid billing date format. Please use YYYY-MM-DD format." },
+        { status: 400 }
+      );
+    }
+
     // Format month as string in YYYY-MM format
-    const month = format(new Date(billingDate), "yyyy-MM");
+    const month = format(parsedDate, "yyyy-MM");
 
     // Get all buildings for the user
     const userBuildings = await Building.find({ createdBy: session.user.id });
@@ -30,7 +40,7 @@ export async function POST(request) {
         const { dueDays } = building.billingConfig;
 
         // Calculate due date based on billing date and dueDays
-        const dueDate = addDays(new Date(billingDate), dueDays);
+        const dueDate = addDays(parsedDate, dueDays);
 
         // Get all rooms in the building with tenants
         const rooms = await Room.find({
@@ -44,7 +54,7 @@ export async function POST(request) {
             // Check if bill already exists for this room and month
             const existingBill = await Bill.findOne({
               roomId: room._id,
-              month: month, // Use the string format
+              month: month,
             });
 
             if (existingBill) {
@@ -53,8 +63,8 @@ export async function POST(request) {
 
             return Bill.create({
               roomId: room._id,
-              month: month, // Use the string format
-              billingDate: new Date(billingDate),
+              month: month,
+              billingDate: parsedDate,
               dueDate,
               rentAmount: room.price,
               waterRate: building.waterRate,

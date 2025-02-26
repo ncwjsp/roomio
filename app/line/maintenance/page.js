@@ -6,7 +6,7 @@ import Link from "next/link";
 import { format, parseISO } from "date-fns";
 import Image from "next/image";
 import { ChevronLeft } from "@mui/icons-material";
-import Loading from "./loading";
+import Loading from "../components/loading";
 
 const MaintenancePage = () => {
   const [userId, setUserId] = useState("");
@@ -25,15 +25,11 @@ const MaintenancePage = () => {
   const [uploadingImages, setUploadingImages] = useState(false);
   const [previewImages, setPreviewImages] = useState([]);
 
-  // Add these console logs to debug environment variables
-  console.log("Bucket:", process.env.AWS_BUCKET_NAME);
-  console.log("Region:", process.env.AWS_REGION);
-
   useEffect(() => {
     const initializeLiff = async () => {
       try {
         const { searchParams } = new URL(window.location.href);
-        const id = searchParams.get("id"); // landlord's id
+        const id = searchParams.get("id");
 
         if (!id) {
           throw new Error("ID not provided in URL");
@@ -144,7 +140,7 @@ const MaintenancePage = () => {
         }
 
         const data = await response.json();
-        return `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${data.fileName}`;
+        return data.url;
       });
 
       const uploadedUrls = await Promise.all(uploadPromises);
@@ -338,6 +334,8 @@ const MaintenancePage = () => {
                                 src={imageUrl}
                                 alt={`Maintenance image ${index + 1}`}
                                 fill
+                                sizes="(max-width: 768px) 100vw, 50vw"
+                                priority={index === 0}
                                 className="rounded-lg object-cover"
                               />
                             </div>
