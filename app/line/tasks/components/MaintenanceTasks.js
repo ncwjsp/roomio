@@ -15,7 +15,9 @@ import {
   Tab,
   TextField,
   MenuItem,
-  CircularProgress
+  CircularProgress,
+  ImageList,
+  ImageListItem
 } from "@mui/material";
 
 export default function MaintenanceTasks({ 
@@ -30,10 +32,17 @@ export default function MaintenanceTasks({
   const [statusComment, setStatusComment] = useState("");
   const [newStatus, setNewStatus] = useState("");
   const [currentTab, setCurrentTab] = useState(0);
+  const [showImageDialog, setShowImageDialog] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
 
   const handleTaskClick = (task) => {
     setSelectedTask(task);
     setShowUpdateModal(true);
+  };
+
+  const handleImageClick = (imageUrl) => {
+    setSelectedImage(imageUrl);
+    setShowImageDialog(true);
   };
 
   const handleUpdateStatus = async () => {
@@ -69,6 +78,34 @@ export default function MaintenanceTasks({
       console.error('Error formatting date:', error);
       return 'Invalid date';
     }
+  };
+
+  const renderTaskImages = (task) => {
+    if (!task.images || task.images.length === 0) return null;
+    
+    return (
+      <Box sx={{ mt: 2 }}>
+        <Typography variant="body2" sx={{ mb: 1, fontWeight: 500 }}>
+          Images:
+        </Typography>
+        <ImageList sx={{ width: '100%', height: 'auto' }} cols={2} rowHeight={120}>
+          {task.images.map((image, index) => (
+            <ImageListItem 
+              key={index} 
+              onClick={() => handleImageClick(image.url)}
+              sx={{ cursor: 'pointer' }}
+            >
+              <img
+                src={image.url}
+                alt={`Maintenance image ${index + 1}`}
+                loading="lazy"
+                style={{ borderRadius: '4px' }}
+              />
+            </ImageListItem>
+          ))}
+        </ImageList>
+      </Box>
+    );
   };
 
   return (
@@ -159,6 +196,8 @@ export default function MaintenanceTasks({
                       )}
                     </Box>
 
+                    {renderTaskImages(task)}
+
                     <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
                       <Button
                         variant="outlined"
@@ -247,6 +286,8 @@ export default function MaintenanceTasks({
                       )}
                     </Box>
 
+                    {renderTaskImages(task)}
+
                     {task.updatedAt && (
                       <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                         {task.currentStatus} at: {
@@ -326,6 +367,31 @@ export default function MaintenanceTasks({
             }}
           >
             Update
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Image Preview Dialog */}
+      <Dialog 
+        open={showImageDialog} 
+        onClose={() => setShowImageDialog(false)}
+        maxWidth="md"
+      >
+        <DialogContent sx={{ p: 1 }}>
+          {selectedImage && (
+            <img 
+              src={selectedImage} 
+              alt="Maintenance issue" 
+              style={{ width: '100%', height: 'auto' }}
+            />
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => setShowImageDialog(false)} 
+            sx={{ color: '#889F63' }}
+          >
+            Close
           </Button>
         </DialogActions>
       </Dialog>

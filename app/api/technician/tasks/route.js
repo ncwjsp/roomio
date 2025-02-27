@@ -40,13 +40,13 @@ export async function GET(request) {
     }).populate([
       {
         path: "room",
-        select: "roomNumber",
+        select: "roomNumber images",
         populate: {
           path: "floor",
-          select: "floorNumber",
+          select: "floorNumber images",
           populate: {
             path: "building",
-            select: "name"
+            select: "name images"
           }
         }
       }
@@ -60,13 +60,13 @@ export async function GET(request) {
     }).populate([
       {
         path: "room",
-        select: "roomNumber",
+        select: "roomNumber images",
         populate: {
           path: "floor",
-          select: "floorNumber",
+          select: "floorNumber images",
           populate: {
             path: "building",
-            select: "name"
+            select: "name images"
           }
         }
       }
@@ -120,14 +120,14 @@ export async function PUT(request) {
     const maintenance = await Maintenance.findById(taskId).populate([
       {
         path: "room",
-        select: "roomNumber tenant createdBy floor",
+        select: "roomNumber tenant createdBy floor images",
         populate: [
           {
             path: "floor",
-            select: "name building",
+            select: "name building images",
             populate: {
               path: "building",
-              select: "name"
+              select: "name images"
             }
           },
           {
