@@ -51,7 +51,7 @@ export async function PUT(request, context) {
 
     const appContext = await context;
 
-    const { billId } = appContext.params;
+    const { billId } = await appContext.params;
 
     // Fetch the current bill with tenant info
     const currentBill = await Bill.findById(billId).populate({

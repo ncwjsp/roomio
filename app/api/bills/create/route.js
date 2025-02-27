@@ -37,10 +37,15 @@ export async function POST(request) {
     const bills = await Promise.all(
       userBuildings.map(async (building) => {
         // Get billing configuration from building
-        const { dueDays } = building.billingConfig;
+        const { dueDays = 7 } = building.billingConfig || {}; // Default to 7 days if not set
 
         // Calculate due date based on billing date and dueDays
         const dueDate = addDays(parsedDate, dueDays);
+        
+        // Validate dueDate
+        if (!isValid(dueDate)) {
+          throw new Error("Invalid due date calculated");
+        }
 
         // Get all rooms in the building with tenants
         const rooms = await Room.find({
@@ -63,6 +68,7 @@ export async function POST(request) {
 
             return Bill.create({
               roomId: room._id,
+              buildingId: building._id,
               month: month,
               billingDate: parsedDate,
               dueDate,

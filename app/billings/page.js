@@ -169,6 +169,22 @@ export default function BillingPage() {
       const data = await response.json();
       const billsData = Array.isArray(data) ? data : data.bills || [];
 
+      // If no bills found for the selected month
+      if (billsData.length === 0) {
+        const currentDate = new Date();
+        const selectedDate = new Date(selectedMonth);
+        
+        // If selected month is current month and before the 25th
+        if (format(selectedDate, 'yyyy-MM') === format(currentDate, 'yyyy-MM') && 
+            currentDate.getDate() < 25) {
+          setError("Bills for this month will be available after the 25th");
+        } else {
+          setError("No bills found for the selected month");
+        }
+        setBills([]);
+        return;
+      }
+
       const formattedBills = billsData.map((bill) => {
         // Get the billing cycle date (25th of the previous month)
         const billingCycleDate = new Date(selectedMonth);
@@ -452,15 +468,7 @@ export default function BillingPage() {
 
   if (loading) {
     return (
-      <Box 
-        sx={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center', 
-          minHeight: '80vh',
-          width: '100%'
-        }}
-      >
+      <Box display="flex" justifyContent="center" my={4}>
         <LoadingSpinner />
       </Box>
     );
@@ -468,14 +476,19 @@ export default function BillingPage() {
 
   if (error) {
     return (
-      <Container maxWidth="md" sx={{ py: 4 }}>
+      <Box display="flex" justifyContent="center" my={4}>
         <Alert 
-          severity="error"
-          sx={{ mb: 2 }}
+          severity={error.includes("will be available") ? "info" : "error"}
+          sx={{ width: "100%", maxWidth: 600 }}
         >
           {error}
+          {error.includes("will be available") && (
+            <Typography variant="body2" sx={{ mt: 1 }}>
+              Bills are generated on the 25th of each month. Please check back later.
+            </Typography>
+          )}
         </Alert>
-      </Container>
+      </Box>
     );
   }
 

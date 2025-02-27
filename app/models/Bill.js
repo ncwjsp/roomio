@@ -12,8 +12,15 @@ const billSchema = new mongoose.Schema(
       ref: "Building",
     },
     month: {
-      type: Date,
+      type: String,
       required: true,
+      validate: {
+        validator: function(v) {
+          // Validate YYYY-MM format
+          return /^\d{4}-\d{2}$/.test(v);
+        },
+        message: props => `${props.value} is not a valid month format. Use YYYY-MM format.`
+      }
     },
     waterUsage: {
       type: Number,
@@ -63,6 +70,13 @@ const billSchema = new mongoose.Schema(
     },
     dueDate: {
       type: Date,
+      required: true,
+      validate: {
+        validator: function(v) {
+          return v instanceof Date && !isNaN(v);
+        },
+        message: props => 'Invalid due date'
+      }
     },
     notes: {
       type: String,

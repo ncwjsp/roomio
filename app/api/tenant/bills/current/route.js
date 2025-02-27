@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import Bill from "@/app/models/Bill";
 import Tenant from "@/app/models/Tenant";
-import { startOfMonth, endOfMonth } from "date-fns";
+import { format } from "date-fns";
 
 export async function GET(request) {
   try {
@@ -40,15 +40,11 @@ export async function GET(request) {
 
     // Get current month's bill
     const currentDate = new Date();
-    const monthStart = startOfMonth(currentDate);
-    const monthEnd = endOfMonth(currentDate);
+    const currentMonth = format(currentDate, "yyyy-MM");
 
     const bill = await Bill.findOne({
       roomId: tenant.room,
-      month: {
-        $gte: monthStart,
-        $lte: monthEnd,
-      },
+      month: currentMonth,
     }).populate({
       path: "roomId",
       select: "roomNumber floor tenant",
