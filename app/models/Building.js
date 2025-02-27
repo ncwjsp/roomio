@@ -45,10 +45,6 @@ const BuildingSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Staff",
     }],
-    address: {
-      type: String,
-      required: true,
-    },
   },
   { timestamps: true }
 );
