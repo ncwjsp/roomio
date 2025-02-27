@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import Maintenance from "@/app/models/Maintenance";
 import Room from "@/app/models/Room";
+import Building from "@/app/models/Building";
+import Floor from "@/app/models/Floor";
 
 export async function GET(request, { params }) {
   try {
@@ -16,8 +18,8 @@ export async function GET(request, { params }) {
         model: Room,
         select: "roomNumber building floor",
         populate: [
-          { path: "building", select: "name" },
-          { path: "floor", select: "floorNumber" }
+          { path: "building", model: Building, select: "name" },
+          { path: "floor", model: Floor, select: "floorNumber" }
         ]
       })
       .sort({ createdAt: -1 });

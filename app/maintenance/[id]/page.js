@@ -47,6 +47,9 @@ import TimelineSeparator from '@mui/lab/TimelineSeparator';
 import TimelineDot from '@mui/lab/TimelineDot';
 import TimelineConnector from '@mui/lab/TimelineConnector';
 import TimelineContent from '@mui/lab/TimelineContent';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 
 import { getStatusColor, buttonStyles, chipStyles, modalStyles, colors } from "@/lib/styles";
 
@@ -91,16 +94,29 @@ export default function MaintenanceDetailPage({ params }) {
   const [newStatus, setNewStatus] = useState("");
   const [statusComment, setStatusComment] = useState("");
   const [isAssigning, setIsAssigning] = useState(false);
+  const [scheduledDate, setScheduledDate] = useState(null);
 
   const formatDate = (dateString) => {
     try {
       if (!dateString) return 'Date not available';
       const date = new Date(dateString);
       if (isNaN(date.getTime())) return 'Invalid date';
+      return format(date, "MMMM do, yyyy");
+    } catch (error) {
+      console.error("Error formatting date:", error);
+      return 'Error formatting date';
+    }
+  };
+
+  const formatDateWithTime = (dateString) => {
+    try {
+      if (!dateString) return 'Date not available';
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return 'Invalid date';
       return format(date, "MMMM do, yyyy 'at' h:mm a");
     } catch (error) {
-      console.error('Error formatting date:', error);
-      return 'Invalid date';
+      console.error("Error formatting date:", error);
+      return 'Error formatting date';
     }
   };
 
@@ -134,33 +150,40 @@ export default function MaintenanceDetailPage({ params }) {
   }, [session, id]);
 
   const handleAssignTechnician = async (technicianId) => {
-    if (["Completed", "Cancelled"].includes(ticket.currentStatus)) {
-      return; // Don't allow assignment if ticket is completed or cancelled
+    if (!scheduledDate) {
+      alert("Please select a date for the maintenance work");
+      return;
     }
 
     try {
       setIsAssigning(true);
-      const response = await fetch(`/api/maintenance/${ticket._id}/assign`, {
+      const response = await fetch(`/api/maintenance/${id}/assign`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ technicianId }),
+        body: JSON.stringify({
+          technicianId,
+          scheduledDate: scheduledDate.toISOString()
+        }),
       });
 
-      if (!response.ok) throw new Error("Failed to assign technician");
-
-      const updatedTicket = await response.json();
-      setTicket(updatedTicket.ticket);
-      
-      // Refresh the ticket data to ensure consistency
-      const ticketResponse = await fetch(`/api/maintenance/${id}`);
-      if (ticketResponse.ok) {
-        const ticketData = await ticketResponse.json();
-        setTicket(ticketData.ticket);
+      if (!response.ok) {
+        throw new Error("Failed to assign technician");
       }
+
+      // Refresh ticket data
+      const ticketResponse = await fetch(`/api/maintenance/${id}`);
+      if (!ticketResponse.ok) throw new Error("Failed to fetch ticket");
+      const ticketData = await ticketResponse.json();
+      setTicket(ticketData.ticket);
+      
+      setShowTechnicianModal(false);
+      setSearchQuery("");
+      setScheduledDate(null);
     } catch (error) {
       console.error("Error assigning technician:", error);
+      alert("Failed to assign technician");
     } finally {
       setIsAssigning(false);
     }
@@ -196,13 +219,18 @@ export default function MaintenanceDetailPage({ params }) {
 
       if (!response.ok) throw new Error("Failed to update status");
 
-      const updatedTicket = await response.json();
-      setTicket(updatedTicket.ticket || updatedTicket);
+      // Refresh ticket data
+      const ticketResponse = await fetch(`/api/maintenance/${id}`);
+      if (!ticketResponse.ok) throw new Error("Failed to fetch ticket");
+      const ticketData = await ticketResponse.json();
+      setTicket(ticketData.ticket);
+
       setShowStatusModal(false);
       setNewStatus("");
       setStatusComment("");
     } catch (error) {
       console.error("Error updating status:", error);
+      alert("Failed to update status");
     }
   };
 
@@ -359,9 +387,19 @@ export default function MaintenanceDetailPage({ params }) {
                   Created on
                 </Typography>
                 <Typography variant="body1" component="div" fontWeight="medium">
-                  {formatDate(ticket.createdAt)}
+                  {formatDateWithTime(ticket.createdAt)}
                 </Typography>
               </Box>
+              {ticket.staff && ticket.scheduledDate && (
+                <Box>
+                  <Typography variant="caption" color="text.secondary" component="div" gutterBottom>
+                    Scheduled for
+                  </Typography>
+                  <Typography variant="body1" component="div" fontWeight="medium">
+                    {formatDate(ticket.scheduledDate)}
+                  </Typography>
+                </Box>
+              )}
             </Box>
           </Box>
 
@@ -489,6 +527,11 @@ export default function MaintenanceDetailPage({ params }) {
                   <Typography variant="body2" color="text.secondary" component="div">
                     {ticket.staff.specialization}
                   </Typography>
+                  {ticket.scheduledDate && (
+                    <Typography variant="body2" color="text.secondary" component="div">
+                      Scheduled for {formatDate(ticket.scheduledDate)}
+                    </Typography>
+                  )}
                 </Box>
               ) : ticket.currentStatus !== "Completed" && ticket.currentStatus !== "Cancelled" ? (
                 <Typography color="text.secondary" fontStyle="italic" component="div">
@@ -555,7 +598,7 @@ export default function MaintenanceDetailPage({ params }) {
                         color="text.secondary"
                         sx={{ mt: 0.5 }}
                       >
-                        {formatDate(history.updatedAt)}
+                        {formatDateWithTime(history.updatedAt)}
                       </Typography>
                     </TimelineContent>
                   </TimelineItem>
@@ -571,6 +614,7 @@ export default function MaintenanceDetailPage({ params }) {
         onClose={() => {
           setShowTechnicianModal(false);
           setSearchQuery("");
+          setScheduledDate(null);
         }}
         maxWidth="sm"
         fullWidth
@@ -586,6 +630,31 @@ export default function MaintenanceDetailPage({ params }) {
             </Typography>
           ) : (
             <>
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="h6" gutterBottom>
+                  Schedule Maintenance
+                </Typography>
+                <LocalizationProvider dateAdapter={AdapterDateFns}>
+                  <DatePicker
+                    label="Select Date"
+                    value={scheduledDate}
+                    onChange={(newValue) => setScheduledDate(newValue)}
+                    sx={{ width: '100%' }}
+                    minDate={new Date()}
+                    slotProps={{
+                      textField: {
+                        helperText: 'When should the maintenance work be done?',
+                        required: true,
+                        error: !scheduledDate,
+                      },
+                    }}
+                  />
+                </LocalizationProvider>
+              </Box>
+
+              <Typography variant="h6" gutterBottom>
+                Select Technician
+              </Typography>
               <TextField
                 fullWidth
                 placeholder="Search technicians..."
@@ -600,44 +669,57 @@ export default function MaintenanceDetailPage({ params }) {
                   ),
                 }}
               />
-              <List sx={{ pt: 0 }}>
+              <List sx={{ width: '100%', bgcolor: 'background.paper' }}>
                 {filteredTechnicians.map((tech) => (
                   <ListItem
                     key={tech._id}
                     sx={{
                       borderRadius: 1,
                       mb: 1,
-                      '&:last-child': { mb: 0 },
                       '&:hover': {
                         bgcolor: 'action.hover',
                       },
                     }}
+                    secondaryAction={
+                      <Button
+                        onClick={() => handleAssignTechnician(tech._id)}
+                        variant="contained"
+                        size="small"
+                        disabled={isAssigning || tech._id === ticket.staff?._id}
+                        sx={buttonStyles.primary.contained}
+                      >
+                        {tech._id === ticket.staff?._id ? "Already Assigned" : isAssigning ? "Assigning..." : "Assign"}
+                      </Button>
+                    }
                   >
                     <ListItemAvatar>
                       <Avatar sx={{ bgcolor: colors.primary }}>
-                        {tech.firstName[0]}
+                        <PersonIcon />
                       </Avatar>
                     </ListItemAvatar>
                     <ListItemText
-                      primary={`${tech.firstName} ${tech.lastName}`}
-                      secondary={tech.specialization}
+                      primary={
+                        <Typography variant="subtitle1">
+                          {tech.firstName} {tech.lastName}
+                          {tech._id === ticket.staff?._id && (
+                            <Chip
+                              size="small"
+                              label="Current"
+                              sx={{
+                                ml: 1,
+                                bgcolor: 'rgba(136, 159, 99, 0.1)',
+                                color: colors.primary,
+                              }}
+                            />
+                          )}
+                        </Typography>
+                      }
+                      secondary={
+                        <Typography variant="body2" color="text.secondary">
+                          {tech.specialization}
+                        </Typography>
+                      }
                     />
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      onClick={() => handleAssignTechnician(tech._id)}
-                      disabled={isAssigning || tech._id === ticket.staff?._id}
-                      sx={{
-                        color: colors.primary,
-                        borderColor: colors.primary,
-                        '&:hover': {
-                          borderColor: colors.primary,
-                          bgcolor: 'rgba(136, 159, 99, 0.08)',
-                        },
-                      }}
-                    >
-                      {isAssigning ? "Assigning..." : "Assign"}
-                    </Button>
                   </ListItem>
                 ))}
               </List>
@@ -649,6 +731,7 @@ export default function MaintenanceDetailPage({ params }) {
             onClick={() => {
               setShowTechnicianModal(false);
               setSearchQuery("");
+              setScheduledDate(null);
             }}
           >
             Close
@@ -671,7 +754,7 @@ export default function MaintenanceDetailPage({ params }) {
               onChange={(e) => setNewStatus(e.target.value)}
               label="Status"
             >
-              {["Pending", "In Progress", "Completed", "Cancelled"]
+              {["Completed", "Cancelled"]
                 .filter(status => status !== ticket.currentStatus)
                 .map((status) => (
                   <MenuItem key={status} value={status}>{status}</MenuItem>
@@ -696,7 +779,7 @@ export default function MaintenanceDetailPage({ params }) {
             variant="contained"
             onClick={handleUpdateStatus}
             disabled={!newStatus || !statusComment}
-            ssx={{
+            sx={{
               ...buttonStyles.primary.contained,
               minWidth: '100px'
             }}

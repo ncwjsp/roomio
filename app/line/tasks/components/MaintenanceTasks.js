@@ -4,50 +4,32 @@ import { useState } from "react";
 import {
   Box,
   Typography,
-  Paper,
-  List,
-  ListItem,
-  ListItemText,
-  Chip,
+  Button,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  Button,
+  Chip,
+  Paper,
+  Tabs,
+  Tab,
   TextField,
+  MenuItem,
+  CircularProgress
 } from "@mui/material";
-import {
-  Schedule as ScheduleIcon,
-  Room as RoomIcon,
-  Description as DescriptionIcon,
-  Person as PersonIcon,
-  Phone as PhoneIcon,
-  Chat as ChatIcon,
-} from "@mui/icons-material";
-import { format } from "date-fns";
 
 export default function MaintenanceTasks({ 
   activeTasks, 
   completedTasks, 
-  onUpdateTask 
+  onUpdateTask,
+  technicianId,
+  isLoading 
 }) {
   const [selectedTask, setSelectedTask] = useState(null);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [statusComment, setStatusComment] = useState("");
   const [newStatus, setNewStatus] = useState("");
-
-  const getStatusColor = (status) => {
-    switch (status?.toLowerCase()) {
-      case "completed":
-        return "success";
-      case "in progress":
-        return "info";
-      case "pending":
-        return "warning";
-      default:
-        return "default";
-    }
-  };
+  const [currentTab, setCurrentTab] = useState(0);
 
   const handleTaskClick = (task) => {
     setSelectedTask(task);
@@ -58,24 +40,31 @@ export default function MaintenanceTasks({
     if (!selectedTask || !newStatus) return;
 
     try {
-      await onUpdateTask(selectedTask._id, newStatus, statusComment);
+      await onUpdateTask(selectedTask._id, newStatus, statusComment, technicianId);
       setShowUpdateModal(false);
       setStatusComment("");
       setNewStatus("");
       setSelectedTask(null);
     } catch (error) {
-      console.error("Error updating task:", error);
-      alert("Failed to update task status");
     }
   };
 
+  if (isLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px' }}>
+        <CircularProgress sx={{ color: '#889F63' }} />
+      </Box>
+    );
+  }
+
   const formatDate = (dateString) => {
     try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) {
-        return 'Invalid date';
-      }
-      return format(date, "PPP 'at' p");
+      return new Date(dateString).toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
     } catch (error) {
       console.error('Error formatting date:', error);
       return 'Invalid date';
@@ -83,142 +72,239 @@ export default function MaintenanceTasks({
   };
 
   return (
-    <>
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h6" gutterBottom>
-          Active Maintenance Tasks
-        </Typography>
-        {activeTasks?.length > 0 ? (
-          <List>
-            {activeTasks.map((task) => (
-              <MaintenanceTaskItem
-                key={task._id}
-                task={task}
-                onStatusUpdate={() => handleTaskClick(task)}
-                formatDate={formatDate}
-              />
-            ))}
-          </List>
-        ) : (
-          <Typography color="textSecondary">
-            No active maintenance tasks found
-          </Typography>
-        )}
+    <div>
+
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+        <Tabs 
+          value={currentTab} 
+          onChange={(e, newValue) => setCurrentTab(newValue)}
+          sx={{
+            '& .MuiTabs-indicator': {
+              backgroundColor: '#889F63',
+            },
+          }}
+        >
+          <Tab 
+            label={`Active Tasks (${activeTasks?.length || 0})`}
+            sx={{
+              '&.Mui-selected': {
+                color: '#889F63',
+              },
+            }}
+          />
+          <Tab 
+            label={`Completed Tasks (${completedTasks?.length || 0})`}
+            sx={{
+              '&.Mui-selected': {
+                color: '#889F63',
+              },
+            }}
+          />
+        </Tabs>
       </Box>
 
-      <Box>
-        <Typography variant="h6" gutterBottom>
-          Completed Maintenance Tasks
-        </Typography>
-        {completedTasks?.length > 0 ? (
-          <List>
-            {completedTasks.map((task) => (
-              <MaintenanceTaskItem
-                key={task._id}
-                task={task}
-                completed
-                formatDate={formatDate}
-              />
-            ))}
-          </List>
-        ) : (
-          <Typography color="textSecondary">
-            No completed maintenance tasks found
-          </Typography>
-        )}
-      </Box>
+      <div>
+        {currentTab === 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {activeTasks?.length > 0 ? (
+              activeTasks.map((task) => (
+                <Paper
+                  key={task._id}
+                  elevation={0}
+                  sx={{
+                    p: 2,
+                    border: '1px solid #e5e7eb',
+                    borderRadius: 1,
+                    '&:hover': {
+                      borderColor: '#889F63',
+                    },
+                  }}
+                >
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <Box>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 500 }}>
+                          Room {task.room.roomNumber}
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                          {task.room.floor.building.name}
+                        </Typography>
+                      </Box>
+                      <Chip 
+                        label={task.currentStatus}
+                        size="small"
+                        sx={{
+                          bgcolor: 
+                            task.currentStatus === 'Completed' ? '#dcfce7 !important' :
+                            task.currentStatus === 'Cancelled' ? '#fee2e2 !important' :
+                            task.currentStatus === 'In Progress' ? '#dbeafe !important' :
+                            '#f3f4f6 !important',
+                          color: 
+                            task.currentStatus === 'Completed' ? '#166534 !important' :
+                            task.currentStatus === 'Cancelled' ? '#991b1b !important' :
+                            task.currentStatus === 'In Progress' ? '#1e40af !important' :
+                            '#1f2937 !important',
+                        }}
+                      />
+                    </Box>
 
-      {/* Update Status Modal */}
-      <Dialog 
-        open={showUpdateModal} 
-        onClose={() => {
-          setShowUpdateModal(false);
-          setStatusComment("");
-          setNewStatus("");
-        }}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Update Maintenance Status</DialogTitle>
+                    <Box>
+                      <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                        {formatDate(task.scheduledDate)}
+                      </Typography>
+                      {task.problem && (
+                        <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
+                          {task.problem}
+                        </Typography>
+                      )}
+                    </Box>
+
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        onClick={() => handleTaskClick(task)}
+                        sx={{
+                          borderColor: '#889F63',
+                          color: '#889F63',
+                          '&:hover': {
+                            borderColor: '#7A8F53',
+                            bgcolor: '#F5F7F2',
+                          },
+                        }}
+                      >
+                        Update Status
+                      </Button>
+                    </Box>
+                  </Box>
+                </Paper>
+              ))
+            ) : (
+              <Paper 
+                elevation={0}
+                sx={{ 
+                  p: 2, 
+                  textAlign: 'center',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: 1
+                }}
+              >
+                <Typography sx={{ color: 'text.secondary' }}>
+                  No active tasks
+                </Typography>
+              </Paper>
+            )}
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {completedTasks?.length > 0 ? (
+              completedTasks.map((task) => (
+                <Paper
+                  key={task._id}
+                  elevation={0}
+                  sx={{
+                    p: 2,
+                    border: '1px solid #e5e7eb',
+                    borderRadius: 1
+                  }}
+                >
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <Box>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 500 }}>
+                          Room {task.room.roomNumber}
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                          {task.room.floor.building.name}
+                        </Typography>
+                      </Box>
+                      <Chip 
+                        label={task.currentStatus}
+                        size="small"
+                        sx={{
+                          bgcolor: 
+                            task.currentStatus === 'Completed' ? '#dcfce7 !important' :
+                            task.currentStatus === 'Cancelled' ? '#fee2e2 !important' :
+                            task.currentStatus === 'In Progress' ? '#dbeafe !important' :
+                            '#f3f4f6 !important',
+                          color: 
+                            task.currentStatus === 'Completed' ? '#166534 !important' :
+                            task.currentStatus === 'Cancelled' ? '#991b1b !important' :
+                            task.currentStatus === 'In Progress' ? '#1e40af !important' :
+                            '#1f2937 !important',
+                        }}
+                      />
+                    </Box>
+
+                    <Box>
+                      <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                        {formatDate(task.scheduledDate)}
+                      </Typography>
+                      {task.problem && (
+                        <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
+                          {task.problem}
+                        </Typography>
+                      )}
+                    </Box>
+
+                    {task.updatedAt && (
+                      <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                        {task.currentStatus} at: {
+                          new Date(task.updatedAt).toLocaleString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })
+                        }
+                      </Typography>
+                    )}
+                  </Box>
+                </Paper>
+              ))
+            ) : (
+              <Paper 
+                elevation={0}
+                sx={{ 
+                  p: 2, 
+                  textAlign: 'center',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: 1
+                }}
+              >
+                <Typography sx={{ color: 'text.secondary' }}>
+                  No completed tasks
+                </Typography>
+              </Paper>
+            )}
+          </div>
+        )}
+      </div>
+
+      <Dialog open={showUpdateModal} onClose={() => setShowUpdateModal(false)}>
+        <DialogTitle>Update Task Status</DialogTitle>
         <DialogContent>
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="subtitle1" component="div" fontWeight="medium" gutterBottom>
-              {selectedTask?.problem}
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="subtitle1" gutterBottom>
+              Current Status: {selectedTask?.currentStatus}
             </Typography>
-            <Box display="flex" alignItems="center" gap={1} mb={1}>
-              <RoomIcon fontSize="small" color="action" />
-              <Typography variant="body2" component="span">
-                Building {selectedTask?.room?.building?.name}, Floor {selectedTask?.room?.floor?.floorNumber}, Room {selectedTask?.room?.roomNumber}
-              </Typography>
-            </Box>
-            <Box display="flex" alignItems="center" gap={1}>
-              <DescriptionIcon fontSize="small" color="action" />
-              <Typography variant="body2" component="span">
-                {selectedTask?.description}
-              </Typography>
-            </Box>
-          </Box>
-
-          {/* Tenant Information */}
-          {selectedTask?.room?.tenant && (
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="subtitle2" gutterBottom sx={{ color: 'text.secondary' }}>
-                Tenant Information
-              </Typography>
-              <Box display="flex" flexDirection="column" gap={1}>
-                <Box display="flex" alignItems="center" gap={1}>
-                  <PersonIcon fontSize="small" color="action" />
-                  <Typography variant="body2" component="span">
-                    {selectedTask?.room?.tenant?.name}
-                  </Typography>
-                </Box>
-                <Box display="flex" alignItems="center" gap={1}>
-                  <PhoneIcon fontSize="small" color="action" />
-                  <Typography variant="body2" component="span">
-                    {selectedTask?.room?.tenant?.phone}
-                  </Typography>
-                </Box>
-                <Box display="flex" alignItems="center" gap={1}>
-                  <ChatIcon fontSize="small" color="action" />
-                  <Typography variant="body2" component="span">
-                    LINE ID: {selectedTask?.room?.tenant?.lineId}
-                  </Typography>
-                </Box>
-              </Box>
-            </Box>
-          )}
-
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="h6" sx={{ mb: 2 }}>
-              Update Status
-            </Typography>
-            <Box display="flex" gap={1}>
-              {["Completed", "In Progress", "Cancelled"]
-                .filter(status => status !== selectedTask?.currentStatus)
-                .map((status) => (
-                  <Button
-                    key={status}
-                    variant={newStatus === status ? "contained" : "outlined"}
-                    onClick={() => setNewStatus(status)}
-                    sx={{
-                      borderColor: "#889F63",
-                      color: newStatus === status ? "#fff" : "#889F63",
-                      bgcolor: newStatus === status ? "#889F63" : "transparent",
-                      "&:hover": {
-                        borderColor: "#889F63",
-                        bgcolor: newStatus === status ? "#7A8F53" : "rgba(136, 159, 99, 0.08)",
-                      },
-                    }}
-                  >
-                    {status}
-                  </Button>
-                ))}
-            </Box>
           </Box>
 
           <TextField
+            select
             fullWidth
-            label="Add a comment (optional)"
+            label="New Status"
+            value={newStatus}
+            onChange={(e) => setNewStatus(e.target.value)}
+            sx={{ mb: 2 }}
+          >
+            <MenuItem value="Completed">Completed</MenuItem>
+            <MenuItem value="Cancelled">Cancelled</MenuItem>
+          </TextField>
+
+          <TextField
+            fullWidth
+            label="Comment"
             multiline
             rows={3}
             value={statusComment}
@@ -226,112 +312,23 @@ export default function MaintenanceTasks({
           />
         </DialogContent>
         <DialogActions>
-          <Button 
-            onClick={() => {
-              setShowUpdateModal(false);
-              setStatusComment("");
-              setNewStatus("");
-            }}
-          >
+          <Button onClick={() => setShowUpdateModal(false)} sx={{ color: '#889F63' }}>
             Cancel
           </Button>
-          <Button
-            onClick={handleUpdateStatus}
-            disabled={!newStatus}
-            sx={{
-              bgcolor: "#889F63",
-              color: "white",
-              "&:hover": {
-                bgcolor: "#7A8F53",
-              },
-              "&:disabled": {
-                bgcolor: "action.disabledBackground",
+          <Button 
+            onClick={handleUpdateStatus} 
+            variant="contained"
+            sx={{ 
+              bgcolor: '#889F63',
+              '&:hover': {
+                bgcolor: '#7A8F53',
               },
             }}
           >
-            Update Status
+            Update
           </Button>
         </DialogActions>
       </Dialog>
-    </>
-  );
-}
-
-function MaintenanceTaskItem({ task, onStatusUpdate, completed, formatDate }) {
-  const getStatusColor = (status) => {
-    switch (status?.toLowerCase()) {
-      case "completed":
-        return "success";
-      case "in progress":
-        return "info";
-      case "pending":
-        return "warning";
-      default:
-        return "default";
-    }
-  };
-
-  return (
-    <Paper elevation={2} sx={{ mb: 2, overflow: "hidden" }}>
-      <ListItem>
-        <ListItemText
-          primaryTypographyProps={{ component: "div" }}
-          secondaryTypographyProps={{ component: "div" }}
-          primary={
-            <Box display="flex" justifyContent="space-between" alignItems="center">
-              <Typography variant="h6" component="div">{task.problem}</Typography>
-              <Chip
-                label={task.currentStatus}
-                color={getStatusColor(task.currentStatus)}
-                size="small"
-              />
-            </Box>
-          }
-          secondary={
-            <Box sx={{ mt: 1 }}>
-              <Box display="flex" alignItems="center" gap={1} mb={0.5}>
-                <RoomIcon fontSize="small" color="action" />
-                <Typography variant="body2" component="span">
-                  Building {task.room?.building?.name}, Floor {task.room?.floor?.floorNumber}, Room {task.room?.roomNumber}
-                </Typography>
-              </Box>
-              <Box display="flex" alignItems="center" gap={1}>
-                <ScheduleIcon fontSize="small" color="action" />
-                <Typography variant="body2" component="span">
-                  {completed ? 
-                    `Completed: ${formatDate(task.updatedAt)}` : 
-                    `Created: ${formatDate(task.createdAt)}`
-                  }
-                </Typography>
-              </Box>
-              <Box display="flex" alignItems="center" gap={1}>
-                <DescriptionIcon fontSize="small" color="action" />
-                <Typography variant="body2" component="span">
-                  {task.description}
-                </Typography>
-              </Box>
-            </Box>
-          }
-        />
-      </ListItem>
-      {!completed && (
-        <Button
-          variant="outlined"
-          size="small"
-          onClick={onStatusUpdate}
-          sx={{
-            m: 1,
-            color: "#889F63",
-            borderColor: "#889F63",
-            "&:hover": {
-              borderColor: "#889F63",
-              bgcolor: "rgba(136, 159, 99, 0.08)",
-            },
-          }}
-        >
-          Update Status
-        </Button>
-      )}
-    </Paper>
+    </div>
   );
 }

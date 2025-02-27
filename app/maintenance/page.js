@@ -294,9 +294,9 @@ export default function MaintenancePage() {
       <Box
         sx={{
           mb: 4,
-          p: 2,
+          p: 4,
           bgcolor: "background.paper",
-          borderRadius: 1,
+          borderRadius: 3,
           boxShadow: 1,
         }}
       >

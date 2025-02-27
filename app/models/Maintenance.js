@@ -64,6 +64,10 @@ const maintenanceSchema = new Schema(
       default: "Pending",
     },
     statusHistory: [statusHistorySchema],
+    scheduledDate: {
+      type: Date,
+      required: false,
+    },
     estimatedCompletionDate: Date,
     actualCompletionDate: Date,
     createdBy: {

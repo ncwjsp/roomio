@@ -159,10 +159,10 @@ export default function TasksPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          slotId: taskId,
+          taskId,
           status,
           comment,
-          lineUserId,
+          technicianId: lineUserId,
         }),
       });
 
@@ -172,14 +172,15 @@ export default function TasksPage() {
         throw new Error(errorData.error || "Failed to update task");
       }
 
-      const { task } = await response.json();
+      const data = await response.json();
+      const updatedTask = data.maintenance;
       
       // Update the tasks lists
-      if (status === "completed" || status === "cancelled") {
+      if (status === "Completed" || status === "Cancelled") {
         setActiveTasks(activeTasks.filter(t => t._id !== taskId));
-        setCompletedTasks([task, ...completedTasks]);
+        setCompletedTasks([updatedTask, ...completedTasks]);
       } else {
-        setActiveTasks(activeTasks.map(t => t._id === taskId ? task : t));
+        setActiveTasks(activeTasks.map(t => t._id === taskId ? updatedTask : t));
       }
     } catch (error) {
       console.error("Error updating task:", error);
@@ -205,13 +206,16 @@ export default function TasksPage() {
             {staffRole === "Technician" ? "Maintenance Tasks" : "Cleaning Tasks"}
           </Typography>
           
-          {staffRole === "Technician" ? (
+          {staffRole === "Technician" && (
             <MaintenanceTasks
               activeTasks={activeTasks}
               completedTasks={completedTasks}
               onUpdateTask={handleUpdateTask}
+              technicianId={lineUserId}
+              isLoading={isLoading}
             />
-          ) : (
+          )}
+          {staffRole === "Housekeeper" && (
             <HousekeeperTasks
               activeTasks={activeTasks}
               completedTasks={completedTasks}

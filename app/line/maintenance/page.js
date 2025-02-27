@@ -384,7 +384,7 @@ const MaintenancePage = () => {
                   <div className="mt-6 flex justify-end">
                     <button
                       onClick={() => setShowDetailModal(false)}
-                      className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                      className="px-4 py-2 text-white hover:text-gray-600 hover:bg-gray-100 rounded-lg"
                     >
                       Close
                     </button>
@@ -493,7 +493,7 @@ const MaintenancePage = () => {
                         });
                         setPreviewImages([]);
                       }}
-                      className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                      className="px-4 py-2 text-white hover:bg-gray-100 hover:text-gray-800 rounded-lg"
                     >
                       Cancel
                     </button>

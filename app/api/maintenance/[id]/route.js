@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import Maintenance from "@/app/models/Maintenance";
 import Room from "@/app/models/Room";
+import Building from "@/app/models/Building";
+import Floor from "@/app/models/Floor";
+import Staff from "@/app/models/Staff";
 import Tenant from "@/app/models/Tenant";
 
 export async function GET(request, { params }) {
@@ -14,19 +17,24 @@ export async function GET(request, { params }) {
       .populate([
         {
           path: "room",
+          model: Room,
           populate: {
             path: "floor",
+            model: Floor,
             populate: {
               path: "building",
+              model: Building,
             },
           },
         },
         {
           path: "staff",
+          model: Staff,
           select: "firstName lastName specialization",
         },
         {
           path: "tenant",
+          model: Tenant,
           select: "name lineUserId",
         },
       ]);
@@ -38,7 +46,7 @@ export async function GET(request, { params }) {
       );
     }
 
-    console.log("Fetched ticket:", ticket); 
+
     return NextResponse.json({ ticket });
   } catch (error) {
     console.error("Error fetching maintenance ticket:", error);

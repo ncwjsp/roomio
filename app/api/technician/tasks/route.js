@@ -6,6 +6,7 @@ import Room from "@/app/models/Room";
 import Building from "@/app/models/Building";
 import Floor from "@/app/models/Floor";
 import User from "@/app/models/User";
+import LineContact from "@/app/models/LineContact"; // Added import statement
 import { sendMaintenanceNotification } from "@/lib/notifications";
 
 export async function GET(request) {
@@ -22,73 +23,63 @@ export async function GET(request) {
       );
     }
 
-    // Find the technician by lineUserId
-    const technician = await Staff.findOne({ lineUserId });
-    if (!technician) {
+    // Find staff member by Line User ID
+    const staff = await Staff.findOne({ lineUserId });
+    if (!staff) {
       return NextResponse.json(
-        { error: "Technician not found" },
+        { error: "Staff member not found" },
         { status: 404 }
       );
     }
 
-    // Get all maintenance tasks assigned to this technician
-    const tasks = await Maintenance.find({
-      staff: technician._id,
-      currentStatus: { $in: ["In Progress", "Pending"] }
-    })
-    .populate({
-      path: "room",
-      model: Room,
-      select: "building floor roomNumber tenant",
-      populate: [
-        {
-          path: "building",
-          select: "name"
-        },
-        {
+    // Get all active maintenance tasks assigned to this staff member
+    const activeTasks = await Maintenance.find({
+      staff: staff._id,
+      currentStatus: { $nin: ["Completed", "Cancelled"] },
+      scheduledDate: { $exists: true }
+    }).populate([
+      {
+        path: "room",
+        select: "roomNumber",
+        populate: {
           path: "floor",
-          select: "floorNumber"
-        },
-        {
-          path: "tenant",
-          select: "name phone lineUserId"
+          select: "floorNumber",
+          populate: {
+            path: "building",
+            select: "name"
+          }
         }
-      ]
-    });
+      }
+    ]).sort({ scheduledDate: 1 });
 
+    // Get completed and cancelled maintenance tasks assigned to this staff member
     const completedTasks = await Maintenance.find({
-      staff: technician._id,
-      currentStatus: "Completed"
-    })
-    .populate({
-      path: "room",
-      model: Room,
-      select: "building floor roomNumber tenant",
-      populate: [
-        {
-          path: "building",
-          select: "name"
-        },
-        {
+      staff: staff._id,
+      currentStatus: { $in: ["Completed", "Cancelled"] },
+      scheduledDate: { $exists: true }
+    }).populate([
+      {
+        path: "room",
+        select: "roomNumber",
+        populate: {
           path: "floor",
-          select: "floorNumber"
-        },
-        {
-          path: "tenant",
-          select: "name phone lineUserId"
+          select: "floorNumber",
+          populate: {
+            path: "building",
+            select: "name"
+          }
         }
-      ]
-    });
+      }
+    ]).sort({ updatedAt: -1 });
 
     return NextResponse.json({
-      technicianId: technician._id,
-      activeTasks: tasks,
+      activeTasks,
       completedTasks
     });
   } catch (error) {
-    console.error("Error fetching tasks:", error);
+    console.error("Error fetching technician tasks:", error);
     return NextResponse.json(
-      { error: "Failed to fetch tasks" },
+      { error: "Failed to fetch technician tasks" },
       { status: 500 }
     );
   }
@@ -108,7 +99,53 @@ export async function PUT(request) {
       );
     }
 
-    const maintenance = await Maintenance.findById(taskId);
+    // Validate status against allowed values
+    const allowedStatuses = ["Pending", "In Progress", "Completed", "Cancelled"];
+    if (!allowedStatuses.includes(status)) {
+      return NextResponse.json(
+        { error: "Invalid status value" },
+        { status: 400 }
+      );
+    }
+
+    // First find the staff member by their Line User ID
+    const staff = await Staff.findOne({ lineUserId: technicianId });
+    if (!staff) {
+      return NextResponse.json(
+        { error: "Staff member not found" },
+        { status: 404 }
+      );
+    }
+
+    const maintenance = await Maintenance.findById(taskId).populate([
+      {
+        path: "room",
+        select: "roomNumber tenant createdBy floor",
+        populate: [
+          {
+            path: "floor",
+            select: "name building",
+            populate: {
+              path: "building",
+              select: "name"
+            }
+          },
+          {
+            path: "tenant",
+            select: "name lineUserId email phone"
+          },
+          {
+            path: "createdBy",
+            select: "name lineConfig"
+          }
+        ]
+      },
+      {
+        path: "staff",
+        select: "firstName lastName"
+      }
+    ]);
+
     if (!maintenance) {
       return NextResponse.json(
         { error: "Maintenance task not found" },
@@ -116,60 +153,52 @@ export async function PUT(request) {
       );
     }
 
-    // Add status history
+    console.log("Maintenance data:", {
+      id: maintenance._id,
+      problem: maintenance.problem,
+      roomNumber: maintenance.room?.roomNumber,
+      tenantName: maintenance.room?.tenant?.name,
+      tenantLineUserId: maintenance.room?.tenant?.lineUserId,
+      landlordLineConfig: !!maintenance.room?.createdBy?.lineConfig
+    });
+
+    // Add status history using the staff's ObjectId
     maintenance.statusHistory.push({
       status,
       comment: comment || "",
       updatedAt: new Date(),
-      updatedBy: technicianId,
+      updatedBy: staff._id,
       updatedByModel: "Staff"
     });
 
     maintenance.currentStatus = status;
     await maintenance.save();
 
-    // Populate the same fields as in GET for consistency
-    await maintenance.populate([
-      {
-        path: "room",
-        populate: [
-          {
-            path: "floor",
-            populate: {
-              path: "building",
-            },
-          },
-          {
-            path: "tenant",
-            select: "name phone lineUserId",
-          },
-        ],
-      },
-      {
-        path: "staff",
-        select: "firstName lastName specialization",
-      },
-    ]);
-
-    // Get the landlord's ID for Line notifications
-    const landlord = await User.findOne({
-      "lineConfig.channelAccessToken": { $exists: true },
-      "lineConfig.channelSecret": { $exists: true },
-    });
-
-    if (landlord) {
-      // Send Line notification
-      await sendMaintenanceNotification({
-        userId: landlord._id,
-        maintenance,
-        status,
-        comment: comment || `Status updated to ${status} by ${maintenance.staff.firstName} ${maintenance.staff.lastName}`,
-      });
+    // Send notification to tenant (but don't fail if it doesn't work)
+    try {
+      if (maintenance.room?.tenant?.lineUserId) {
+        // Skip if lineUserId looks like a MongoDB ObjectId (24 hex chars)
+        if (maintenance.room.tenant.lineUserId.match(/^[0-9a-fA-F]{24}$/)) {
+          console.log("Skipping notification - lineUserId appears to be a MongoDB ObjectId, not a LINE ID");
+        } else {
+          const notificationMessage = comment || `Your maintenance request has been ${status.toLowerCase()} by ${staff.firstName} ${staff.lastName}`;
+          
+          await sendMaintenanceNotification({
+            userId: maintenance.room.tenant.lineUserId,
+            maintenance,
+            status,
+            comment: notificationMessage
+          });
+          console.log("Successfully sent notification to tenant with LINE ID:", maintenance.room.tenant.lineUserId);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to send notification to tenant:", error.message);
+      // Continue with the request even if notification fails
     }
 
-    return NextResponse.json({ task: maintenance });
+    return NextResponse.json({ success: true, maintenance });
   } catch (error) {
-    console.error("Error updating task status:", error);
     return NextResponse.json(
       { error: "Failed to update task status" },
       { status: 500 }
