@@ -514,7 +514,7 @@ export default function BillingPage() {
             variant="contained"
             onClick={() => router.push('/setting')}
             sx={{
-              bgcolor: '#889F63',
+              bgcolor: '#898F63',
               '&:hover': {
                 bgcolor: '#7A8F53',
               },
