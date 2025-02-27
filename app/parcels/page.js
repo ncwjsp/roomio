@@ -26,6 +26,7 @@ import {
   Grid,
   Autocomplete,
   TablePagination,
+  Alert,
 } from "@mui/material";
 import {
   LocalShipping,
@@ -89,6 +90,7 @@ const ParcelsPage = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [availableRooms, setAvailableRooms] = useState([]);
   const [selectedRoom, setSelectedRoom] = useState("");
+  const [formError, setFormError] = useState("");
   const [selectedModalBuilding, setSelectedModalBuilding] = useState("");
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -273,8 +275,35 @@ const ParcelsPage = () => {
     }
   };
 
+  // Validate tracking number format
+  const validateTrackingNumber = (trackingNumber) => {
+    // Trim whitespace
+    const trimmed = trackingNumber.trim();
+    
+    // Basic validation - ensure it's not empty and has a reasonable length
+    if (!trimmed) {
+      setFormError("Tracking number cannot be empty");
+      return false;
+    }
+    
+    if (trimmed.length < 3) {
+      setFormError("Tracking number is too short");
+      return false;
+    }
+    
+    return true;
+  };
+
   const handleAddParcel = async () => {
     try {
+      // Clear any previous errors
+      setFormError("");
+      
+      // Validate tracking number
+      if (!validateTrackingNumber(newParcel.trackingNumber)) {
+        return;
+      }
+      
       const response = await fetch("/api/parcels", {
         method: "POST",
         headers: {
@@ -287,8 +316,9 @@ const ParcelsPage = () => {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to add parcel");
+        const errorData = await response.json();
+        setFormError(errorData.error || "Failed to add parcel");
+        return;
       }
 
       const data = await response.json();
@@ -303,6 +333,7 @@ const ParcelsPage = () => {
       // setShowNotification(true);
     } catch (error) {
       console.error("Error adding parcel:", error);
+      setFormError(error.message || "An unexpected error occurred");
       // Handle error notification if you have one
       // setErrorMessage(error.message);
       // setShowNotification(true);
@@ -415,6 +446,7 @@ const ParcelsPage = () => {
     setShowAddForm(false);
     setSelectedModalBuilding("");
     setSelectedRoom("");
+    setFormError(""); // Clear any error messages
     setNewParcel({
       room: "",
       tenant: "",
@@ -668,6 +700,11 @@ const ParcelsPage = () => {
         <DialogTitle>Add New Parcel</DialogTitle>
         <DialogContent>
           <Box sx={{ pt: 2 }}>
+            {formError && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {formError}
+              </Alert>
+            )}
             <Grid container spacing={2}>
               <Grid item xs={12}>
                 <FormControl fullWidth>
@@ -737,9 +774,19 @@ const ParcelsPage = () => {
                   onChange={(e) =>
                     setNewParcel({
                       ...newParcel,
-                      trackingNumber: e.target.value,
+                      trackingNumber: e.target.value.trim(),
                     })
                   }
+                  onBlur={(e) => {
+                    // Normalize tracking number on blur
+                    const normalized = e.target.value.trim();
+                    setNewParcel({
+                      ...newParcel,
+                      trackingNumber: normalized,
+                    });
+                  }}
+                  error={formError.includes("tracking number")}
+                  helperText={formError.includes("tracking number") ? formError : ""}
                   required
                 />
               </Grid>

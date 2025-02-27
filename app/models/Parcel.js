@@ -69,4 +69,16 @@ ParcelSchema.virtual("location").get(function () {
   return `Room ${this.room?.roomNumber}, ${this.room?.floor?.building?.name}`;
 });
 
+// Pre-save hook to normalize tracking numbers
+ParcelSchema.pre("save", function (next) {
+  if (this.trackingNumber) {
+    // Normalize to uppercase and trim whitespace
+    this.trackingNumber = this.trackingNumber.trim().toUpperCase();
+  }
+  next();
+});
+
+// Create a compound index for trackingNumber + landlordId to enforce uniqueness
+ParcelSchema.index({ trackingNumber: 1, landlordId: 1 }, { unique: true });
+
 export default mongoose.models.Parcel || mongoose.model("Parcel", ParcelSchema);

@@ -82,7 +82,7 @@ export async function PUT(request, context) {
       }
     } catch (error) {
       console.error("Failed to send notification to tenant:", error.message);
-      // Continue with the request even if notification fails
+
     }
 
     return NextResponse.json({ success: true, maintenance });

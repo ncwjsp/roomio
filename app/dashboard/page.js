@@ -11,10 +11,6 @@ import {
   waterUsageData,
   staffSalaryData,
   otherExpenseData,
-  overviewStats,
-  overduePaymentPieData,
-  roomVacancyPieData,
-  maintenancePieData,
   incomeSummaryCards,
 } from "@/app/data/chartData";
 import { Box} from "@mui/material";
@@ -52,25 +48,122 @@ const Dashboard = () => {
   const [tab, setTab] = useState("Overview");
   const [selectedCard, setSelectedCard] = useState(null);
   const [view, setView] = useState("Monthly");
-  const [selectedYear, setSelectedYear] = useState("2024");
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [selectedMonth, setSelectedMonth] = useState("Jan");
+  
+  // Add state for user ID
+  const [userId, setUserId] = useState(null);
+  
+  // Add state for real-time dashboard data
+  const [overviewStats, setOverviewStats] = useState([]);
+  const [overduePaymentPieData, setOverduePaymentPieData] = useState([]);
+  const [roomVacancyPieData, setRoomVacancyPieData] = useState([]);
+  const [maintenancePieData, setMaintenancePieData] = useState([]);
+  const [dashboardError, setDashboardError] = useState(null);
+  
+  // Add state for financial data
+  const [monthlyFinancialData, setMonthlyFinancialData] = useState([]);
+  const [yearlyFinancialData, setYearlyFinancialData] = useState([]);
+  const [financialError, setFinancialError] = useState(null);
+
+  // Add effect to get the current user ID
+  useEffect(() => {
+    const getCurrentUser = async () => {
+      try {
+        const response = await fetch('/api/auth/session');
+        if (!response.ok) {
+          throw new Error('Failed to fetch user session');
+        }
+        
+        const data = await response.json();
+        if (data.user?.id) {
+          setUserId(data.user.id);
+        }
+      } catch (error) {
+        console.error('Error fetching user session:', error);
+      }
+    };
+    
+    getCurrentUser();
+  }, []);
 
   useEffect(() => {
-    // Simulate initial data loading
-    const loadInitialData = async () => {
+    // Fetch real-time dashboard data
+    const fetchDashboardData = async () => {
+      if (!userId) return; // Don't fetch if we don't have a user ID
+      
       try {
         setIsLoading(true);
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        setDashboardError(null);
+        
+        const response = await fetch(`/api/dashboard/overview?userId=${userId}`);
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch dashboard data');
+        }
+        
+        const data = await response.json();
+        
+        // Update state with fetched data
+        setOverviewStats(data.overviewStats);
+        setOverduePaymentPieData(data.overduePaymentPieData);
+        setRoomVacancyPieData(data.roomVacancyPieData);
+        setMaintenancePieData(data.maintenancePieData);
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+        setDashboardError(error.message);
       } finally {
         setIsLoading(false);
       }
     };
-    loadInitialData();
-  }, []);
+    
+    fetchDashboardData();
+  }, [userId]);
+  
+  const fetchFinancialData = async (currentView, year) => {
+    if (!userId) return; // Don't fetch if we don't have a user ID
+    
+    try {
+      setFinancialError(null);
+      setIsChartLoading(true);
+      
+      const viewParam = currentView === "Monthly" ? "monthly" : "yearly";
+      const response = await fetch(`/api/dashboard/financial?view=${viewParam}&year=${year}&userId=${userId}`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch financial data');
+      }
+      
+      const data = await response.json();
+      
+      if (currentView === "Monthly") {
+        setMonthlyFinancialData(data.monthlyData || []);
+      } else {
+        setYearlyFinancialData(data.yearlyData || []);
+      }
+    } catch (error) {
+      console.error('Error fetching financial data:', error);
+      setFinancialError(error.message);
+    } finally {
+      setIsChartLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (tab === "Income Summary") {
+      fetchFinancialData(view, selectedYear);
+    }
+  }, [tab, view, selectedYear]);
 
   const handleTabChange = async (newTab) => {
     setIsChartLoading(true);
     setTab(newTab);
+    
+    // If switching to Income Summary tab, ensure financial data is fetched
+    if (newTab === "Income Summary" && monthlyFinancialData.length === 0) {
+      await fetchFinancialData(view, selectedYear);
+    }
+    
     await new Promise(resolve => setTimeout(resolve, 500));
     setIsChartLoading(false);
   };
@@ -80,6 +173,11 @@ const Dashboard = () => {
       {isChartLoading ? (
         <div className="flex justify-center items-center min-h-[400px]">
           <LoadingSpinner />
+        </div>
+      ) : dashboardError ? (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
+          <strong className="font-bold">Error: </strong>
+          <span className="block sm:inline">{dashboardError}</span>
         </div>
       ) : (
         <div>
@@ -105,7 +203,7 @@ const Dashboard = () => {
           <div className="grid grid-cols-2 gap-4 mb-6">
             <PieChartComponent
               data={overduePaymentPieData}
-              title="Overdue Payments"
+              title="Payments"
             />
             <PieChartComponent data={roomVacancyPieData} title="Room Vacancy" />
           </div>
@@ -127,10 +225,25 @@ const Dashboard = () => {
   );
 
   const renderBarChart = () => {
-    let chartData = view === "Monthly" ? monthlyRevenueExpenseData :
-      yearlyRevenueExpenseData.find(data => data.year === selectedYear)
-        ? [yearlyRevenueExpenseData.find(data => data.year === selectedYear)]
-        : [];
+    let chartData = view === "Monthly" ? monthlyFinancialData :
+      yearlyFinancialData;
+      
+    if (isChartLoading) {
+      return (
+        <div className="flex justify-center items-center min-h-[400px]">
+          <LoadingSpinner />
+        </div>
+      );
+    }
+    
+    if (financialError) {
+      return (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
+          <strong className="font-bold">Error: </strong>
+          <span className="block sm:inline">{financialError}</span>
+        </div>
+      );
+    }
 
     return (
       <div className="mt-8">
@@ -140,7 +253,7 @@ const Dashboard = () => {
         <div className="bg-white p-4 rounded-[10px] shadow">
           <BarChartComponent
             data={chartData}
-            xKey="month"
+            xKey={view === "Monthly" ? "month" : "year"}
             yKeys={[
               { dataKey: "revenue", color: "#588F46", name: "Revenue" },
               { dataKey: "expense", color: "#CE4C4C", name: "Expense" },
@@ -273,8 +386,8 @@ const Dashboard = () => {
 
           {selectedCard === "revenue" && (
             <LineChartComponent
-              data={view === "Monthly" ? monthlyRevenueExpenseData : 
-                yearlyRevenueExpenseData.filter(data => data.year === selectedYear)}
+              data={view === "Monthly" ? monthlyFinancialData : 
+                yearlyFinancialData}
               title="Revenue Graph"
               xKey={view === "Monthly" ? "month" : "year"}
               yKeys={[{ dataKey: "revenue", color: "#4AD991" }]}
@@ -282,8 +395,8 @@ const Dashboard = () => {
           )}
           {selectedCard === "expense" && (
             <LineChartComponent
-              data={view === "Monthly" ? monthlyRevenueExpenseData :
-                yearlyRevenueExpenseData.filter(data => data.year === selectedYear)}
+              data={view === "Monthly" ? monthlyFinancialData :
+                yearlyFinancialData}
               title="Expense Graph"
               xKey={view === "Monthly" ? "month" : "year"}
               yKeys={[{ dataKey: "expense", color: "#F30505" }]}
@@ -291,8 +404,8 @@ const Dashboard = () => {
           )}
           {selectedCard === "net-profit" && (
             <LineChartComponent
-              data={view === "Monthly" ? monthlyRevenueExpenseData :
-                yearlyRevenueExpenseData.filter(data => data.year === selectedYear)}
+              data={view === "Monthly" ? monthlyFinancialData :
+                yearlyFinancialData}
               title="Net Profit/Loss Graph"
               xKey={view === "Monthly" ? "month" : "year"}
               yKeys={[

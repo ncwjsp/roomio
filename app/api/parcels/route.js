@@ -57,6 +57,28 @@ export async function POST(request) {
       return NextResponse.json({ error: "Room not found" }, { status: 404 });
     }
 
+    // Check if a parcel with the same tracking number already exists
+    if (parcelData.trackingNumber) {
+      // Normalize the tracking number (trim and convert to uppercase)
+      const normalizedTrackingNumber = parcelData.trackingNumber.trim().toUpperCase();
+      
+      // Update the tracking number in the parcel data
+      parcelData.trackingNumber = normalizedTrackingNumber;
+      
+      const existingParcel = await Parcel.findOne({ 
+        // Use a case-insensitive regex to match tracking numbers
+        trackingNumber: { $regex: new RegExp(`^${normalizedTrackingNumber}$`, 'i') },
+        landlordId: room.tenant.landlordId
+      });
+      
+      if (existingParcel) {
+        return NextResponse.json(
+          { error: "A parcel with this tracking number already exists" },
+          { status: 400 }
+        );
+      }
+    }
+
     // Create new parcel
     const parcel = new Parcel({
       room: room._id,
