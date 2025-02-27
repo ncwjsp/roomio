@@ -3,6 +3,7 @@ import dbConnect from "@/lib/mongodb";
 import Building from "@/app/models/Building";
 import Floor from "@/app/models/Floor";
 import Room from "@/app/models/Room";
+import mongoose from "mongoose";
 
 export async function POST(request) {
   try {
@@ -49,38 +50,66 @@ export async function POST(request) {
     });
     await building.save();
 
+    // Prepare bulk operations for floors and rooms
+    const floorOps = [];
+    const roomOps = [];
+    const floorIds = [];
+    const roomIds = [];
+
     // Create floors and rooms
     for (let i = 1; i <= data.totalFloors; i++) {
-      const floor = new Floor({
-        building: building._id,
-        floorNumber: i,
-        rooms: [],
-        createdBy: data.userId,
-      });
-      await floor.save();
-
+      const floorId = new mongoose.Types.ObjectId();
+      floorIds.push(floorId);
+      
+      const floorRoomIds = [];
+      
       // Create rooms for this floor
       for (let j = 1; j <= data.roomsPerFloor; j++) {
-        // Format: A101, A102, etc. (no leading zeros for floor number)
+        const roomId = new mongoose.Types.ObjectId();
         const roomNumber = `${building.name}${i}${j.toString().padStart(2, "0")}`;
-        const room = new Room({
-          building: building._id,
-          floor: floor._id,
-          roomNumber,
-          status: "Available",
-          price: data.basePrice,
-          createdBy: data.userId,
+        
+        roomIds.push(roomId);
+        floorRoomIds.push(roomId);
+        
+        roomOps.push({
+          insertOne: {
+            document: {
+              _id: roomId,
+              building: building._id,
+              floor: floorId,
+              roomNumber,
+              status: "Available",
+              price: data.basePrice,
+              createdBy: data.userId,
+            }
+          }
         });
-        await room.save();
-
-        // Add room to floor
-        floor.rooms.push(room._id);
       }
-      await floor.save();
-
-      // Add floor to building
-      building.floors.push(floor._id);
+      
+      floorOps.push({
+        insertOne: {
+          document: {
+            _id: floorId,
+            building: building._id,
+            floorNumber: i,
+            rooms: floorRoomIds,
+            createdBy: data.userId,
+          }
+        }
+      });
     }
+
+    // Execute bulk operations
+    if (floorOps.length > 0) {
+      await Floor.bulkWrite(floorOps);
+    }
+    
+    if (roomOps.length > 0) {
+      await Room.bulkWrite(roomOps);
+    }
+
+    // Update building with all floor references
+    building.floors = floorIds;
     await building.save();
 
     return NextResponse.json({
