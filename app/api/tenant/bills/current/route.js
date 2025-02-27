@@ -45,6 +45,7 @@ export async function GET(request) {
     const bill = await Bill.findOne({
       roomId: tenant.room,
       month: currentMonth,
+      isSent: true
     }).populate({
       path: "roomId",
       select: "roomNumber floor tenant",

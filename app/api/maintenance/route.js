@@ -5,6 +5,7 @@ import Tenant from "@/app/models/Tenant";
 import Room from "@/app/models/Room";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
+import Building from "@/app/models/Building";
 
 export async function GET(request) {
   try {

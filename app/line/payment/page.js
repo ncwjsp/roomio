@@ -9,6 +9,7 @@ import {
   Button,
   Snackbar,
   Fade,
+  Alert
 } from "@mui/material";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
@@ -68,14 +69,26 @@ function PaymentPage() {
 
   const fetchCurrentBill = async (userId, landlordId) => {
     try {
+      setLoading(true);
       const response = await fetch(
         `/api/tenant/bills/current?lineUserId=${userId}&landlordId=${landlordId}`
       );
-      if (!response.ok) throw new Error("Failed to fetch bill");
-      const data = await response.json();
-      setBill(data);
+      
+      if (response.status === 404) {
+        setBill(null);
+        setError(null);
+      } else if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to fetch bill");
+      } else {
+        const data = await response.json();
+        setBill(data);
+        setError(null);
+      }
     } catch (error) {
-      setError("Failed to fetch bill details");
+      console.error("Error fetching bill:", error);
+      setError("Something went wrong while fetching your bill");
+      setBill(null);
     } finally {
       setLoading(false);
     }
@@ -279,7 +292,7 @@ function PaymentPage() {
     );
   };
 
-   if (loading) {
+  if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" p={4}>
         <CircularProgress size={24} sx={{ color: '#889F63' }} />
@@ -287,8 +300,71 @@ function PaymentPage() {
     );
   }
 
-  if (error) return <div style={{ color: "red" }}>{error}</div>;
-  if (!bill) return <div>No current bill found</div>;
+  if (error) {
+    return (
+      <Box 
+        display="flex" 
+        flexDirection="column" 
+        alignItems="center" 
+        justifyContent="center" 
+        p={3}
+        textAlign="center"
+      >
+        <Alert 
+          severity="error"
+          sx={{ 
+            width: '100%',
+            maxWidth: 400,
+            '& .MuiAlert-message': { width: '100%' }
+          }}
+        >
+          <Typography align="center">
+            Something went wrong while fetching your bill. Please try again later.
+          </Typography>
+        </Alert>
+      </Box>
+    );
+  }
+
+  if (!bill) {
+    const currentDate = new Date();
+    const message = currentDate.getDate() < 25 
+      ? "Your bill for this month will be available after the 25th"
+      : "Your bill for this month hasn't been generated yet";
+
+    return (
+      <Box 
+        display="flex" 
+        flexDirection="column" 
+        alignItems="center" 
+        justifyContent="center" 
+        p={3}
+        textAlign="center"
+      >
+        <AccessTimeIcon 
+          sx={{ 
+            fontSize: 48, 
+            color: 'text.secondary',
+            mb: 2 
+          }} 
+        />
+        <Typography 
+          variant="h6" 
+          color="text.primary" 
+          gutterBottom
+        >
+          No Bill Available
+        </Typography>
+        <Typography 
+          variant="body1" 
+          color="text.secondary"
+          sx={{ maxWidth: 300 }}
+        >
+          {message}
+        </Typography>
+      </Box>
+    );
+  }
 
   // Find the bank details from the THAI_BANKS object using landlord's bankCode
   const bankDetails =
@@ -379,131 +455,68 @@ function PaymentPage() {
             <Box
               sx={{
                 display: "flex",
-                flexDirection: "column",
+                justifyContent: "space-between",
                 padding: "8px 0",
                 borderBottom: "1px solid #eee",
               }}
             >
-              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                <Typography variant="body2" color="text.secondary">
-                  Room Rent
-                </Typography>
-                <Typography variant="body2">
-                  ฿{bill.actualRentAmount.toLocaleString()}
-                </Typography>
-              </Box>
-              {/* Rental Period */}
-              {(() => {
-                const period = getRentalPeriod(bill);
-                return (
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      color: period.isPartial
-                        ? "warning.main"
-                        : "text.secondary",
-                      mt: 0.5,
-                    }}
-                  >
-                    {period.isPartial ? "Partial month: " : "Period: "}
-                    {period.start} - {period.end}
-                  </Typography>
-                );
-              })()}
-            </Box>
-
-            {/* Water */}
-            <Box
-              sx={{
-                display: "flex",
-                flexDirection: "column",
-                padding: "8px 0",
-                borderBottom: "1px solid #eee",
-              }}
-            >
-              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                <Typography variant="body2" color="text.secondary">
-                  Water
-                </Typography>
-                <Typography variant="body2">
-                  ฿{bill.waterAmount.toLocaleString()}
-                </Typography>
-              </Box>
-              <Typography
-                variant="caption"
-                sx={{
-                  color: "text.secondary",
-                  mt: 0.5,
-                }}
-              >
-                {bill.waterUsage} units * {bill.waterRate}
+              <Typography variant="body2" color="text.secondary">
+                Room Rent
+              </Typography>
+              <Typography variant="body2">
+                ฿{(bill?.actualRentAmount || bill?.rentAmount || 0).toLocaleString()}
               </Typography>
             </Box>
 
-            {/* Electricity */}
-            <Box
-              sx={{
-                display: "flex",
-                flexDirection: "column",
-                padding: "8px 0",
-                borderBottom: "1px solid #eee",
-              }}
-            >
-              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                <Typography variant="body2" color="text.secondary">
-                  Electricity
-                </Typography>
-                <Typography variant="body2">
-                  ฿{bill.electricityAmount.toLocaleString()}
-                </Typography>
-              </Box>
-              <Typography
-                variant="caption"
-                sx={{
-                  color: "text.secondary",
-                  mt: 0.5,
-                }}
-              >
-                {bill.electricityUsage} units * {bill.electricityRate}
-              </Typography>
-            </Box>
+            {/* Utilities */}
+            {(bill?.waterAmount > 0 || bill?.electricityAmount > 0) && (
+              <>
+                {bill?.waterAmount > 0 && (
+                  <Box sx={{ display: "flex", justifyContent: "space-between", mt: 1 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Water Bill
+                    </Typography>
+                    <Typography variant="body2">
+                      ฿{bill.waterAmount.toLocaleString()}
+                    </Typography>
+                  </Box>
+                )}
+                {bill?.electricityAmount > 0 && (
+                  <Box sx={{ display: "flex", justifyContent: "space-between", mt: 1 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Electricity Bill
+                    </Typography>
+                    <Typography variant="body2">
+                      ฿{bill.electricityAmount.toLocaleString()}
+                    </Typography>
+                  </Box>
+                )}
+              </>
+            )}
 
             {/* Additional Fees */}
-            {bill.additionalFees?.map((fee, index) => (
-              <Box
-                key={index}
-                sx={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  padding: "8px 0",
-                  borderBottom: "1px solid #eee",
-                }}
-              >
-                <Typography variant="body2" color="text.secondary">
-                  {fee.name}
-                </Typography>
-                <Typography variant="body2">
-                  ฿{fee.price.toLocaleString()}
-                </Typography>
-              </Box>
-            ))}
+            {bill?.additionalFees?.length > 0 && (
+              <>
+                {bill.additionalFees.map((fee, index) => (
+                  <Box key={index} sx={{ display: "flex", justifyContent: "space-between", mt: 1 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      {fee.name}
+                    </Typography>
+                    <Typography variant="body2">
+                      ฿{(fee.price || 0).toLocaleString()}
+                    </Typography>
+                  </Box>
+                ))}
+              </>
+            )}
 
             {/* Total Amount */}
-            <Box
-              sx={{
-                display: "flex",
-                justifyContent: "space-between",
-                padding: "12px 0",
-                marginTop: "8px",
-                borderTop: "2px solid #eee",
-                borderBottom: "2px solid #eee",
-              }}
-            >
-              <Typography variant="subtitle2" sx={{ fontWeight: "600" }}>
+            <Box sx={{ display: "flex", justifyContent: "space-between", mt: 2, pt: 2, borderTop: 1, borderColor: "divider" }}>
+              <Typography variant="subtitle2">
                 Total Amount
               </Typography>
-              <Typography variant="subtitle2" sx={{ fontWeight: "600" }}>
-                ฿{bill.totalAmount.toLocaleString()}
+              <Typography variant="subtitle2">
+                ฿{(bill?.totalAmount || 0).toLocaleString()}
               </Typography>
             </Box>
           </Box>

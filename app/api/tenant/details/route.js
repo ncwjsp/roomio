@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import Tenant from "@/app/models/Tenant";
 import mongoose from "mongoose";
+import Room from "@/app/models/Room";
+import Building from "@/app/models/Building";
 
 export async function GET(request) {
   try {

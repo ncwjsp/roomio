@@ -82,6 +82,10 @@ const billSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    isSent: {
+      type: Boolean,
+      default: false
+    },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
