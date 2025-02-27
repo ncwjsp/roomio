@@ -100,7 +100,7 @@ const HousekeeperTasks = ({
             <div className="flex justify-between items-start">
               <div>
                 <Typography variant="h6" className="text-gray-900">
-                  Room {task.tenant?.roomNumber || 'N/A'} - {task.building || 'Unknown Building'}
+                  Room {task.tenant.roomNumber || 'N/A'} - {task.building?.name || 'Unknown Building'}
                 </Typography>
   
               </div>
@@ -240,7 +240,7 @@ const HousekeeperTasks = ({
                     Building & Room
                   </Typography>
                   <Typography variant="body1" className="text-gray-900">
-                    {selectedTask.building} - Room {selectedTask.tenant?.roomNumber || 'N/A'}
+                    {selectedTask.building?.name} - Room {selectedTask.bookedBy?.room?.roomNumber || 'N/A'}
                   </Typography>
                 </div>
                 <div>

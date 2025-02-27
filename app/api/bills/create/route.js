@@ -5,7 +5,26 @@ import Room from "@/app/models/Room";
 import Bill from "@/app/models/Bill";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
-import { addDays, format, isValid, parseISO } from "date-fns";
+import { addDays, format, isValid, parseISO, getDaysInMonth } from "date-fns";
+
+// Calculate prorated rent for mid-month move-ins
+const calculateRentAmount = (moveInDate, roomPrice, billingDate) => {
+  // If move-in date is after billing date
+  if (moveInDate > billingDate) {
+    // Calculate days until next billing date
+    const nextBillingDate = new Date(billingDate);
+    nextBillingDate.setMonth(billingDate.getMonth() + 1);
+
+    const daysInMonth = getDaysInMonth(billingDate);
+    const daysStayed = Math.ceil(
+      (nextBillingDate - moveInDate) / (1000 * 60 * 60 * 24)
+    );
+
+    return Math.round((roomPrice / daysInMonth) * daysStayed);
+  }
+
+  return roomPrice; // Full month for regular billing
+};
 
 export async function POST(request) {
   try {
@@ -66,24 +85,28 @@ export async function POST(request) {
               return null;
             }
 
+            // Calculate prorated rent if tenant moved in after billing date
+            const moveInDate = room.tenant?.moveInDate ? new Date(room.tenant.moveInDate) : null;
+            const rentAmount = moveInDate ? calculateRentAmount(moveInDate, room.price, parsedDate) : room.price;
+
             return Bill.create({
               roomId: room._id,
               buildingId: building._id,
               month: month,
               billingDate: parsedDate,
               dueDate,
-              rentAmount: room.price,
+              rentAmount,
               waterRate: building.waterRate,
               electricityRate: building.electricityRate,
               status: "pending",
               createdBy: session.user.id,
               additionalFees: [],
-              notes: "",
+              notes: moveInDate > parsedDate ? "Prorated rent for mid-month move-in" : "",
               waterUsage: 0,
               electricityUsage: 0,
               waterAmount: 0,
               electricityAmount: 0,
-              totalAmount: room.price, // Initial total is just the rent amount
+              totalAmount: rentAmount, // Initial total is just the rent amount
             });
           })
         );

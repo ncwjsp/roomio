@@ -173,10 +173,10 @@ export default function TasksPage() {
       }
 
       const data = await response.json();
-      const updatedTask = data.maintenance;
+      const updatedTask = data.task; // API returns data.task not data.maintenance
       
       // Update the tasks lists
-      if (status === "Completed" || status === "Cancelled") {
+      if (status === "completed" || status === "cancelled") { // Match the status values from API
         setActiveTasks(activeTasks.filter(t => t._id !== taskId));
         setCompletedTasks([updatedTask, ...completedTasks]);
       } else {

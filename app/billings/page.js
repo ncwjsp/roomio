@@ -294,11 +294,28 @@ export default function BillingPage() {
     setSelectedMonth(format(newDate, "yyyy-MM"));
   };
 
-  const handleCreateBills = async () => {
+  const handleCreateBills = async (year, month) => {
     try {
-      // Format the date properly for the selected month
-      const [year, month] = selectedMonth.split("-");
-      const billingDate = new Date(parseInt(year), parseInt(month) - 1, 25);
+      setLoading(true);
+      setError(null);
+      
+      // Get current date to check if we're after the 25th
+      const currentDate = new Date();
+      const currentDay = currentDate.getDate();
+      
+      // If current date is after 25th, use next month for billing
+      let billingMonth = parseInt(month);
+      let billingYear = parseInt(year);
+      
+      if (currentDay > 25) {
+        billingMonth += 1;
+        if (billingMonth > 12) {
+          billingMonth = 1;
+          billingYear += 1;
+        }
+      }
+      
+      const billingDate = new Date(billingYear, billingMonth - 1, 25);
       
       // Ensure the date is valid
       if (isNaN(billingDate.getTime())) {
@@ -325,6 +342,8 @@ export default function BillingPage() {
     } catch (error) {
       console.error("Error creating bills:", error);
       setError(error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -582,7 +601,7 @@ export default function BillingPage() {
                   <Button
                     variant="contained"
                     startIcon={<AddIcon />}
-                    onClick={handleCreateBills}
+                    onClick={() => handleCreateBills(selectedMonth.split('-')[0], selectedMonth.split('-')[1])}
                     sx={{
                       bgcolor: "#898f63",
                       "&:hover": { bgcolor: "#707454" },

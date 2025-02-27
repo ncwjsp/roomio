@@ -5,7 +5,9 @@ import Building from "@/app/models/Building";
 import CleaningSchedule from "@/app/models/CleaningSchedule";
 import Tenant from "@/app/models/Tenant";
 import Room from "@/app/models/Room";
+import User from "@/app/models/User";
 import { sendLineMessage } from "@/lib/line";
+import { format, parseISO } from "date-fns";
 
 export async function GET(request) {
   try {
@@ -56,14 +58,15 @@ export async function GET(request) {
     }).populate([
       {
         path: 'buildingId',
-        select: 'name'
+        select: '_id name'
       },
       {
         path: 'slots.bookedBy',
         model: 'Tenant',
-        select: 'name phone lineUserId room',
+        select: 'name phone lineUserId',
         populate: {
           path: 'room',
+          model: 'Room',
           select: 'roomNumber floor'
         }
       }
@@ -88,16 +91,10 @@ export async function GET(request) {
         
         try {
           const slotObj = slot.toObject();
-          console.log('Processing slot:', {
-            id: slotObj._id,
-            date: slotObj.date,
-            status: slotObj.status,
-            bookedBy: slotObj.bookedBy?._id
-          });
-          
+
           slots.push({
             ...slotObj,
-            building: schedule.buildingId?.name || 'Unknown Building',
+            building: schedule.buildingId,
             buildingId: schedule.buildingId?._id
           });
         } catch (error) {
@@ -189,22 +186,26 @@ export async function PUT(request) {
     await dbConnect();
 
     const body = await request.json();
-    const { slotId, status, lineUserId } = body;
+    console.log('Request body:', body);
+    const { taskId, slotId, status, lineUserId } = body;
+    
+    // Accept either taskId or slotId
+    const targetId = taskId || slotId;
 
-    if (!slotId || !status) {
+    if (!targetId || !status) {
       return NextResponse.json(
-        { error: "Slot ID and status are required" },
+        { error: "Task ID and status are required" },
         { status: 400 }
       );
     }
 
     // Find the schedule containing this slot
     const schedule = await CleaningSchedule.findOne({
-      'slots._id': slotId
+      'slots._id': targetId
     }).populate([
       {
         path: 'buildingId',
-        select: 'name'
+        select: '_id name'
       },
       {
         path: 'slots.bookedBy',
@@ -212,6 +213,7 @@ export async function PUT(request) {
         select: 'name phone lineUserId room',
         populate: {
           path: 'room',
+          model: 'Room',
           select: 'roomNumber floor'
         }
       }
@@ -225,10 +227,10 @@ export async function PUT(request) {
     }
 
     // Find and update the specific slot
-    const slot = schedule.slots.id(slotId);
+    const slot = schedule.slots.id(targetId);
     if (!slot) {
       return NextResponse.json(
-        { error: "Slot not found" },
+        { error: "Task not found" },
         { status: 404 }
       );
     }
@@ -238,21 +240,188 @@ export async function PUT(request) {
     if (status === 'completed') {
       slot.completedAt = new Date();
       slot.completedBy = lineUserId;
+    } else if (status === 'cancelled') {
+      slot.completedAt = new Date();  // Use completedAt for cancelled tasks too
+      slot.completedBy = lineUserId;  // Track who cancelled it
     }
 
     await schedule.save();
 
-    // If status is completed, send notification to tenant
-    if (status === 'completed' && slot.bookedBy?.lineUserId) {
-      const message = `Your room cleaning for ${schedule.buildingId.name} Room ${slot.bookedBy.room.roomNumber} has been completed.`;
-      await sendLineMessage(slot.bookedBy.lineUserId, message);
+    // Reload the schedule to get the populated data
+    const updatedSchedule = await CleaningSchedule.findOne({
+      'slots._id': targetId
+    }).populate([
+      {
+        path: 'buildingId',
+        select: '_id name'
+      },
+      {
+        path: 'slots.bookedBy',
+        model: 'Tenant',
+        select: 'name phone lineUserId room',
+        populate: {
+          path: 'room',
+          model: 'Room',
+          select: 'roomNumber floor'
+        }
+      }
+    ]);
+    
+    const updatedSlot = updatedSchedule.slots.id(targetId);
+
+    // If status is completed or cancelled, send notification to tenant
+    if ((status === 'completed' || status === 'cancelled') && updatedSlot.bookedBy?.lineUserId) {
+      const user = await User.findById(schedule.landlordId);
+      const message = {
+        to: updatedSlot.bookedBy.lineUserId,
+        messages: [{
+          type: "flex",
+          altText: `Room Cleaning ${status === 'completed' ? 'Completed' : 'Cancelled'}`,
+          contents: {
+            type: "bubble",
+            header: {
+              type: "box",
+              layout: "vertical",
+              contents: [
+                {
+                  type: "text",
+                  text: `Room Cleaning ${status === 'completed' ? 'Completed' : 'Cancelled'}`,
+                  weight: "bold",
+                  size: "lg",
+                  color: "#FFFFFF",
+                },
+              ],
+              backgroundColor: status === 'completed' ? "#889F63" : "#DC3545",
+            },
+            body: {
+              type: "box",
+              layout: "vertical",
+              contents: [
+                {
+                  type: "box",
+                  layout: "vertical",
+                  spacing: "sm",
+                  margin: "lg",
+                  contents: [
+                    {
+                      type: "box",
+                      layout: "baseline",
+                      spacing: "sm",
+                      contents: [
+                        {
+                          type: "text",
+                          text: "Date",
+                          color: "#aaaaaa",
+                          size: "sm",
+                          flex: 1,
+                        },
+                        {
+                          type: "text",
+                          text: format(parseISO(updatedSlot.date), "EEEE, MMMM d, yyyy"),
+                          wrap: true,
+                          size: "sm",
+                          color: "#666666",
+                          flex: 4,
+                        },
+                      ],
+                    },
+                    {
+                      type: "box",
+                      layout: "baseline",
+                      spacing: "sm",
+                      contents: [
+                        {
+                          type: "text",
+                          text: "Time",
+                          color: "#aaaaaa",
+                          size: "sm",
+                          flex: 1,
+                        },
+                        {
+                          type: "text",
+                          text: `${updatedSlot.fromTime} - ${updatedSlot.toTime}`,
+                          wrap: true,
+                          color: "#666666",
+                          size: "sm",
+                          flex: 4,
+                        },
+                      ],
+                    },
+                    {
+                      type: "box",
+                      layout: "baseline",
+                      spacing: "sm",
+                      contents: [
+                        {
+                          type: "text",
+                          text: "Room",
+                          color: "#aaaaaa",
+                          size: "sm",
+                          flex: 1,
+                        },
+                        {
+                          type: "text",
+                          text: updatedSlot.bookedBy.room.roomNumber,
+                          wrap: true,
+                          color: "#666666",
+                          size: "sm",
+                          flex: 4,
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+            footer: {
+              type: "box",
+              layout: "vertical",
+              spacing: "sm",
+              contents: [
+                {
+                  type: "text",
+                  text: status === 'completed' 
+                    ? "Your room has been cleaned. Thank you for using our service."
+                    : "Your cleaning appointment has been cancelled.",
+                  wrap: true,
+                  color: "#aaaaaa",
+                  size: "xs",
+                  align: "center",
+                },
+              ],
+            },
+          },
+        }]
+      };
+      await sendLineMessage(user.lineConfig.channelAccessToken, message);
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ 
+      success: true,
+      task: {
+        _id: updatedSlot._id,
+        status: updatedSlot.status,
+        completedAt: updatedSlot.completedAt,
+        completedBy: updatedSlot.completedBy,
+        date: updatedSlot.date,
+        timeSlot: `${updatedSlot.fromTime} - ${updatedSlot.toTime}`,
+        fromTime: updatedSlot.fromTime,
+        toTime: updatedSlot.toTime,
+        building: updatedSchedule.buildingId,
+        buildingId: updatedSchedule.buildingId._id,
+        bookedAt: updatedSlot.bookedAt,
+        tenant: updatedSlot.bookedBy ? {
+          name: updatedSlot.bookedBy.name,
+          phone: updatedSlot.bookedBy.phone,
+          lineId: updatedSlot.bookedBy.lineId,
+          roomNumber: updatedSlot.bookedBy.room?.roomNumber
+        } : null
+      }
+    });
   } catch (error) {
     console.error("Error in PUT /api/housekeeper/tasks:", error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: error.message || "Internal server error" },
       { status: 500 }
     );
   }

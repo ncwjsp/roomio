@@ -161,7 +161,7 @@ export default function MaintenanceTasks({
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                       <Box>
                         <Typography variant="subtitle1" sx={{ fontWeight: 500 }}>
-                          Room {task.room.roomNumber}
+                          Room {task.tenant.roomNumber}
                         </Typography>
                         <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                           {task.room.floor.building.name}

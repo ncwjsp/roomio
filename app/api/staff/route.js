@@ -5,6 +5,7 @@ import dbConnect from "@/lib/mongodb";
 import Staff from "@/app/models/Staff";
 import User from "@/app/models/User";
 import { getLineClient } from "@/lib/line";
+import LineContact from "@/app/models/LineContact";
 
 export async function GET(request) {
   try {
@@ -62,6 +63,13 @@ export async function POST(request) {
         // Get the appropriate rich menu ID
         const richMenuId = user.lineConfig?.staffRichMenuId;
 
+        await LineContact.findOneAndUpdate(
+          { userId: staff.lineUserId },
+          { isTenant: true },
+          { new: true }
+
+        )
+
         if (richMenuId) {
           // Add retry logic for linking rich menu
           let retries = 3;
@@ -78,6 +86,8 @@ export async function POST(request) {
             }
           }
         }
+
+
 
         // Add retry logic for sending welcome message
         let retries = 3;

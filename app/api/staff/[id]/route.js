@@ -5,6 +5,7 @@ import dbConnect from "@/lib/mongodb";
 import Staff from "@/app/models/Staff";
 import User from "@/app/models/User";
 import { getLineClient } from "@/lib/line";
+import LineContact from "@/app/models/LineContact";
 
 export async function PUT(request, context) {
   try {
@@ -53,6 +54,12 @@ export async function DELETE(request, context) {
       _id: id,
       landlordId: session.user.id,
     });
+
+    await LineContact.findOneAndUpdate(
+      { userId: staff.lineUserId },
+      { isTenant: false },
+      { new: true }
+    );
 
     if (!staff) {
       return NextResponse.json({ error: "Staff not found" }, { status: 404 });
