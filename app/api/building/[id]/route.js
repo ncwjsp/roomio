@@ -122,12 +122,10 @@ export async function DELETE(request, { params }) {
     }
 
     // Delete all associated rooms first
-    for (const floor of building.floors) {
-      await Room.deleteMany({ _id: { $in: floor.rooms } });
-    }
+    await Room.deleteMany({ building: id });
 
     // Delete all floors
-    await Floor.deleteMany({ _id: { $in: building.floors } });
+    await Floor.deleteMany({ building: id });
 
     // Finally delete the building
     await Building.findByIdAndDelete(id);
