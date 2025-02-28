@@ -379,6 +379,7 @@ export async function POST(request) {
             bill._id,
             {
               $set: {
+                isSent: true,
                 paymentStatus: "pending",
                 waterAmount: bill.waterUsage * bill.waterRate,
                 electricityAmount: bill.electricityUsage * bill.electricityRate,

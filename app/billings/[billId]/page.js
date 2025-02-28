@@ -54,13 +54,14 @@ const EditBillPage = () => {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
   const [currentReadings, setCurrentReadings] = useState(null);
-  const [formData, setFormData] = useState({
-    waterUsage: "",
-    electricityUsage: "",
-    additionalFees: [],
-    notes: "",
-    isFullRent: true,
-  });
+  const [rentAmount, setRentAmount] = useState(0);
+  const [rentType, setRentType] = useState("full");
+  const [waterUsage, setWaterUsage] = useState(0);
+  const [electricityUsage, setElectricityUsage] = useState(0);
+  const [waterRate, setWaterRate] = useState(0);
+  const [electricityRate, setElectricityRate] = useState(0);
+  const [additionalFees, setAdditionalFees] = useState([]);
+  const [notes, setNotes] = useState("");
   const [meterReadings, setMeterReadings] = useState({
     water: 0,
     electricity: 0,
@@ -70,10 +71,31 @@ const EditBillPage = () => {
     fetchBill();
   }, [params.billId]);
 
+  useEffect(() => {
+    if (bill) {
+      // Check if using custom rent amount
+      const isCustomRent = bill.rentAmount !== bill.roomId.price;
+      setRentType(isCustomRent ? "custom" : "full");
+      setRentAmount(bill.rentAmount || 0);
+      
+      setWaterUsage(bill.waterUsage || 0);
+      setElectricityUsage(bill.electricityUsage || 0);
+      setWaterRate(bill.waterRate || 0);
+      setElectricityRate(bill.electricityRate || 0);
+      setAdditionalFees(bill.additionalFees || []);
+      setNotes(bill.notes || "");
+    }
+  }, [bill]);
+
   const fetchBill = async () => {
     try {
+      setLoading(true);
       const response = await fetch(`/api/bills/${params.billId}`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch bill");
+      }
       const data = await response.json();
+      console.log("Fetched bill:", data);
       setBill(data);
 
       const roomResponse = await fetch(`/api/room/${data.roomId._id}`);
@@ -89,16 +111,10 @@ const EditBillPage = () => {
           (data.electricityUsage || 0),
       });
 
-      setFormData({
-        waterUsage: data.waterUsage || 0,
-        electricityUsage: data.electricityUsage || 0,
-        additionalFees: data.additionalFees || [],
-        notes: data.notes || "",
-        isFullRent: data.actualRentAmount === data.rentAmount,
-      });
       setLoading(false);
     } catch (error) {
-      setError("Failed to fetch data");
+      console.error("Error fetching bill:", error);
+      setError(error.message);
       setLoading(false);
     }
   };
@@ -109,39 +125,6 @@ const EditBillPage = () => {
       return format(new Date(dateString), "MMM d, yyyy");
     } catch (error) {
       return "Invalid date";
-    }
-  };
-
-  const calculateProRatedRent = (rentAmount, leaseStartDate) => {
-    if (!leaseStartDate) return rentAmount;
-
-    try {
-      const billingCycleDate = new Date(bill.month);
-      billingCycleDate.setDate(25);
-
-      const daysInMonth = new Date(
-        billingCycleDate.getFullYear(),
-        billingCycleDate.getMonth() + 1,
-        0
-      ).getDate();
-
-      const moveInDate = new Date(leaseStartDate);
-      const nextBillingDate = new Date(billingCycleDate);
-      nextBillingDate.setMonth(billingCycleDate.getMonth() + 1);
-
-      const daysStayed = Math.ceil(
-        (nextBillingDate - moveInDate) / (1000 * 60 * 60 * 24)
-      );
-
-      const proRatedAmount = Math.round(
-        (rentAmount / daysInMonth) * daysStayed
-      );
-
-
-      return proRatedAmount;
-    } catch (error) {
-      console.error("Error calculating pro-rated rent:", error);
-      return rentAmount;
     }
   };
 
@@ -164,70 +147,61 @@ const EditBillPage = () => {
       ? Math.max(0, newValue - previousReading)
       : 0;
 
-    setFormData((prev) => ({
-      ...prev,
-      [`${type}Usage`]: usage,
-    }));
+    if (type === "water") {
+      setWaterUsage(usage);
+    } else {
+      setElectricityUsage(usage);
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      // Use the meter readings directly for usage calculation
-      const waterUsage = Math.max(
-        0,
-        meterReadings.water - (currentReadings?.water || 0)
-      );
-      const electricityUsage = Math.max(
-        0,
-        meterReadings.electricity - (currentReadings?.electricity || 0)
-      );
+      setLoading(true);
+      setError(null);
 
-      console.log("Submitting usage:", {
-        currentReadings,
-        meterReadings,
-        calculatedUsage: {
-          water: waterUsage,
-          electricity: electricityUsage,
-        },
-      });
-
-      const finalRentAmount = formData.isFullRent
-        ? bill.rentAmount
-        : calculateProRatedRent(
-            bill.rentAmount,
-            bill.roomId.tenant?.leaseStartDate
-          );
+      // Log form data before submission
+      const formData = {
+        rentAmount: parseFloat(rentAmount),
+        waterUsage: parseFloat(waterUsage || 0),
+        electricityUsage: parseFloat(electricityUsage || 0),
+        waterRate: parseFloat(waterRate || 0),
+        electricityRate: parseFloat(electricityRate || 0),
+        additionalFees,
+        notes,
+        currentMeterReadings: {
+          water: parseFloat(waterUsage || 0),
+          electricity: parseFloat(electricityUsage || 0),
+          lastUpdated: new Date()
+        }
+      };
+      console.log("Submitting form data:", formData);
 
       const response = await fetch(`/api/bills/${params.billId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          ...formData,
-          waterUsage, // Use calculated usage
-          electricityUsage, // Use calculated usage
-          waterRate: bill.waterRate,
-          electricityRate: bill.electricityRate,
-          actualRentAmount: finalRentAmount,
-          status: "completed",
-        }),
+        body: JSON.stringify(formData),
       });
 
+      const data = await response.json();
+      console.log("API Response:", data);
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to update bill");
+        throw new Error(data.error || "Failed to update bill");
       }
 
-      setSuccess(true);
-
+      setSuccess("Bill updated successfully!");
+      setLoading(false);
       setTimeout(() => {
         router.push("/billings");
       }, 1000);
     } catch (error) {
       console.error("Error updating bill:", error);
       setError(error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -260,12 +234,58 @@ const EditBillPage = () => {
 
         {success && (
           <Alert severity="success" sx={{ mb: 3 }}>
-            Bill updated successfully
+            {success}
           </Alert>
         )}
 
         <form onSubmit={handleSubmit}>
           <Grid container spacing={3}>
+            {/* Rent Amount */}
+            <Grid item xs={12}>
+              <FormControl component="fieldset">
+                <FormLabel component="legend">Rent Amount</FormLabel>
+                <RadioGroup
+                  row
+                  value={rentType}
+                  onChange={(e) => {
+                    setRentType(e.target.value);
+                    if (e.target.value === "full") {
+                      setRentAmount(bill?.roomId?.price || 0);
+                    }
+                  }}
+                >
+                  <FormControlLabel
+                    value="full"
+                    control={<Radio />}
+                    label="Full Month Rent"
+                  />
+                  <FormControlLabel
+                    value="custom"
+                    control={<Radio />}
+                    label="Custom Rent Amount"
+                  />
+                </RadioGroup>
+              </FormControl>
+              {rentType === "custom" && (
+                <TextField
+                  fullWidth
+                  label="Custom Rent Amount"
+                  type="number"
+                  value={rentAmount}
+                  onChange={(e) => setRentAmount(e.target.value)}
+                  required
+                  sx={{ mt: 2 }}
+                  InputProps={{
+                    inputProps: {
+                      min: 0,
+                      step: "any",
+                    },
+                  }}
+                />
+              )}
+            </Grid>
+
+            {/* Meter Readings */}
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
@@ -274,7 +294,7 @@ const EditBillPage = () => {
                 value={meterReadings.water}
                 onChange={(e) => handleMeterChange("water", e.target.value)}
                 required
-                helperText={`Usage: ${formData.waterUsage} units`}
+                helperText={`Usage: ${waterUsage} units`}
                 InputProps={{
                   inputProps: {
                     min: 0,
@@ -293,7 +313,7 @@ const EditBillPage = () => {
                   handleMeterChange("electricity", e.target.value)
                 }
                 required
-                helperText={`Usage: ${formData.electricityUsage} units`}
+                helperText={`Usage: ${electricityUsage} units`}
                 InputProps={{
                   inputProps: {
                     min: 0,
@@ -304,10 +324,8 @@ const EditBillPage = () => {
             </Grid>
             <Grid item xs={12}>
               <AdditionalFeesField
-                value={formData.additionalFees}
-                onChange={(newFees) =>
-                  setFormData((prev) => ({ ...prev, additionalFees: newFees }))
-                }
+                value={additionalFees}
+                onChange={(newFees) => setAdditionalFees(newFees)}
               />
             </Grid>
             <Grid item xs={12}>
@@ -316,43 +334,9 @@ const EditBillPage = () => {
                 label="Notes"
                 multiline
                 rows={4}
-                value={formData.notes}
-                onChange={(e) =>
-                  setFormData({ ...formData, notes: e.target.value })
-                }
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
               />
-            </Grid>
-            <Grid item xs={12}>
-              <FormControl component="fieldset">
-                <FormLabel component="legend">Rent Calculation</FormLabel>
-                <RadioGroup
-                  row
-                  value={formData.isFullRent}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      isFullRent: e.target.value === "true",
-                    })
-                  }
-                >
-                  <FormControlLabel
-                    value={true}
-                    control={<Radio />}
-                    label="Full Month Rent"
-                  />
-                  <FormControlLabel
-                    value={false}
-                    control={<Radio />}
-                    label="Pro-rated (Based on Move-in Date)"
-                  />
-                </RadioGroup>
-              </FormControl>
-              {!formData.isFullRent && bill.roomId?.tenant?.leaseStartDate && (
-                <Typography variant="caption" color="text.secondary">
-                  Pro-rated amount will be calculated based on actual days from
-                  move-in date ({formatDate(bill.roomId.tenant.leaseStartDate)})
-                </Typography>
-              )}
             </Grid>
           </Grid>
 

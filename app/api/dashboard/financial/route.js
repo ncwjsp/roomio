@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
-import Payment from "@/app/models/Payment";
+import Bill from "@/app/models/Bill";
 import Expense from "@/app/models/Expense";
 import User from "@/app/models/User";
 
@@ -61,13 +61,13 @@ export async function GET(request) {
         // Query revenue (payments) for this month and landlord
         let revenue = 0;
         try {
-          const payments = await Payment.find({
+          const bills = await Bill.find({
             ...landlordFilter,
             paidDate: { $gte: startDate, $lte: endDate },
             status: "Paid"
           });
           
-          revenue = payments.reduce((total, payment) => total + payment.amount, 0);
+          revenue = bills.reduce((total, bill) => total + bill.amount, 0);
         } catch (error) {
           console.error(`Error fetching payments for ${monthNames[month]}:`, error);
         }

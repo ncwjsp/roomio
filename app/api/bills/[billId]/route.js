@@ -3,6 +3,8 @@ import dbConnect from "@/lib/mongodb";
 import Bill from "@/app/models/Bill";
 import { parse } from "url";
 import Building from "@/app/models/Building";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/authOptions";
 
 export async function GET(request) {
   try {
@@ -44,120 +46,106 @@ export async function GET(request) {
   }
 }
 
-export async function PUT(request, context) {
+export async function PUT(request, { params }) {
   try {
     await dbConnect();
+    const session = await getServerSession(authOptions);
+
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { billId } = params;
     const updates = await request.json();
+    console.log("Received updates:", updates);
 
-    const appContext = await context;
+    const {
+      rentAmount,
+      waterUsage,
+      electricityUsage,
+      waterRate,
+      electricityRate,
+      additionalFees,
+      notes,
+      currentMeterReadings,
+    } = updates;
 
-    const { billId } = await appContext.params;
+    // Log input values
+    console.log("Calculating amounts with:", {
+      waterUsage,
+      electricityUsage,
+      waterRate,
+      electricityRate,
+      rentAmount,
+      additionalFees
+    });
 
-    // Fetch the current bill with tenant info
-    const currentBill = await Bill.findById(billId).populate({
+    // Calculate amounts with proper type conversion
+    const waterAmount = parseFloat(waterUsage || 0) * parseFloat(waterRate || 0);
+    const electricityAmount = parseFloat(electricityUsage || 0) * parseFloat(electricityRate || 0);
+    const additionalAmount = (additionalFees || []).reduce((sum, fee) => sum + (parseFloat(fee.amount) || 0), 0);
+    const totalAmount = parseFloat(rentAmount || 0) + waterAmount + electricityAmount + additionalAmount;
+
+    // Log calculated amounts
+    console.log("Calculated amounts:", {
+      waterAmount,
+      electricityAmount,
+      additionalAmount,
+      totalAmount
+    });
+
+    // Update bill with new values
+    const updatedBill = await Bill.findByIdAndUpdate(
+      billId,
+      {
+        $set: {
+          rentAmount: parseFloat(rentAmount || 0),
+          waterUsage: parseFloat(waterUsage || 0),
+          electricityUsage: parseFloat(electricityUsage || 0),
+          waterRate: parseFloat(waterRate || 0),
+          electricityRate: parseFloat(electricityRate || 0),
+          waterAmount,
+          electricityAmount,
+          totalAmount,
+          additionalFees: additionalFees || [],
+          notes: notes || "",
+          status: "completed",
+          currentMeterReadings: {
+            ...currentMeterReadings,
+            lastUpdated: new Date()
+          }
+        },
+      },
+      { new: true }
+    ).populate({
       path: "roomId",
+      select: "roomNumber floor tenant",
       populate: [
         {
           path: "floor",
+          select: "building number",
           populate: {
             path: "building",
-            select: "waterRate electricityRate",
+            select: "name",
           },
         },
         {
           path: "tenant",
-          select: "leaseStartDate",
+          select: "firstName lastName",
         },
       ],
     });
 
-    if (!currentBill) {
+    if (!updatedBill) {
       return NextResponse.json({ error: "Bill not found" }, { status: 404 });
     }
 
-    // Calculate pro-rated rent if needed
-    const calculateProRatedRent = (rentAmount, leaseStartDate) => {
-      const billingCycleDate = new Date(currentBill.month);
-      const daysInMonth = new Date(
-        billingCycleDate.getFullYear(),
-        billingCycleDate.getMonth() + 1,
-        0
-      ).getDate();
-
-      const moveInDate = new Date(leaseStartDate);
-
-      // Calculate days from move-in to end of month
-      const daysStayed =
-        Math.ceil(
-          (new Date(
-            billingCycleDate.getFullYear(),
-            billingCycleDate.getMonth() + 1,
-            0
-          ) -
-            moveInDate) /
-            (1000 * 60 * 60 * 24)
-        ) + 1; // Add 1 to include the move-in day
-
-      console.log("Pro-rate details:", {
-        daysInMonth,
-        daysStayed,
-        moveInDate: moveInDate.toISOString(),
-        dailyRate: rentAmount / daysInMonth,
-        proRatedAmount: Math.round((rentAmount / daysInMonth) * daysStayed),
-      });
-
-      return Math.round((rentAmount / daysInMonth) * daysStayed);
-    };
-
-    // Determine rent amount based on isFullRent flag
-    const rentToUse = updates.isFullRent
-      ? currentBill.rentAmount
-      : calculateProRatedRent(
-          currentBill.rentAmount,
-          currentBill.roomId.tenant?.leaseStartDate
-        );
-
-    console.log("Rent calculation:", {
-      isFullRent: updates.isFullRent,
-      originalRent: currentBill.rentAmount,
-      calculatedRent: rentToUse,
-      leaseStartDate: currentBill.roomId.tenant?.leaseStartDate,
-    });
-
-    // Calculate other amounts
-    const waterUsage = Number(updates.waterUsage) || 0;
-    const electricityUsage = Number(updates.electricityUsage) || 0;
-    const waterAmount = waterUsage * currentBill.waterRate;
-    const electricityAmount = electricityUsage * currentBill.electricityRate;
-    const additionalFeesTotal = Array.isArray(updates.additionalFees)
-      ? updates.additionalFees.reduce(
-          (sum, fee) => sum + (Number(fee.price) || 0),
-          0
-        )
-      : 0;
-
-    // Calculate total with the correct rent amount
-    const totalAmount =
-      rentToUse + waterAmount + electricityAmount + additionalFeesTotal;
-
-    // Update the bill
-    const updatedBill = await Bill.findByIdAndUpdate(
-      billId,
-      {
-        ...updates,
-        actualRentAmount: rentToUse,
-        waterAmount,
-        electricityAmount,
-        totalAmount,
-      },
-      { new: true }
-    );
-
+    console.log("Updated bill:", updatedBill);
     return NextResponse.json(updatedBill);
   } catch (error) {
     console.error("Error updating bill:", error);
     return NextResponse.json(
-      { error: "Failed to update bill" },
+      { error: error.message || "Failed to update bill" },
       { status: 500 }
     );
   }

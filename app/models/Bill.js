@@ -10,6 +10,7 @@ const billSchema = new mongoose.Schema(
     buildingId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Building",
+      required: true,
     },
     month: {
       type: String,
@@ -22,13 +23,19 @@ const billSchema = new mongoose.Schema(
         message: props => `${props.value} is not a valid month format. Use YYYY-MM format.`
       }
     },
-    waterUsage: {
-      type: Number,
-      default: 0,
+    billingDate: {
+      type: Date,
+      required: true,
     },
-    electricityUsage: {
-      type: Number,
-      default: 0,
+    dueDate: {
+      type: Date,
+      required: true,
+      validate: {
+        validator: function(v) {
+          return v instanceof Date && !isNaN(v);
+        },
+        message: props => 'Invalid due date'
+      }
     },
     rentAmount: {
       type: Number,
@@ -45,11 +52,23 @@ const billSchema = new mongoose.Schema(
       required: true,
       default: 0,
     },
+    waterUsage: {
+      type: Number,
+      default: 0,
+    },
+    electricityUsage: {
+      type: Number,
+      default: 0,
+    },
     waterAmount: {
       type: Number,
       default: 0,
     },
     electricityAmount: {
+      type: Number,
+      default: 0,
+    },
+    totalAmount: {
       type: Number,
       default: 0,
     },
@@ -59,41 +78,14 @@ const billSchema = new mongoose.Schema(
         price: Number,
       },
     ],
-    totalAmount: {
-      type: Number,
-      default: 0,
+    notes: {
+      type: String,
+      default: "",
     },
     status: {
       type: String,
       enum: ["pending", "completed"],
       default: "pending",
-    },
-    dueDate: {
-      type: Date,
-      required: true,
-      validate: {
-        validator: function(v) {
-          return v instanceof Date && !isNaN(v);
-        },
-        message: props => 'Invalid due date'
-      }
-    },
-    notes: {
-      type: String,
-      default: "",
-    },
-    isSent: {
-      type: Boolean,
-      default: false
-    },
-    createdBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
-    },
-    actualRentAmount: {
-      type: Number,
-      default: null,
     },
     paymentStatus: {
       type: String,
@@ -107,6 +99,45 @@ const billSchema = new mongoose.Schema(
     slipData: {
       type: String,
       default: "",
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    actualRentAmount: {
+      type: Number,
+      default: null,
+    },
+    initialMeterReadings: {
+      water: {
+        type: Number,
+        default: 0,
+      },
+      electricity: {
+        type: Number,
+        default: 0,
+      },
+      lastUpdated: {
+        type: Date,
+      }
+    },
+    currentMeterReadings: {
+      water: {
+        type: Number,
+        default: 0,
+      },
+      electricity: {
+        type: Number,
+        default: 0,
+      },
+      lastUpdated: {
+        type: Date,
+      }
+    },
+    isSent: {
+      type: Boolean,
+      default: false
     },
   },
   {

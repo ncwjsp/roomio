@@ -23,7 +23,18 @@ import {
   Select,
   Tabs,
   Tab,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  RadioGroup,
+  FormControlLabel,
+  Radio,
 } from "@mui/material";
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import VisibilityIcon from "@mui/icons-material/Visibility";
@@ -58,34 +69,6 @@ const LoadingSpinner = () => {
   );
 };
 
-const calculateRentAmount = (moveInDate, roomPrice, partialBillingEnabled) => {
-  const billingDate = new Date();
-  billingDate.setDate(25);
-
-  // If move-in date is after billing date
-  if (moveInDate > billingDate) {
-    if (!partialBillingEnabled) {
-      return roomPrice; // Charge full month
-    }
-
-    // Calculate days until next billing date
-    const nextBillingDate = new Date(billingDate);
-    nextBillingDate.setMonth(billingDate.getMonth() + 1);
-
-    const daysInMonth = new Date(
-      billingDate.getFullYear(),
-      billingDate.getMonth() + 1,
-      0
-    ).getDate();
-    const daysStayed = Math.ceil(
-      (nextBillingDate - moveInDate) / (1000 * 60 * 60 * 24)
-    );
-
-    return Math.round((roomPrice / daysInMonth) * daysStayed);
-  }
-
-  return roomPrice; // Full month for regular billing
-};
 
 export default function BillingPage() {
   // State declarations
@@ -113,7 +96,13 @@ export default function BillingPage() {
     total: 0,
     completed: 0,
   });
-  
+  const [stats, setStats] = useState({
+    total: 0,
+    completed: 0,
+  });
+  const [createBillDialog, setCreateBillDialog] = useState(false);
+  const [createBillMonth, setCreateBillMonth] = useState(format(new Date(), "yyyy-MM"));
+
   const router = useRouter();
 
   // Fetch initial data including bank details and available months
@@ -294,28 +283,13 @@ export default function BillingPage() {
     setSelectedMonth(format(newDate, "yyyy-MM"));
   };
 
-  const handleCreateBills = async (year, month) => {
+  const handleCreateBills = async () => {
     try {
       setLoading(true);
       setError(null);
-      
-      // Get current date to check if we're after the 25th
-      const currentDate = new Date();
-      const currentDay = currentDate.getDate();
-      
-      // If current date is after 25th, use next month for billing
-      let billingMonth = parseInt(month);
-      let billingYear = parseInt(year);
-      
-      if (currentDay > 25) {
-        billingMonth += 1;
-        if (billingMonth > 12) {
-          billingMonth = 1;
-          billingYear += 1;
-        }
-      }
-      
-      const billingDate = new Date(billingYear, billingMonth - 1, 25);
+
+      const [year, month] = createBillMonth.split('-');
+      const billingDate = new Date(parseInt(year), parseInt(month) - 1, 25);
       
       // Ensure the date is valid
       if (isNaN(billingDate.getTime())) {
@@ -328,17 +302,20 @@ export default function BillingPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          billingDate: format(billingDate, "yyyy-MM-dd"),
+          billingDate: format(billingDate, "yyyy-MM-dd")
         }),
       });
 
+      const responseData = await response.json();
+      console.log("API Response:", responseData);
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to create bills");
+        throw new Error(responseData.error || "Failed to create bills");
       }
 
-      await fetchBills(); // Refresh bills after creation
+      await fetchBills();
       setSuccess("Bills created successfully!");
+      setCreateBillDialog(false);
     } catch (error) {
       console.error("Error creating bills:", error);
       setError(error.message);
@@ -590,27 +567,16 @@ export default function BillingPage() {
                 </Select>
               </FormControl>
 
-              {console.log("Current state:", {
-                isCurrentMonth: isCurrentMonth(new Date(selectedMonth + "-01")),
-                tenantsWithoutBills,
-                selectedMonth,
-              })}
-              {isCurrentMonth(new Date(selectedMonth + "-01")) &&
-                tenantsWithoutBills.hasNewTenants &&
-                tenantsWithoutBills.count > 0 && (
-                  <Button
-                    variant="contained"
-                    startIcon={<AddIcon />}
-                    onClick={() => handleCreateBills(selectedMonth.split('-')[0], selectedMonth.split('-')[1])}
-                    sx={{
-                      bgcolor: "#898f63",
-                      "&:hover": { bgcolor: "#707454" },
-                      borderRadius: "12px",
-                    }}
-                  >
-                    Create Bills for New Tenants ({tenantsWithoutBills.count})
-                  </Button>
-                )}
+              <Button
+                variant="contained"
+                onClick={() => setCreateBillDialog(true)}
+                sx={{
+                  bgcolor: "#898f63",
+                  "&:hover": { bgcolor: "#707454" },
+                }}
+              >
+                Create Bills
+              </Button>
             </Box>
           </Stack>
         </Box>
@@ -622,7 +588,7 @@ export default function BillingPage() {
                 <Typography variant="h6" sx={{ mb: 2 }}>
                   Filters
                 </Typography>
-                <Grid container spacing={2}>
+                <Grid container spacing={2} alignItems="center" justifyContent="center">
                   <Grid item xs={12} sm={6} md={3}>
                     <FormControl fullWidth size="small">
                       <InputLabel>Building</InputLabel>
@@ -816,20 +782,7 @@ export default function BillingPage() {
                                 }}
                               />
                             )}
-                            {bill.isMidMonthMoveIn && (
-                              <Chip
-                                label="Mid-Month Move-in"
-                                size="small"
-                                sx={{
-                                  borderRadius: "8px",
-                                  backgroundColor: "#898f63",
-                                  fontWeight: 500,
-                                  "& .MuiChip-label": {
-                                    color: "white",
-                                  },
-                                }}
-                              />
-                            )}
+                           
                           </Stack>
                         </Box>
 
@@ -853,7 +806,7 @@ export default function BillingPage() {
                               sx={{
                                 display: "inline-block",
                                 background:
-                                  "linear-gradient(90deg, #898f63 0%, #b5bd89 100%)",
+                                  "#898f63",
                                 color: "white",
                                 padding: "4px 8px",
                                 borderRadius: "4px",
@@ -1083,6 +1036,82 @@ export default function BillingPage() {
           {success}
         </Alert>
       )}
+
+      <Dialog 
+        open={createBillDialog} 
+        onClose={() => setCreateBillDialog(false)}
+        PaperProps={{
+          sx: {
+            borderRadius: "12px",
+            minWidth: "400px"
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          borderBottom: "1px solid #e0e0e0",
+          pb: 2
+        }}>
+          Create Bills
+        </DialogTitle>
+        <DialogContent sx={{ pt: 3 }}>
+          <DialogContentText sx={{ mb: 3 }}>
+            Select the month for bill creation.
+          </DialogContentText>
+          
+          {/* Month Selection */}
+          <LocalizationProvider dateAdapter={AdapterDateFns}>
+            <DatePicker
+              views={['year', 'month']}
+              label="Billing Month"
+              value={new Date(createBillMonth + "-01")}
+              onChange={(newDate) => {
+                if (newDate) {
+                  setCreateBillMonth(format(newDate, "yyyy-MM"));
+                }
+              }}
+              slotProps={{
+                textField: {
+                  fullWidth: true,
+                  sx: {
+                    "& .MuiOutlinedInput-root": {
+                      borderRadius: "8px"
+                    }
+                  }
+                }
+              }}
+            />
+          </LocalizationProvider>
+        </DialogContent>
+        <DialogActions sx={{ 
+          borderTop: "1px solid #e0e0e0",
+          p: 2.5
+        }}>
+          <Button 
+            onClick={() => setCreateBillDialog(false)}
+            sx={{
+              color: "text.secondary",
+              "&:hover": {
+                backgroundColor: "action.hover"
+              }
+            }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleCreateBills}
+            variant="contained"
+            disabled={loading}
+            sx={{
+              bgcolor: "#898f63",
+              "&:hover": { bgcolor: "#707454" },
+              borderRadius: "8px",
+              px: 3
+            }}
+          >
+            Create Bills
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 }

@@ -5,8 +5,9 @@ import Room from "@/app/models/Room";
 import User from "@/app/models/User";
 import Parcel from "@/app/models/Parcel";
 import Maintenance from "@/app/models/Maintenance";
-import Payment from "@/app/models/Payment";
 import Staff from "@/app/models/Staff";
+import Building from "@/app/models/Building";
+import Bill from "@/app/models/Bill";
 
 export async function GET(request) {
   try {
@@ -78,44 +79,73 @@ export async function GET(request) {
     let pendingMaintenance = 0;
     let inProgressMaintenance = 0;
     let completedMaintenance = 0;
+    let cancelledMaintenance = 0;
     
     try {
+      // Add logging to debug
+      console.log("Fetching maintenance statistics for user:", userId);
+
       pendingMaintenance = await Maintenance.countDocuments({ 
-        ...landlordFilter, 
-        status: "Pending" 
+        createdBy: userId, 
+        currentStatus: "Pending"
       });
       inProgressMaintenance = await Maintenance.countDocuments({ 
-        ...landlordFilter, 
-        status: "In Progress" 
+        createdBy: userId, 
+        currentStatus: "In Progress"
       });
       completedMaintenance = await Maintenance.countDocuments({ 
-        ...landlordFilter, 
-        status: "Completed" 
+        createdBy: userId, 
+        currentStatus: "Completed"
+      });
+      cancelledMaintenance = await Maintenance.countDocuments({ 
+        createdBy: userId, 
+        currentStatus: "Cancelled"
+      });
+
+      // Log the results
+      console.log("Maintenance statistics:", {
+        pending: pendingMaintenance,
+        inProgress: inProgressMaintenance,
+        completed: completedMaintenance,
+        cancelled: cancelledMaintenance
       });
     } catch (error) {
       console.error("Error counting maintenance:", error);
     }
 
     // Get payment statistics for this landlord
-    let paidPayments = 0;
-    let overduePayments = 0;
-    let waitingPayments = 0;
+    let paidBills = 0;
+    let pendingBills = 0;
+    let nullBills = 0;
     
     try {
-      paidPayments = await Payment.countDocuments({ 
-        ...landlordFilter, 
-        status: "Paid" 
+      // Add logging to debug
+      console.log("Fetching bill statistics for user:", userId);
+      
+      paidBills = await Bill.countDocuments({ 
+        createdBy: userId, 
+        paymentStatus: "paid",
+        isSent: true
       });
-      overduePayments = await Payment.countDocuments({ 
-        ...landlordFilter, 
-        status: "Overdue" 
+      pendingBills = await Bill.countDocuments({ 
+        createdBy: userId, 
+        paymentStatus: "pending",
+        isSent: true
       });
-      waitingPayments = await Payment.countDocuments({ 
-        ...landlordFilter, 
-        status: "Waiting" 
+      nullBills = await Bill.countDocuments({ 
+        createdBy: userId, 
+        paymentStatus: "null",
+        isSent: true
+      });
+
+      // Log the results
+      console.log("Bill statistics:", {
+        paid: paidBills,
+        pending: pendingBills,
+        null: nullBills
       });
     } catch (error) {
-      console.error("Error counting payments:", error);
+      console.error("Error counting bills:", error);
     }
 
     // Prepare overview statistics
@@ -128,9 +158,9 @@ export async function GET(request) {
 
     // Prepare pie chart data for payments
     const overduePaymentPieData = [
-      { name: "Paid", value: paidPayments, color: "#4CAF50" },
-      { name: "Overdue", value: overduePayments, color: "#F44336" },
-      { name: "Waiting", value: waitingPayments, color: "#FFC107" },
+      { name: "Paid", value: paidBills, color: "#4CAF50" },
+      { name: "Pending", value: pendingBills, color: "#FFC107" },
+      { name: "Not Sent", value: nullBills, color: "#9E9E9E" }
     ];
 
     // Prepare pie chart data for room vacancy
@@ -145,6 +175,7 @@ export async function GET(request) {
       { name: "Pending", value: pendingMaintenance, color: "#FFC107" },
       { name: "In Progress", value: inProgressMaintenance, color: "#2196F3" },
       { name: "Completed", value: completedMaintenance, color: "#4CAF50" },
+      { name: "Cancelled", value: cancelledMaintenance, color: "#F44336" }
     ];
 
     // Return all dashboard data

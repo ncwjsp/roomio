@@ -124,8 +124,8 @@ const PaymentTracker = ({ bills, onUpdatePaymentStatus, buildings = [] }) => {
           <Typography variant="h6" sx={{ fontSize: "1.1rem", fontWeight: 500 }}>
             Filters
           </Typography>
-          <Grid container spacing={1} sx={{ width: '100%' }}>
-            <Grid item xs={12} sm={4} sx={{ display: 'flex' }}>
+          <Grid container spacing={2} sx={{ width: "100%" }}>
+            <Grid item xs={12} sm={4} sx={{ display: "flex" }}>
               <FormControl fullWidth size="small" sx={{ flex: 1 }}>
                 <Select
                   value={selectedBuilding}
@@ -266,7 +266,6 @@ const PaymentTracker = ({ bills, onUpdatePaymentStatus, buildings = [] }) => {
                             },
                           }}
                         >
-                          <MenuItem value="null">Not Sent</MenuItem>
                           <MenuItem value="pending">Pending</MenuItem>
                           <MenuItem value="paid">Paid</MenuItem>
                         </Select>
