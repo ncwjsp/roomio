@@ -87,23 +87,35 @@ export async function POST(request) {
       // Check if payment details match
       const slipData = verificationResult.data;
 
-      // Extract account numbers (remove non-digits)
-      const receiverAccount = slipData.receiver.account.bank.account.replace(
-        /[^0-9]/g,
-        ""
-      );
+      // Initialize variables with default values
+      let receiverAccount = null;
+      let accountMatch = false;
       const landlordAccount = landlord.accountNumber.replace(/[^0-9]/g, "");
 
+      console.log(slipData);
+
       // Get bank codes
-      const receiverBank = slipData.receiver.bank.id;
+      const receiverBank = slipData.receiver.bank?.id || "";
       const senderBank = slipData.sender.bank.id;
       const slipAmount = slipData.amount.amount;
 
-      // Check if the visible parts of the account numbers match
-      const accountMatch = receiverAccount.split("x").every((part, index) => {
-        if (part === "") return true; // Skip masked parts
-        return landlordAccount.includes(part);
-      });
+      // Handle account checks
+      if (senderBank !== "025" && slipData.receiver.account.bank) {
+        // Only for non-Krungsri bank transfers
+        receiverAccount = slipData.receiver.account.bank.account.replace(
+          /[^0-9]/g,
+          ""
+        );
+
+        // Check if the visible parts of the account numbers match
+        accountMatch = receiverAccount.split("x").every((part) => {
+          if (part === "") return true; // Skip masked parts
+          return landlordAccount.includes(part);
+        });
+      } else {
+        // For Krungsri bank transfers, skip account matching
+        accountMatch = true;
+      }
 
       // Create a function to standardize names for comparison
       function standardizeName(name) {
@@ -122,7 +134,6 @@ export async function POST(request) {
         const nameParts = standardized.split(/\s+/);
 
         // Return all parts that are longer than 1 character
-        // This helps with initials like "W" for "Wijitsopon"
         return nameParts.filter((part) => part.length > 1);
       }
 
@@ -139,15 +150,21 @@ export async function POST(request) {
         );
       }
 
+      const bankMatch =
+        senderBank === "025" ? true : receiverBank === landlord.bankCode;
+
+      const nameMatch = areNamesMatching(
+        landlord.accountName,
+        slipData.receiver.account.name?.en || slipData.sender.account.name?.en
+      );
+
+      const amountMatch = Math.abs(slipAmount - bill.totalAmount) < 0.01;
+
       const detailsMatch = {
-        bankMatch:
-          senderBank === "025" ? true : receiverBank === landlord.bankCode,
-        accountMatch: senderBank === "025" ? true : accountMatch,
-        amountMatch: Math.abs(slipAmount - bill.totalAmount) < 0.01, // Allow for minor decimal differences
-        nameMatch: areNamesMatching(
-          landlord.accountName,
-          slipData.receiver.account.name.en || slipData.sender.account.name.en
-        ),
+        bankMatch,
+        accountMatch,
+        amountMatch,
+        nameMatch,
       };
 
       if (
@@ -239,15 +256,20 @@ export async function POST(request) {
             bankMatch: detailsMatch.bankMatch,
             accountMatch: detailsMatch.accountMatch,
             amountMatch: detailsMatch.amountMatch,
+            nameMatch: detailsMatch.nameMatch,
             expected: {
               bank: landlord.bankCode,
               account: landlordAccount,
               amount: bill.totalAmount,
+              name: landlord.accountName,
             },
             received: {
               bank: receiverBank,
               account: receiverAccount,
               amount: slipAmount,
+              name:
+                slipData.receiver.account.name?.en ||
+                slipData.sender.account.name?.en,
             },
           },
         });
