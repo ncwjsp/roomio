@@ -3,6 +3,7 @@ import dbConnect from "@/lib/mongodb";
 import Staff from "@/app/models/Staff";
 import CleaningSchedule from "@/app/models/CleaningSchedule";
 import Building from "@/app/models/Building";
+import Room from "@/app/models/Room";
 import { format } from "date-fns";
 
 export async function GET(request) {
@@ -17,9 +18,14 @@ export async function GET(request) {
 
     // If lineUserId is provided, get schedules for housekeeper's buildings
     if (lineUserId) {
-      console.log("Fetching schedules for housekeeper:", lineUserId, "requested month:", month);
+      console.log(
+        "Fetching schedules for housekeeper:",
+        lineUserId,
+        "requested month:",
+        month
+      );
       const staff = await Staff.findOne({ lineUserId });
-      
+
       if (!staff) {
         console.log("Staff not found for lineUserId:", lineUserId);
         return NextResponse.json({ error: "Staff not found" }, { status: 404 });
@@ -28,74 +34,80 @@ export async function GET(request) {
       console.log("Found staff:", {
         id: staff._id,
         role: staff.role,
-        assignedBuildings: staff.assignedBuildings
+        assignedBuildings: staff.assignedBuildings,
       });
 
       // Get all schedules for this month
       const schedules = await CleaningSchedule.find({
         month: month,
-        buildingId: { $in: staff.assignedBuildings }
+        buildingId: { $in: staff.assignedBuildings },
       }).populate([
         {
-          path: 'buildingId',
-          select: 'name'
+          path: "buildingId",
+          select: "name",
         },
         {
-          path: 'slots.bookedBy',
-          model: 'Tenant',
-          select: 'name phone lineUserId room',
+          path: "slots.bookedBy",
+          model: "Tenant",
+          select: "name phone lineUserId room",
           populate: {
-            path: 'room',
-            model: 'Room',
-            select: 'roomNumber floor'
-          }
-        }
+            path: "room",
+            model: "Room",
+            select: "roomNumber floor",
+          },
+        },
       ]);
 
       console.log("API: Found schedules:", {
         count: schedules.length,
-        schedules: schedules.map(s => ({
+        schedules: schedules.map((s) => ({
           building: s.buildingId?.name,
-          slots: s.slots?.map(slot => ({
+          slots: s.slots?.map((slot) => ({
             date: slot.date,
             time: `${slot.fromTime}-${slot.toTime}`,
             tenant: slot.bookedBy?.name,
             room: slot.bookedBy?.room?.roomNumber,
             raw: {
               bookedBy: slot.bookedBy,
-              room: slot.bookedBy?.room
-            }
-          }))
-        }))
+              room: slot.bookedBy?.room,
+            },
+          })),
+        })),
       });
 
       // Format response
-      const formattedSchedules = schedules.map(schedule => ({
+      const formattedSchedules = schedules.map((schedule) => ({
         ...schedule.toObject(),
-        buildingName: schedule.buildingId?.name || 'Unknown Building',
-        slots: schedule.slots?.map(slot => ({
-          ...slot.toObject(),
-          buildingName: schedule.buildingId?.name || 'Unknown Building',
-          roomNumber: slot.bookedBy?.room?.roomNumber
-        })) || []
+        buildingName: schedule.buildingId?.name || "Unknown Building",
+        slots:
+          schedule.slots?.map((slot) => ({
+            ...slot.toObject(),
+            buildingName: schedule.buildingId?.name || "Unknown Building",
+            roomNumber: slot.bookedBy?.room?.roomNumber,
+          })) || [],
       }));
 
       return NextResponse.json({ schedules: formattedSchedules });
     }
-    
+
     // If buildingId and landlordId are provided, get schedules for admin panel
     if (buildingId && landlordId) {
-      console.log("Fetching schedules for building:", buildingId, "month:", month);
-      
+      console.log(
+        "Fetching schedules for building:",
+        buildingId,
+        "month:",
+        month
+      );
+
       const schedules = await CleaningSchedule.find({
         buildingId,
-        month
+        month,
       }).populate({
-        path: 'slots.bookedBy',
+        path: "slots.bookedBy",
         populate: {
-          path: 'room',
-          select: 'roomNumber'
-        }
+          path: "room",
+          select: "roomNumber",
+        },
       });
 
       return NextResponse.json({ schedules });

@@ -209,7 +209,15 @@ const EditBillPage = () => {
     }
   };
 
-  if (loading) return <LoadingSpinner />;
+  if (loading) return (
+  <Box
+  display="flex"
+  justifyContent="center"
+  alignItems="center"
+  minHeight="50vh"
+>
+  <LoadingSpinner />
+</Box>);
   if (!bill) return <Typography>Bill not found</Typography>;
 
   return (

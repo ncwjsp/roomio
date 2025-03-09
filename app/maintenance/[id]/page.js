@@ -121,6 +121,7 @@ export default function MaintenanceDetailPage({ params }) {
   };
 
   useEffect(() => {
+    let isMounted = true;
     const fetchData = async () => {
       try {
         if (!session?.user?.id) return;
@@ -129,24 +130,35 @@ export default function MaintenanceDetailPage({ params }) {
         const ticketResponse = await fetch(`/api/maintenance/${id}`);
         if (!ticketResponse.ok) throw new Error("Failed to fetch ticket");
         const ticketData = await ticketResponse.json();
-        setTicket(ticketData.ticket);
-
+        
         // Fetch technicians
         const staffResponse = await fetch(
           `/api/staff/technician?landlordId=${session.user.id}`
         );
         if (!staffResponse.ok) throw new Error("Failed to fetch staff");
         const staffData = await staffResponse.json();
-        setStaff(staffData.staff);
+        
+        // Only update state if component is still mounted
+        if (isMounted) {
+          setTicket(ticketData.ticket);
+          setStaff(staffData.staff);
+          setIsLoading(false);
+        }
       } catch (error) {
         console.error("Error:", error);
-        setError(error.message);
-      } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setError(error.message);
+          setIsLoading(false);
+        }
       }
     };
 
     fetchData();
+    
+    // Cleanup function to prevent state updates on unmounted component
+    return () => {
+      isMounted = false;
+    };
   }, [session, id]);
 
   const handleAssignTechnician = async (technicianId) => {
@@ -267,7 +279,7 @@ export default function MaintenanceDetailPage({ params }) {
     );
   }
 
-  if (!ticket) {
+  if (!ticket && !isLoading) {
     return (
       <Box
         display="flex"
