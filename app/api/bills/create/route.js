@@ -89,7 +89,7 @@ export async function POST(request) {
               electricityUsage: 0,
               waterAmount: 0,
               electricityAmount: 0,
-              totalAmount: room.price, // Initial total is just the rent amount
+              totalAmount: room.price,
               initialMeterReadings: {
                 water: room.currentMeterReadings?.water || 0,
                 electricity: room.currentMeterReadings?.electricity || 0,

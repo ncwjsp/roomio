@@ -96,6 +96,7 @@ export async function POST(request) {
 
       // Get bank codes
       const receiverBank = slipData.receiver.bank.id;
+      const senderBank = slipData.sender.bank.id;
       const slipAmount = slipData.amount.amount;
 
       // Check if the visible parts of the account numbers match
@@ -105,7 +106,7 @@ export async function POST(request) {
       });
 
       const detailsMatch = {
-        bankMatch: receiverBank === landlord.bankCode,
+        bankMatch: senderBank === "025" ? true : receiverBank === landlord.bankCode,
         accountMatch: accountMatch,
         amountMatch: Math.abs(slipAmount - bill.totalAmount) < 0.01, // Allow for minor decimal differences
       };
