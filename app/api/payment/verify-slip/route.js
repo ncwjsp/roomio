@@ -105,16 +105,56 @@ export async function POST(request) {
         return landlordAccount.includes(part);
       });
 
+      // Create a function to standardize names for comparison
+      function standardizeName(name) {
+        if (!name) return "";
+
+        // Convert to uppercase
+        let standardized = name.toUpperCase();
+
+        // Remove common prefixes
+        standardized = standardized.replace(/^(MR\.|MS\.|MRS\.|DR\.)?\s*/, "");
+
+        // Remove special characters and extra spaces
+        standardized = standardized.replace(/[^\w\s]/g, "").trim();
+
+        // Split into words
+        const nameParts = standardized.split(/\s+/);
+
+        // Return all parts that are longer than 1 character
+        // This helps with initials like "W" for "Wijitsopon"
+        return nameParts.filter((part) => part.length > 1);
+      }
+
+      // Check if names match by comparing standardized parts
+      function areNamesMatching(name1, name2) {
+        const parts1 = standardizeName(name1);
+        const parts2 = standardizeName(name2);
+
+        // Look for at least one significant name part match
+        return parts1.some((part) =>
+          parts2.some(
+            (otherPart) => otherPart.includes(part) || part.includes(otherPart)
+          )
+        );
+      }
+
       const detailsMatch = {
-        bankMatch: senderBank === "025" ? true : receiverBank === landlord.bankCode,
-        accountMatch: accountMatch,
+        bankMatch:
+          senderBank === "025" ? true : receiverBank === landlord.bankCode,
+        accountMatch: senderBank === "025" ? true : accountMatch,
         amountMatch: Math.abs(slipAmount - bill.totalAmount) < 0.01, // Allow for minor decimal differences
+        nameMatch: areNamesMatching(
+          landlord.accountName,
+          slipData.receiver.account.name.en || slipData.sender.account.name.en
+        ),
       };
 
       if (
         detailsMatch.bankMatch &&
         detailsMatch.accountMatch &&
-        detailsMatch.amountMatch
+        detailsMatch.amountMatch &&
+        detailsMatch.nameMatch
       ) {
         // Convert file to buffer for S3 upload
         const bytes = await file.arrayBuffer();

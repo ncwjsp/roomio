@@ -31,15 +31,19 @@ const LoadingSpinner = () => {
             style={{
               transform: `rotate(${i * 30}deg)`,
               animation: `spinner-fade 1s linear infinite`,
-              animationDelay: `${-0.0833 * (12 - i)}s`
+              animationDelay: `${-0.0833 * (12 - i)}s`,
             }}
           />
         ))}
       </div>
       <style jsx>{`
         @keyframes spinner-fade {
-          0% { opacity: 1 }
-          100% { opacity: 0 }
+          0% {
+            opacity: 1;
+          }
+          100% {
+            opacity: 0;
+          }
         }
       `}</style>
     </div>
@@ -77,7 +81,7 @@ const EditBillPage = () => {
       const isCustomRent = bill.rentAmount !== bill.roomId.price;
       setRentType(isCustomRent ? "custom" : "full");
       setRentAmount(bill.rentAmount || 0);
-      
+
       setWaterUsage(bill.waterUsage || 0);
       setElectricityUsage(bill.electricityUsage || 0);
       setWaterRate(bill.waterRate || 0);
@@ -172,8 +176,8 @@ const EditBillPage = () => {
         currentMeterReadings: {
           water: parseFloat(waterUsage || 0),
           electricity: parseFloat(electricityUsage || 0),
-          lastUpdated: new Date()
-        }
+          lastUpdated: new Date(),
+        },
       };
       console.log("Submitting form data:", formData);
 
@@ -343,8 +347,8 @@ const EditBillPage = () => {
           <Box
             sx={{ mt: 3, display: "flex", gap: 2, justifyContent: "flex-end" }}
           >
-            <Button 
-              variant="outlined" 
+            <Button
+              variant="outlined"
               color="error"
               onClick={() => router.push("/billings")}
             >
