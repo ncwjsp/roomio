@@ -29,6 +29,10 @@ const BuildingSchema = new mongoose.Schema(
     },
     billingConfig: {
       dueDate: {
+        type: Date,
+        required: true,
+      },
+      dueDateDay: {
         type: Number,
         required: true,
         min: 1,
@@ -51,6 +55,26 @@ const BuildingSchema = new mongoose.Schema(
 
 // Add compound index for faster lookups
 BuildingSchema.index({ createdBy: 1, name: 1 });
+
+// Helper function to calculate due date
+BuildingSchema.methods.calculateDueDate = function(billDate) {
+  const date = new Date(billDate);
+  const dueDay = this.billingConfig.dueDateDay;
+  
+  // Set to the due day in the next month
+  date.setDate(dueDay);
+  if (date.getDate() < dueDay) { // If we've rolled back (e.g. trying to set 31 in a 30-day month)
+    date.setDate(dueDay); // Try again
+  }
+  
+  // If the bill date is after the due day, move to next month
+  const billDay = new Date(billDate).getDate();
+  if (billDay >= dueDay) {
+    date.setMonth(date.getMonth() + 1);
+  }
+  
+  return date;
+};
 
 // Add a pre-save middleware to ensure housekeepers are also updated
 BuildingSchema.pre('save', async function(next) {

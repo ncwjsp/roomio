@@ -67,15 +67,24 @@ export default function CreateSchedulePage() {
     message: '',
     severity: 'success'
   });
+  const [hasExistingSchedule, setHasExistingSchedule] = useState(false);
+  const [existingSchedules, setExistingSchedules] = useState({});
 
   useEffect(() => {
     const fetchBuildings = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch("/api/cleaning/schedule");
+        const response = await fetch(`/api/cleaning/schedule?month=${month}`);
         if (!response.ok) throw new Error("Failed to fetch buildings");
         const data = await response.json();
         setBuildings(data.buildings || []);
+
+        // Create a map of building IDs to their schedules
+        const scheduleMap = {};
+        (data.schedules || []).forEach(schedule => {
+          scheduleMap[schedule.buildingId] = schedule;
+        });
+        setExistingSchedules(scheduleMap);
       } catch (error) {
         console.error("Error fetching buildings:", error);
       } finally {
@@ -84,7 +93,11 @@ export default function CreateSchedulePage() {
     };
 
     fetchBuildings();
-  }, []);
+  }, [month]);
+
+  useEffect(() => {
+    setHasExistingSchedule(!!selectedBuilding && !!existingSchedules[selectedBuilding]);
+  }, [selectedBuilding, existingSchedules]);
 
   const handleAddTimeRange = () => {
     setTimeRanges([...timeRanges, { start: "13:00", end: "17:00" }]);
@@ -158,6 +171,15 @@ export default function CreateSchedulePage() {
         return;
       }
 
+      if (existingSchedules[selectedBuilding]) {
+        setSnackbar({
+          open: true,
+          message: 'A schedule already exists for this building in the selected month',
+          severity: 'error'
+        });
+        return;
+      }
+
       setIsSubmitting(true);
 
       // Get all dates in the selected month
@@ -175,19 +197,32 @@ export default function CreateSchedulePage() {
         Saturday: 6,
       };
 
-      // Get all dates that match the selected days
+      // Get all dates that match the selected days, filtering out past dates
       const dates = [];
       const currentDate = new Date(startDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Reset time part for proper comparison
+
       while (currentDate <= endDate) {
         const dayName = Object.keys(dayMapping).find(
           (key) => dayMapping[key] === currentDate.getDay()
         );
 
-        if (selectedDays.includes(dayName)) {
+        if (selectedDays.includes(dayName) && currentDate >= today) {
           dates.push(currentDate.getDate().toString());
         }
 
         currentDate.setDate(currentDate.getDate() + 1);
+      }
+
+      if (dates.length === 0) {
+        setSnackbar({
+          open: true,
+          message: 'No valid future dates selected for this month',
+          severity: 'error'
+        });
+        setIsSubmitting(false);
+        return;
       }
 
       console.log("Calculated dates for selected days:", {
@@ -313,32 +348,45 @@ export default function CreateSchedulePage() {
   }
 
   return (
-    <div className="min-h-screen p-6">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen">
+      <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        {hasExistingSchedule && (
+          <div className="mb-6 bg-yellow-50 border-l-4 border-yellow-400 p-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm text-yellow-700">
+                  A schedule already exists for this building in {format(selectedMonth, 'MMMM yyyy')}. Creating a new schedule will not be possible.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
         <h1 className="text-2xl font-bold mb-6">Create Cleaning Schedule</h1>
 
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-600 mb-2">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
             Select Building
           </label>
           <select
             value={selectedBuilding}
             onChange={(e) => setSelectedBuilding(e.target.value)}
-            className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-            required
+            className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-[#898F63] focus:border-[#898F63] sm:text-sm rounded-md"
           >
-            <option value="">Choose a building</option>
-            {buildings && buildings.length > 0 ? (
-              buildings.map((building) => (
-                <option key={building._id} value={building._id}>
-                  {building.name}
-                </option>
-              ))
-            ) : (
-              <option value="" disabled>
-                No buildings available
+            <option value="">Select a building</option>
+            {buildings.map((building) => (
+              <option
+                key={building._id}
+                value={building._id}
+                disabled={!!existingSchedules[building._id]}
+              >
+                {building.name} {existingSchedules[building._id] ? '(Schedule exists)' : ''}
               </option>
-            )}
+            ))}
           </select>
         </div>
 
@@ -589,13 +637,15 @@ export default function CreateSchedulePage() {
             selectedDays.length === 0 ||
             slotDuration === 0 ||
             isBefore(selectedMonth, startOfMonth(new Date())) ||
-            isSubmitting
+            isSubmitting ||
+            hasExistingSchedule
           }
           className={`w-full mt-6 py-2 rounded flex items-center justify-center ${
             selectedDays.length === 0 ||
             slotDuration === 0 ||
             isBefore(selectedMonth, startOfMonth(new Date())) ||
-            isSubmitting
+            isSubmitting ||
+            hasExistingSchedule
               ? "bg-gray-300 cursor-not-allowed"
               : "bg-[#898F63] hover:bg-[#707454]"
           } text-white`}

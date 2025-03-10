@@ -172,16 +172,15 @@ export default function TasksPage() {
         throw new Error(errorData.error || "Failed to update task");
       }
 
-      const data = await response.json();
-      const updatedTask = data.task; // API returns data.task not data.maintenance
-      
-      // Update the tasks lists
-      if (status === "completed" || status === "cancelled") { // Match the status values from API
-        setActiveTasks(activeTasks.filter(t => t._id !== taskId));
-        setCompletedTasks([updatedTask, ...completedTasks]);
-      } else {
-        setActiveTasks(activeTasks.map(t => t._id === taskId ? updatedTask : t));
+      // Refetch tasks to ensure we have the latest data with proper structure
+      const tasksResponse = await fetch(endpoint + `?lineUserId=${lineUserId}`);
+      if (!tasksResponse.ok) {
+        throw new Error("Failed to refresh tasks");
       }
+      
+      const tasksData = await tasksResponse.json();
+      setActiveTasks(tasksData.activeTasks || []);
+      setCompletedTasks(tasksData.completedTasks || []);
     } catch (error) {
       console.error("Error updating task:", error);
       throw error;
@@ -202,7 +201,7 @@ export default function TasksPage() {
     <Box sx={{ pb: 7 }}>
       <Container maxWidth="md">
         <Box sx={{ my: 4 }}>
-          <Typography variant="h4" component="h1" gutterBottom>
+          <Typography variant="h4" component="h1" gutterBottom fontWeight={"bold"}>
             {staffRole === "Technician" ? "Maintenance Tasks" : "Cleaning Tasks"}
           </Typography>
           

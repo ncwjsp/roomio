@@ -76,11 +76,19 @@ const EditBillPage = () => {
   }, [params.billId]);
 
   useEffect(() => {
-    if (bill) {
-      // Check if using custom rent amount
-      const isCustomRent = bill.rentAmount !== bill.roomId.price;
-      setRentType(isCustomRent ? "custom" : "full");
-      setRentAmount(bill.rentAmount || 0);
+    if (bill?.roomId?.price) {
+      console.log("Room price:", bill.roomId.price);
+      console.log("Current rent amount:", bill.rentAmount);
+      
+      // Check if using custom rent amount - only if there's a significant difference
+      const isCustomRent = Math.abs(bill.rentAmount - bill.roomId.price) > 0.01;
+      const newRentType = isCustomRent ? "custom" : "full";
+      setRentType(newRentType);
+      
+      // Set rent amount based on type
+      const newRentAmount = isCustomRent ? bill.rentAmount : bill.roomId.price;
+      console.log(`Setting rent type to ${newRentType} with amount ${newRentAmount}`);
+      setRentAmount(newRentAmount);
 
       setWaterUsage(bill.waterUsage || 0);
       setElectricityUsage(bill.electricityUsage || 0);
@@ -104,6 +112,7 @@ const EditBillPage = () => {
 
       const roomResponse = await fetch(`/api/room/${data.roomId._id}`);
       const roomData = await roomResponse.json();
+      console.log("Fetched room data:", roomData);
       setCurrentReadings(roomData.currentMeterReadings);
 
       // Initialize meter readings with current values
@@ -210,14 +219,15 @@ const EditBillPage = () => {
   };
 
   if (loading) return (
-  <Box
-  display="flex"
-  justifyContent="center"
-  alignItems="center"
-  minHeight="50vh"
->
-  <LoadingSpinner />
-</Box>);
+    <Box
+      display="flex"
+      justifyContent="center"
+      alignItems="center"
+      minHeight="50vh"
+    >
+      <LoadingSpinner />
+    </Box>
+  );
   if (!bill) return <Typography>Bill not found</Typography>;
 
   return (
@@ -260,9 +270,13 @@ const EditBillPage = () => {
                   row
                   value={rentType}
                   onChange={(e) => {
-                    setRentType(e.target.value);
-                    if (e.target.value === "full") {
-                      setRentAmount(bill?.roomId?.price || 0);
+                    const newType = e.target.value;
+                    console.log(`Changing rent type to ${newType}`);
+                    setRentType(newType);
+                    // Set rent amount based on type
+                    if (newType === "full" && bill?.roomId?.price) {
+                      console.log(`Setting full rent amount to ${bill.roomId.price}`);
+                      setRentAmount(bill.roomId.price);
                     }
                   }}
                 >
@@ -278,13 +292,17 @@ const EditBillPage = () => {
                   />
                 </RadioGroup>
               </FormControl>
-              {rentType === "custom" && (
+              {rentType === "custom" ? (
                 <TextField
                   fullWidth
                   label="Custom Rent Amount"
                   type="number"
                   value={rentAmount}
-                  onChange={(e) => setRentAmount(e.target.value)}
+                  onChange={(e) => {
+                    const value = Number(e.target.value);
+                    console.log(`Setting custom rent amount to ${value}`);
+                    setRentAmount(value);
+                  }}
                   required
                   sx={{ mt: 2 }}
                   InputProps={{
@@ -294,6 +312,10 @@ const EditBillPage = () => {
                     },
                   }}
                 />
+              ) : (
+                <Typography sx={{ mt: 1, color: "text.secondary" }}>
+                  Full Rent Amount: {bill?.roomId?.price?.toLocaleString() || 0}
+                </Typography>
               )}
             </Grid>
 

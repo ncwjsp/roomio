@@ -75,7 +75,6 @@ const ApartmentSettings = () => {
 
   useEffect(() => {
     fetchBuildings();
-    fetchBillingCycle();
   }, []);
 
   const fetchBuildings = async () => {
@@ -91,19 +90,7 @@ const ApartmentSettings = () => {
       setIsLoading(false);
     }
   };
-
-  const fetchBillingCycle = async () => {
-    try {
-      const response = await fetch("/api/settings/billing-cycle");
-      const data = await response.json();
-      if (data.billingCycle) {
-        setBillingCycle(data.billingCycle);
-      }
-    } catch (error) {
-      setError("Failed to load billing cycle settings");
-    }
-  };
-
+  
   const handleEditBuilding = (building) => {
     setSelectedBuilding(building);
     setFormData({
@@ -170,25 +157,6 @@ const ApartmentSettings = () => {
       setEditModalOpen(false);
     } catch (error) {
       setError("Failed to update building");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleSaveBillingCycle = async () => {
-    try {
-      setIsLoading(true);
-      const response = await fetch("/api/settings/billing-cycle", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(billingCycle),
-      });
-
-      if (!response.ok) throw new Error("Failed to update billing cycle");
-
-      setSuccess(true);
-    } catch (error) {
-      setError(error.message);
     } finally {
       setIsLoading(false);
     }

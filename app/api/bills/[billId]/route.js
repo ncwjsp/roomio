@@ -15,7 +15,7 @@ export async function GET(request) {
 
     const bill = await Bill.findById(billId).populate({
       path: "roomId",
-      select: "roomNumber floor tenant currentMeterReadings",
+      select: "roomNumber floor tenant currentMeterReadings price",
       populate: [
         {
           path: "floor",
@@ -83,43 +83,60 @@ export async function PUT(request, { params }) {
     // Calculate amounts with proper type conversion
     const waterAmount = parseFloat(waterUsage || 0) * parseFloat(waterRate || 0);
     const electricityAmount = parseFloat(electricityUsage || 0) * parseFloat(electricityRate || 0);
-    const additionalAmount = (additionalFees || []).reduce((sum, fee) => sum + (parseFloat(fee.amount) || 0), 0);
-    const totalAmount = parseFloat(rentAmount || 0) + waterAmount + electricityAmount + additionalAmount;
+    
+    // Calculate additional fees total - ensure we handle all fee amounts as numbers
+    const additionalFeesTotal = (additionalFees || []).reduce((sum, fee) => {
+      const feePrice = parseFloat(fee.price || 0);
+      console.log(`Processing fee: ${fee.name}, price: ${feePrice}`);
+      return sum + feePrice;
+    }, 0);
 
-    // Log calculated amounts
-    console.log("Calculated amounts:", {
+    // Calculate total amount including all components
+    const baseAmount = parseFloat(rentAmount || 0);
+    const totalAmount = baseAmount + waterAmount + electricityAmount + additionalFeesTotal;
+
+    // Log detailed breakdown of total
+    console.log("Amount breakdown:", {
+      baseAmount,
       waterAmount,
       electricityAmount,
-      additionalAmount,
-      totalAmount
+      additionalFeesTotal,
+      totalAmount,
+      additionalFees: additionalFees || []
     });
 
-    // Update bill with new values
-    const updatedBill = await Bill.findByIdAndUpdate(
-      billId,
-      {
-        $set: {
-          rentAmount: parseFloat(rentAmount || 0),
-          waterUsage: parseFloat(waterUsage || 0),
-          electricityUsage: parseFloat(electricityUsage || 0),
-          waterRate: parseFloat(waterRate || 0),
-          electricityRate: parseFloat(electricityRate || 0),
-          waterAmount,
-          electricityAmount,
-          totalAmount,
-          additionalFees: additionalFees || [],
-          notes: notes || "",
-          status: "completed",
-          currentMeterReadings: {
-            ...currentMeterReadings,
-            lastUpdated: new Date()
-          }
-        },
-      },
-      { new: true }
-    ).populate({
+    // Update bill with new values and let the model handle calculations
+    const updatedBill = await Bill.findById(billId);
+    if (!updatedBill) {
+      return NextResponse.json({ error: "Bill not found" }, { status: 404 });
+    }
+
+    // Update all fields
+    updatedBill.rentAmount = baseAmount;
+    updatedBill.waterUsage = parseFloat(waterUsage || 0);
+    updatedBill.electricityUsage = parseFloat(electricityUsage || 0);
+    updatedBill.waterRate = parseFloat(waterRate || 0);
+    updatedBill.electricityRate = parseFloat(electricityRate || 0);
+    updatedBill.waterAmount = waterAmount;
+    updatedBill.electricityAmount = electricityAmount;
+    updatedBill.additionalFees = additionalFees || [];
+    updatedBill.notes = notes || "";
+    updatedBill.status = "completed";
+    updatedBill.currentMeterReadings = {
+      ...currentMeterReadings,
+      lastUpdated: new Date()
+    };
+
+    // Calculate final amounts using the model's method
+    updatedBill.calculateAmounts();
+    
+    // Save the updated bill
+    await updatedBill.save();
+
+    // Populate related fields
+    await updatedBill.populate({
       path: "roomId",
-      select: "roomNumber floor tenant",
+      select: "roomNumber floor tenant price",
       populate: [
         {
           path: "floor",
@@ -136,11 +153,16 @@ export async function PUT(request, { params }) {
       ],
     });
 
-    if (!updatedBill) {
-      return NextResponse.json({ error: "Bill not found" }, { status: 404 });
-    }
+    console.log("Updated bill:", {
+      id: updatedBill._id,
+      roomNumber: updatedBill.roomId.roomNumber,
+      rentAmount: updatedBill.rentAmount,
+      waterAmount: updatedBill.waterAmount,
+      electricityAmount: updatedBill.electricityAmount,
+      additionalFees: updatedBill.additionalFees,
+      totalAmount: updatedBill.totalAmount
+    });
 
-    console.log("Updated bill:", updatedBill);
     return NextResponse.json(updatedBill);
   } catch (error) {
     console.error("Error updating bill:", error);

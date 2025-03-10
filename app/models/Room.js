@@ -60,8 +60,6 @@ RoomSchema.index(
   { unique: true }
 );
 
-// Force model recreation
-mongoose.models = {};
-
-const Room = mongoose.model("Room", RoomSchema);
+// Use a safer approach to register the model
+const Room = mongoose.models.Room || mongoose.model("Room", RoomSchema);
 export default Room;

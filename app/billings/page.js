@@ -42,7 +42,6 @@ import { format, isBefore, addDays, subMonths } from "date-fns";
 import { useRouter } from "next/navigation";
 import PaymentTracker from "./components/PaymentTracker";
 
-// Loading Spinner Component
 const LoadingSpinner = () => {
   return (
     <div className="w-16 h-16 inline-block overflow-hidden bg-transparent">
@@ -102,6 +101,7 @@ export default function BillingPage() {
   });
   const [createBillDialog, setCreateBillDialog] = useState(false);
   const [createBillMonth, setCreateBillMonth] = useState(format(new Date(), "yyyy-MM"));
+  const [isProcessingOverdue, setIsProcessingOverdue] = useState(false);
 
   const router = useRouter();
 
@@ -205,13 +205,6 @@ export default function BillingPage() {
             )
           : 0;
 
-        // Calculate total
-        const totalAmount =
-          (bill.actualRentAmount || bill.rentAmount) +
-          waterAmount +
-          electricityAmount +
-          additionalFeesTotal;
-
         return {
           ...bill,
           id: bill._id,
@@ -225,7 +218,7 @@ export default function BillingPage() {
           electricityAmount,
           waterUsage: bill.waterUsage || 0,
           electricityUsage: bill.electricityUsage || 0,
-          totalAmount,
+          totalAmount: bill.totalAmount,
           status: bill.status,
           dueDate: bill.dueDate,
           isLate: bill.dueDate
@@ -356,6 +349,33 @@ export default function BillingPage() {
       setError("Failed to update bills");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleOverduePayments = async () => {
+    try {
+      setIsProcessingOverdue(true);
+      const response = await fetch("/api/bills/overdue", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ month: selectedMonth }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to process overdue payments");
+      }
+
+      const result = await response.json();
+      setSuccess(result.message);
+      await fetchBills();
+    } catch (error) {
+      console.error("Error processing overdue payments:", error);
+      setError(error.message || "Failed to process overdue payments");
+    } finally {
+      setIsProcessingOverdue(false);
     }
   };
 
@@ -566,6 +586,30 @@ export default function BillingPage() {
                   ))}
                 </Select>
               </FormControl>
+
+              {selectedMonth && (
+                <Button
+                  variant="contained"
+                  onClick={handleOverduePayments}
+                  disabled={isProcessingOverdue}
+                  sx={{
+                    bgcolor: "#ed6c02",
+                    "&:hover": {
+                      bgcolor: "#c45a00",
+                    },
+                    "&.Mui-disabled": {
+                      bgcolor: "#ed6c02",
+                      opacity: 0.7,
+                    },
+                  }}
+                >
+                  {isProcessingOverdue ? (
+                    <LoadingSpinner />
+                  ) : (
+                    "Overdue Payment Trigger"
+                  )}
+                </Button>
+              )}
 
               <Button
                 variant="contained"
@@ -933,6 +977,7 @@ export default function BillingPage() {
                                 </Stack>
                               </Box>
                             </>
+                          
                           )}
 
                         <Divider />
@@ -943,15 +988,7 @@ export default function BillingPage() {
                           </Typography>
                           <Typography variant="h6" color="black" fontWeight={600}>
                             ฿
-                            {(
-                              bill.rentAmount +
-                              (bill.waterRate
-                                ? bill.waterUsage * bill.waterRate
-                                : 0) +
-                              (bill.electricityRate
-                                ? bill.electricityUsage * bill.electricityRate
-                                : 0)
-                            ).toLocaleString()}
+                            {bill.totalAmount?.toLocaleString()}
                           </Typography>
                         </Box>
                       </Stack>
@@ -1100,7 +1137,6 @@ export default function BillingPage() {
           <Button 
             onClick={handleCreateBills}
             variant="contained"
-            disabled={loading}
             sx={{
               bgcolor: "#898f63",
               "&:hover": { bgcolor: "#707454" },

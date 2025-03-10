@@ -5,7 +5,7 @@ import Room from "@/app/models/Room";
 import Bill from "@/app/models/Bill";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
-import { addDays, format, isValid, parseISO } from "date-fns";
+import { addMonths, format, isValid, parseISO, setDate } from "date-fns";
 
 export async function POST(request) {
   try {
@@ -37,14 +37,15 @@ export async function POST(request) {
     // Create bills for each building
     const bills = await Promise.all(
       userBuildings.map(async (building) => {
-        // Get billing configuration from building
-        const { dueDays = 7 } = building.billingConfig || {}; // Default to 7 days if not set
-
-        // Calculate due date based on billing date and dueDays
-        const dueDate = addDays(parsedDate, dueDays);
+        // Get dueDate from building configuration (default to 5 if not set)
+        const { dueDate = 5 } = building.billingConfig || {};
+        
+        // Calculate due date as the specified date of the next month
+        const nextMonth = addMonths(parsedDate, 1);
+        const dueDateObj = setDate(nextMonth, dueDate);
         
         // Validate dueDate
-        if (!isValid(dueDate)) {
+        if (!isValid(dueDateObj)) {
           throw new Error("Invalid due date calculated");
         }
 
@@ -69,27 +70,30 @@ export async function POST(request) {
 
             console.log("Creating bill for room:", {
               roomNumber: room.roomNumber,
-              price: room.price
+              price: room.price,
+              rentAmount: room.price // Always use full rent amount for new bills
             });
 
+            // Create new bill with proper fee structure
+            // Note: Using price field for fee structure
             return Bill.create({
               roomId: room._id,
               buildingId: building._id,
               month: month,
               billingDate: parsedDate,
-              dueDate,
-              rentAmount: room.price,
+              dueDate: dueDateObj,
+              rentAmount: room.price, // Always use full rent amount for new bills
               waterRate: building.waterRate,
               electricityRate: building.electricityRate,
               status: "pending",
               createdBy: session.user.id,
-              additionalFees: [],
+              additionalFees: [], // Initialize with empty array using price field
               notes: "",
               waterUsage: 0,
               electricityUsage: 0,
               waterAmount: 0,
               electricityAmount: 0,
-              totalAmount: room.price,
+              totalAmount: room.price, // Initial total is just the rent amount
               initialMeterReadings: {
                 water: room.currentMeterReadings?.water || 0,
                 electricity: room.currentMeterReadings?.electricity || 0,
@@ -104,9 +108,13 @@ export async function POST(request) {
           })
         );
 
+        console.log(`Created ${buildingBills.filter(Boolean).length} bills for building ${building.name}`);
+
         return buildingBills.filter(Boolean);
       })
     );
+
+    console.log(`Created a total of ${bills.flat().length} bills`);
 
     return NextResponse.json({
       message: "Bills created successfully",

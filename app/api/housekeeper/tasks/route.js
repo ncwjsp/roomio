@@ -291,7 +291,7 @@ export async function PUT(request) {
                   color: "#FFFFFF",
                 },
               ],
-              backgroundColor: status === 'completed' ? "#889F63" : "#DC3545",
+              backgroundColor: status === 'completed' ? "#898F63" : "#DC3545",
             },
             body: {
               type: "box",

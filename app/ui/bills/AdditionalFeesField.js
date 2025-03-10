@@ -31,6 +31,9 @@ export default function AdditionalFeesField({ value, onChange }) {
     onChange(newFees);
   };
 
+  // Calculate total amount of additional fees
+  const totalAmount = value.reduce((sum, fee) => sum + (Number(fee.price) || 0), 0);
+
   return (
     <Box>
       <Typography variant="subtitle1" gutterBottom>
@@ -53,14 +56,15 @@ export default function AdditionalFeesField({ value, onChange }) {
                 onChange={(e) => handleChange(index, 'name', e.target.value)}
                 size="small"
                 fullWidth
-                placeholder="e.g., Parking Fee"
+                placeholder="e.g., Late Payment"
               />
               <TextField
                 label="Price"
                 value={fee.price}
                 onChange={(e) => {
                   const value = e.target.value;
-                  if (value === '' || /^\d+$/.test(value)) {
+                  // Allow empty string or valid numbers including decimals
+                  if (value === '' || /^\d*\.?\d*$/.test(value)) {
                     handleChange(index, 'price', value);
                   }
                 }}
@@ -68,6 +72,10 @@ export default function AdditionalFeesField({ value, onChange }) {
                 type="number"
                 InputProps={{
                   startAdornment: '฿',
+                  inputProps: {
+                    step: "any",
+                    min: "0"
+                  }
                 }}
                 sx={{ width: '150px' }}
               />
@@ -96,7 +104,12 @@ export default function AdditionalFeesField({ value, onChange }) {
         >
           Add Fee
         </Button>
+        {value.length > 0 && (
+          <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1 }}>
+            Total Additional Fees: ฿{totalAmount.toLocaleString()}
+          </Typography>
+        )}
       </Stack>
     </Box>
   );
-} 
+}

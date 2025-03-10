@@ -37,6 +37,7 @@ import {
   Delete as DeleteIcon,
   Person as PersonIcon,
   Phone as PhoneIcon,
+  Edit as EditIcon,
 } from "@mui/icons-material";
 import {
   format,
@@ -238,36 +239,57 @@ export default function CleaningManagementPage() {
   };
 
   const handleAddHousekeeper = async () => {
-    if (!selectedHousekeeper) return;
+    if (!selectedHousekeeper) {
+      setSnackbar({
+        open: true,
+        message: "Please select a housekeeper",
+        severity: "error",
+      });
+      return;
+    }
 
     try {
       const response = await fetch("/api/building/housekeepers", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
           buildingId: selectedBuilding,
-          housekeeperId: selectedHousekeeper
-        })
+          housekeeperId: selectedHousekeeper,
+        }),
       });
 
-      if (!response.ok) throw new Error("Failed to add housekeeper");
       const data = await response.json();
 
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to add housekeeper");
+      }
+
       setAssignedHousekeepers(data.housekeepers);
-      setAvailableHousekeepers(prev => prev.filter(h => h._id !== selectedHousekeeper));
       setSelectedHousekeeper("");
       setShowAddHousekeeperDialog(false);
       setSnackbar({
         open: true,
         message: "Housekeeper added successfully",
-        severity: "success"
+        severity: "success",
       });
+
+      // Refresh available housekeepers
+      const updatedResponse = await fetch(
+        `/api/building/housekeepers?buildingId=${selectedBuilding}&landlordId=${session.user.id}`
+      );
+      if (!updatedResponse.ok) {
+        throw new Error("Failed to refresh housekeepers list");
+      }
+      const updatedData = await updatedResponse.json();
+      setAvailableHousekeepers(updatedData.availableHousekeepers);
     } catch (error) {
       console.error("Error adding housekeeper:", error);
       setSnackbar({
         open: true,
-        message: "Failed to add housekeeper",
-        severity: "error"
+        message: error.message || "Failed to add housekeeper",
+        severity: "error",
       });
     }
   };
@@ -276,30 +298,39 @@ export default function CleaningManagementPage() {
     try {
       const response = await fetch(
         `/api/building/housekeepers?buildingId=${selectedBuilding}&housekeeperId=${housekeeperId}`,
-        { method: "DELETE" }
+        {
+          method: "DELETE",
+        }
       );
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to remove housekeeper");
-      }
 
       const data = await response.json();
 
-      const removedHousekeeper = assignedHousekeepers.find(h => h._id === housekeeperId);
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to remove housekeeper");
+      }
+
       setAssignedHousekeepers(data.housekeepers);
-      setAvailableHousekeepers(prev => [...prev, removedHousekeeper]);
       setSnackbar({
         open: true,
         message: "Housekeeper removed successfully",
-        severity: "success"
+        severity: "success",
       });
+
+      // Refresh available housekeepers
+      const updatedResponse = await fetch(
+        `/api/building/housekeepers?buildingId=${selectedBuilding}&landlordId=${session.user.id}`
+      );
+      if (!updatedResponse.ok) {
+        throw new Error("Failed to refresh housekeepers list");
+      }
+      const updatedData = await updatedResponse.json();
+      setAvailableHousekeepers(updatedData.availableHousekeepers);
     } catch (error) {
       console.error("Error removing housekeeper:", error);
       setSnackbar({
         open: true,
         message: error.message || "Failed to remove housekeeper",
-        severity: "error"
+        severity: "error",
       });
     }
   };
@@ -512,11 +543,21 @@ export default function CleaningManagementPage() {
                 >
                   {availableHousekeepers.map((housekeeper) => (
                     <MenuItem key={housekeeper._id} value={housekeeper._id}>
-                      {`${housekeeper.firstName} ${housekeeper.lastName}`}
+                      {housekeeper.firstName} {housekeeper.lastName}
                     </MenuItem>
                   ))}
+                  {availableHousekeepers.length === 0 && (
+                    <MenuItem disabled>
+                      No available housekeepers
+                    </MenuItem>
+                  )}
                 </Select>
               </FormControl>
+              {availableHousekeepers.length === 0 && (
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                  All housekeepers are currently assigned to buildings. Remove a housekeeper from their current building to reassign them.
+                </Typography>
+              )}
             </DialogContent>
             <DialogActions>
               <Button onClick={() => setShowAddHousekeeperDialog(false)}>
@@ -579,6 +620,27 @@ export default function CleaningManagementPage() {
                   </Box>
                 ) : (
                   <Box>
+                    {/* Calendar Controls */}
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2, alignItems: 'center' }}>
+                      {getCurrentMonthSchedule() && (
+                        <Button
+                          variant="outlined"
+                          startIcon={<EditIcon />}
+                          onClick={() => router.push(`/cleaning/edit?id=${getCurrentMonthSchedule()._id}`)}
+                          sx={{
+                            color: "#898F63",
+                            borderColor: "#898F63",
+                            "&:hover": {
+                              borderColor: "#707454",
+                              backgroundColor: "rgba(137, 143, 99, 0.04)"
+                            }
+                          }}
+                        >
+                          Edit Schedule
+                        </Button>
+                      )}
+                    </Box>
+                    
                     {/* Calendar Grid */}
                     <Grid container spacing={1} sx={{ mb: 1 }}>
                       {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(

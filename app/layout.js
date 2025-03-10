@@ -23,7 +23,7 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <SessionWrapper>
-      <html lang="en" suppressHydrationWarning>
+      <html lang="en" suppressHydrationWarning="true">
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         >

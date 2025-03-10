@@ -26,10 +26,11 @@ export async function GET(request) {
       return NextResponse.json({ error: "Building not found" }, { status: 404 });
     }
 
-    // Get all available housekeepers (staff with role 'Housekeeper' and matching landlordId)
+    // Get all available housekeepers (staff with role 'Housekeeper', matching landlordId, and not assigned to any building)
     const allHousekeepers = await Staff.find({ 
       role: 'Housekeeper',
       landlordId: landlordId,
+      assignedBuildings: { $size: 0 }, // Only get housekeepers not assigned to any building
       _id: { $nin: building.housekeepers?.map(h => h._id) || [] }
     }).select('firstName lastName phone lineUserId');
 
@@ -79,6 +80,14 @@ export async function POST(request) {
       return NextResponse.json({ error: "Staff not found" }, { status: 404 });
     }
 
+    // Check if housekeeper is already assigned to any building
+    if (staff.assignedBuildings && staff.assignedBuildings.length > 0) {
+      return NextResponse.json(
+        { error: "This housekeeper is already assigned to another building" },
+        { status: 400 }
+      );
+    }
+
     // Update both documents
     const [updatedBuilding] = await Promise.all([
       Building.findByIdAndUpdate(
@@ -91,7 +100,7 @@ export async function POST(request) {
       }),
       Staff.findByIdAndUpdate(
         housekeeperId,
-        { $addToSet: { assignedBuildings: buildingId } },
+        { $set: { assignedBuildings: [buildingId] } }, // Use $set instead of $addToSet to ensure only one building
         { new: true }
       )
     ]);
@@ -154,7 +163,7 @@ export async function DELETE(request) {
       }),
       Staff.findByIdAndUpdate(
         housekeeperId,
-        { $pull: { assignedBuildings: buildingId } },
+        { $set: { assignedBuildings: [] } }, // Use $set instead of $pull to ensure no other buildings are assigned
         { new: true }
       )
     ]);

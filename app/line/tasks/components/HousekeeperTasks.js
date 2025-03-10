@@ -240,7 +240,7 @@ const HousekeeperTasks = ({
                     Building & Room
                   </Typography>
                   <Typography variant="body1" className="text-gray-900">
-                    {selectedTask.building?.name} - Room {selectedTask.bookedBy?.room?.roomNumber || 'N/A'}
+                    {selectedTask.building?.name} - Room {selectedTask.tenant?.roomNumber || 'N/A'}
                   </Typography>
                 </div>
                 <div>
