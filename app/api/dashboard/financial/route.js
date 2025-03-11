@@ -4,7 +4,7 @@ import Bill from "@/app/models/Bill";
 import Staff from "@/app/models/Staff";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
-import { format, parse, getYear } from "date-fns";
+import { format } from "date-fns";
 
 export async function GET(request) {
   try {
@@ -44,6 +44,8 @@ export async function GET(request) {
         "0"
       )}`;
 
+      console.log(`Fetching data for month: ${monthFormatted}`);
+
       // Get all paid bills for the month
       const paidBills = await Bill.find({
         createdBy: userId,
@@ -51,33 +53,61 @@ export async function GET(request) {
         paymentStatus: "paid",
       });
 
+      console.log(`Found ${paidBills.length} paid bills`);
+
       // Get all bills for the month (paid or not) for utility calculations
       const allBills = await Bill.find({
         createdBy: userId,
         month: monthFormatted,
       });
 
-      // Calculate total rent revenue (only from paid bills)
-      const totalRentRevenue = paidBills.reduce(
-        (sum, bill) => sum + (bill.rentAmount || 0),
-        0
-      );
+      console.log(`Found ${allBills.length} total bills`);
+
+      // Calculate total rent revenue (including additional fees from paid bills)
+      const totalRentRevenue = paidBills.reduce((sum, bill) => {
+        const additionalFeesTotal = Array.isArray(bill.additionalFees)
+          ? bill.additionalFees.reduce(
+              (feeSum, fee) => feeSum + (Number(fee.price) || 0),
+              0
+            )
+          : 0;
+        return sum + (Number(bill.rentAmount) || 0) + additionalFeesTotal;
+      }, 0);
 
       // Calculate total electricity and water usage from all bills
-      const totalElectricityUsage = allBills.reduce((sum, bill) => {
-        return sum + (bill.electricityAmount || 0);
-      }, 0);
-
-      const totalWaterUsage = allBills.reduce((sum, bill) => {
-        return sum + (bill.waterAmount || 0);
-      }, 0);
-
-      // Get staff salary for the month
-      const staffMembers = await Staff.find({ createdBy: userId });
-      const totalStaffSalary = staffMembers.reduce(
-        (sum, staff) => sum + (staff.salary || 0),
+      const totalElectricityUsage = allBills.reduce(
+        (sum, bill) => sum + (Number(bill.electricityAmount) || 0),
         0
       );
+      const totalWaterUsage = allBills.reduce(
+        (sum, bill) => sum + (Number(bill.waterAmount) || 0),
+        0
+      );
+
+      // Get staff salary for the month
+      const staffMembers = await Staff.find({ landlordId: userId });
+      const totalStaffSalary = staffMembers.reduce(
+        (sum, staff) => sum + (Number(staff.salary) || 0),
+        0
+      );
+
+      console.log({
+        rentRevenue: totalRentRevenue,
+        electricityUsage: totalElectricityUsage,
+        waterUsage: totalWaterUsage,
+        staffSalary: totalStaffSalary,
+      });
+
+      // Create monthly data for the chart
+      const monthlyData = [
+        {
+          month,
+          rent: totalRentRevenue,
+          electricity: totalElectricityUsage,
+          water: totalWaterUsage,
+          salary: totalStaffSalary,
+        },
+      ];
 
       return NextResponse.json({
         summary: {
@@ -86,6 +116,7 @@ export async function GET(request) {
           waterUsage: totalWaterUsage,
           staffSalary: totalStaffSalary,
         },
+        monthlyData: monthlyData,
       });
     }
     // For yearly view, get data for all months in the specified year
@@ -112,16 +143,17 @@ export async function GET(request) {
         month: { $regex: `^${year}-` },
       });
 
-      // Get staff members
-      const staffMembers = await Staff.find({ createdBy: userId });
+      // Get staff members once for the whole year
+      const staffMembers = await Staff.find({ landlordId: userId });
       const monthlyStaffSalary = staffMembers.reduce(
-        (sum, staff) => sum + (staff.salary || 0),
+        (sum, staff) => sum + (Number(staff.salary) || 0),
         0
       );
 
-      // Process data for each month
-      for (let i = 0; i < 12; i++) {
-        const monthStr = String(i + 1).padStart(2, "0");
+      // Process each month
+      for (const month of months) {
+        const monthIndex = months.indexOf(month) + 1;
+        const monthStr = String(monthIndex).padStart(2, "0");
         const monthFormatted = `${year}-${monthStr}`;
 
         // Filter bills for this month
@@ -132,43 +164,49 @@ export async function GET(request) {
           (bill) => bill.paymentStatus === "paid"
         );
 
-        // Calculate metrics
-        const rentRevenue = paidMonthBills.reduce(
-          (sum, bill) => sum + (bill.rentAmount || 0),
+        // Calculate totals for this month
+        const rentRevenue = paidMonthBills.reduce((sum, bill) => {
+          const additionalFeesTotal = Array.isArray(bill.additionalFees)
+            ? bill.additionalFees.reduce(
+                (feeSum, fee) => feeSum + (Number(fee.price) || 0),
+                0
+              )
+            : 0;
+          return sum + (Number(bill.rentAmount) || 0) + additionalFeesTotal;
+        }, 0);
+
+        const electricityAmount = monthBills.reduce(
+          (sum, bill) => sum + (Number(bill.electricityAmount) || 0),
           0
         );
-        const electricityUsage = monthBills.reduce(
-          (sum, bill) => sum + (bill.electricityAmount || 0),
-          0
-        );
-        const waterUsage = monthBills.reduce(
-          (sum, bill) => sum + (bill.waterAmount || 0),
+
+        const waterAmount = monthBills.reduce(
+          (sum, bill) => sum + (Number(bill.waterAmount) || 0),
           0
         );
 
         yearlyData.push({
-          month: months[i],
+          month,
           rent: rentRevenue,
-          electricity: electricityUsage,
-          water: waterUsage,
+          electricity: electricityAmount,
+          water: waterAmount,
           salary: monthlyStaffSalary,
         });
       }
 
-      // Calculate yearly totals
-      const yearlyTotals = {
-        rent: yearlyData.reduce((sum, month) => sum + month.rent, 0),
-        electricity: yearlyData.reduce(
-          (sum, month) => sum + month.electricity,
-          0
-        ),
-        water: yearlyData.reduce((sum, month) => sum + month.water, 0),
-        salary: yearlyData.reduce((sum, month) => sum + month.salary, 0),
-      };
+      console.log("Yearly data:", yearlyData);
 
       return NextResponse.json({
         monthlyData: yearlyData,
-        yearlyTotals: yearlyTotals,
+        yearlyTotals: {
+          rentRevenue: yearlyData.reduce((sum, month) => sum + month.rent, 0),
+          electricityUsage: yearlyData.reduce(
+            (sum, month) => sum + month.electricity,
+            0
+          ),
+          waterUsage: yearlyData.reduce((sum, month) => sum + month.water, 0),
+          staffSalary: yearlyData.reduce((sum, month) => sum + month.salary, 0),
+        },
       });
     }
   } catch (error) {

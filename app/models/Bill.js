@@ -16,12 +16,13 @@ const billSchema = new mongoose.Schema(
       type: String,
       required: true,
       validate: {
-        validator: function(v) {
+        validator: function (v) {
           // Validate YYYY-MM format
           return /^\d{4}-\d{2}$/.test(v);
         },
-        message: props => `${props.value} is not a valid month format. Use YYYY-MM format.`
-      }
+        message: (props) =>
+          `${props.value} is not a valid month format. Use YYYY-MM format.`,
+      },
     },
     billingDate: {
       type: Date,
@@ -31,11 +32,11 @@ const billSchema = new mongoose.Schema(
       type: Date,
       required: true,
       validate: {
-        validator: function(v) {
+        validator: function (v) {
           return v instanceof Date && !isNaN(v);
         },
-        message: props => 'Invalid due date'
-      }
+        message: (props) => "Invalid due date",
+      },
     },
     rentAmount: {
       type: Number,
@@ -116,7 +117,7 @@ const billSchema = new mongoose.Schema(
       },
       lastUpdated: {
         type: Date,
-      }
+      },
     },
     currentMeterReadings: {
       water: {
@@ -129,17 +130,56 @@ const billSchema = new mongoose.Schema(
       },
       lastUpdated: {
         type: Date,
-      }
+      },
     },
     isSent: {
       type: Boolean,
-      default: false
+      default: false,
     },
   },
   {
     timestamps: true,
   }
 );
+
+// Pre-save middleware to calculate amounts before saving
+billSchema.pre("save", function (next) {
+  // Calculate water amount
+  this.waterAmount = Number(this.waterUsage || 0) * Number(this.waterRate || 0);
+
+  // Calculate electricity amount
+  this.electricityAmount =
+    Number(this.electricityUsage || 0) * Number(this.electricityRate || 0);
+
+  // Calculate additional fees total
+  const additionalFeesTotal = Array.isArray(this.additionalFees)
+    ? this.additionalFees.reduce(
+        (sum, fee) => sum + (Number(fee.price) || 0),
+        0
+      )
+    : 0;
+
+  // Calculate total amount
+  this.totalAmount =
+    Number(this.rentAmount || 0) +
+    Number(this.waterAmount || 0) +
+    Number(this.electricityAmount || 0) +
+    additionalFeesTotal;
+
+  console.log("Pre-save calculations:", {
+    waterUsage: this.waterUsage,
+    waterRate: this.waterRate,
+    electricityUsage: this.electricityUsage,
+    electricityRate: this.electricityRate,
+    rentAmount: this.rentAmount,
+    waterAmount: this.waterAmount,
+    electricityAmount: this.electricityAmount,
+    totalAmount: this.totalAmount,
+    additionalFees: this.additionalFees,
+  });
+
+  next();
+});
 
 // Pre-update middleware
 billSchema.pre("findOneAndUpdate", function (next) {
@@ -152,36 +192,24 @@ billSchema.pre("findOneAndUpdate", function (next) {
     const electricityRate = Number(update.$set.electricityRate) || 0;
     const rentAmount = Number(update.$set.rentAmount) || 0;
 
-    // Only calculate if we don't already have the values in the update
-    if (!update.$set.waterAmount) {
-      update.$set.waterAmount = waterUsage * waterRate;
-    }
-    if (!update.$set.electricityAmount) {
-      update.$set.electricityAmount = electricityUsage * electricityRate;
-    }
-    if (!update.$set.totalAmount) {
-      // Calculate additional fees total
-      const additionalFeesTotal = Array.isArray(update.$set.additionalFees)
-        ? update.$set.additionalFees.reduce(
-            (sum, fee) => sum + (Number(fee.price) || 0),
-            0
-          )
-        : 0;
+    // Calculate water and electricity amounts
+    update.$set.waterAmount = waterUsage * waterRate;
+    update.$set.electricityAmount = electricityUsage * electricityRate;
 
-      console.log("Pre-update calculating total amount:", {
-        rentAmount,
-        waterAmount: update.$set.waterAmount,
-        electricityAmount: update.$set.electricityAmount,
-        additionalFeesTotal,
-      });
+    // Calculate additional fees total
+    const additionalFeesTotal = Array.isArray(update.$set.additionalFees)
+      ? update.$set.additionalFees.reduce(
+          (sum, fee) => sum + (Number(fee.price) || 0),
+          0
+        )
+      : 0;
 
-      // Calculate total amount
-      update.$set.totalAmount =
-        rentAmount +
-        update.$set.waterAmount +
-        update.$set.electricityAmount +
-        additionalFeesTotal;
-    }
+    // Calculate total amount
+    update.$set.totalAmount =
+      rentAmount +
+      update.$set.waterAmount +
+      update.$set.electricityAmount +
+      additionalFeesTotal;
 
     console.log("Pre-update calculations:", {
       waterUsage,
@@ -192,7 +220,7 @@ billSchema.pre("findOneAndUpdate", function (next) {
       waterAmount: update.$set.waterAmount,
       electricityAmount: update.$set.electricityAmount,
       totalAmount: update.$set.totalAmount,
-      additionalFees: update.$set.additionalFees || []
+      additionalFees: update.$set.additionalFees || [],
     });
   }
   next();
@@ -202,8 +230,9 @@ billSchema.pre("findOneAndUpdate", function (next) {
 billSchema.methods.calculateAmounts = function () {
   // Calculate utility amounts
   this.waterAmount = Number(this.waterUsage || 0) * Number(this.waterRate || 0);
-  this.electricityAmount = Number(this.electricityUsage || 0) * Number(this.electricityRate || 0);
-  
+  this.electricityAmount =
+    Number(this.electricityUsage || 0) * Number(this.electricityRate || 0);
+
   // Calculate additional fees total
   const additionalFeesTotal = Array.isArray(this.additionalFees)
     ? this.additionalFees.reduce(
@@ -211,15 +240,6 @@ billSchema.methods.calculateAmounts = function () {
         0
       )
     : 0;
-
-  // Log calculations for debugging
-  console.log("Calculating amounts:", {
-    rentAmount: this.rentAmount,
-    waterAmount: this.waterAmount,
-    electricityAmount: this.electricityAmount,
-    additionalFeesTotal,
-    additionalFees: this.additionalFees
-  });
 
   // Calculate total amount
   this.totalAmount =

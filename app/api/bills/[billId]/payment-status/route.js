@@ -9,18 +9,35 @@ export async function PUT(request, { params }) {
     const { billId } = bills;
     const updates = await request.json();
 
-    const bill = await Bill.findByIdAndUpdate(
-      billId,
-      {
-        paymentStatus: updates.paymentStatus,
-        paymentDate: updates.paymentDate,
-      },
-      { new: true }
-    );
-
+    // Find the bill first
+    const bill = await Bill.findById(billId);
     if (!bill) {
       return NextResponse.json({ error: "Bill not found" }, { status: 404 });
     }
+
+    // Update payment status and date
+    bill.paymentStatus = updates.paymentStatus;
+    bill.paymentDate = updates.paymentDate;
+
+    // Recalculate amounts using the model's method
+    bill.calculateAmounts();
+
+    // Save the updated bill
+    await bill.save();
+
+    // Populate necessary fields for the response
+    await bill.populate({
+      path: "roomId",
+      select: "roomNumber floor",
+      populate: {
+        path: "floor",
+        select: "building",
+        populate: {
+          path: "building",
+          select: "name",
+        },
+      },
+    });
 
     return NextResponse.json(bill);
   } catch (error) {

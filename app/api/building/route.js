@@ -28,7 +28,7 @@ export async function POST(request) {
     // Check for existing building with the same name for this user
     const existingBuilding = await Building.findOne({
       name: data.name,
-      createdBy: data.userId
+      createdBy: data.userId,
     });
 
     if (existingBuilding) {
@@ -47,6 +47,10 @@ export async function POST(request) {
       floors: [],
       electricityRate: data.electricityRate,
       waterRate: data.waterRate,
+      billingConfig: {
+        dueDate: data.dueDate || 5,
+        latePaymentCharge: data.latePaymentCharge || 0,
+      },
     });
     await building.save();
 
@@ -60,17 +64,19 @@ export async function POST(request) {
     for (let i = 1; i <= data.totalFloors; i++) {
       const floorId = new mongoose.Types.ObjectId();
       floorIds.push(floorId);
-      
+
       const floorRoomIds = [];
-      
+
       // Create rooms for this floor
       for (let j = 1; j <= data.roomsPerFloor; j++) {
         const roomId = new mongoose.Types.ObjectId();
-        const roomNumber = `${building.name}${i}${j.toString().padStart(2, "0")}`;
-        
+        const roomNumber = `${building.name}${i}${j
+          .toString()
+          .padStart(2, "0")}`;
+
         roomIds.push(roomId);
         floorRoomIds.push(roomId);
-        
+
         roomOps.push({
           insertOne: {
             document: {
@@ -81,11 +87,11 @@ export async function POST(request) {
               status: "Available",
               price: data.basePrice,
               createdBy: data.userId,
-            }
-          }
+            },
+          },
         });
       }
-      
+
       floorOps.push({
         insertOne: {
           document: {
@@ -94,8 +100,8 @@ export async function POST(request) {
             floorNumber: i,
             rooms: floorRoomIds,
             createdBy: data.userId,
-          }
-        }
+          },
+        },
       });
     }
 
@@ -103,7 +109,7 @@ export async function POST(request) {
     if (floorOps.length > 0) {
       await Floor.bulkWrite(floorOps);
     }
-    
+
     if (roomOps.length > 0) {
       await Room.bulkWrite(roomOps);
     }

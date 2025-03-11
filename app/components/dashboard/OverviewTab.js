@@ -41,6 +41,7 @@ const OverviewTab = ({ userId }) => {
   const [overduePaymentPieData, setOverduePaymentPieData] = useState([]);
   const [roomVacancyPieData, setRoomVacancyPieData] = useState([]);
   const [maintenancePieData, setMaintenancePieData] = useState([]);
+  const [cleaningPieData, setCleaningPieData] = useState([]);
   const [dashboardError, setDashboardError] = useState(null);
 
   useEffect(() => {
@@ -98,6 +99,11 @@ const OverviewTab = ({ userId }) => {
           { name: "Pending", value: 10 },
         ]);
 
+        setCleaningPieData([
+          { name: "Available", value: 92 },
+          { name: "Pending", value: 8 },
+        ]);
+
         setIsChartLoading(false);
         return;
       }
@@ -121,6 +127,7 @@ const OverviewTab = ({ userId }) => {
         setOverduePaymentPieData(data.overduePaymentPieData);
         setRoomVacancyPieData(data.roomVacancyPieData);
         setMaintenancePieData(data.maintenancePieData);
+        setCleaningPieData(data.cleaningPieData);
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
         setDashboardError(error.message);
@@ -172,6 +179,11 @@ const OverviewTab = ({ userId }) => {
           { name: "In Progress", value: 25 },
           { name: "Pending", value: 10 },
         ]);
+
+        setCleaningPieData([
+          { name: "Available", value: 92 },
+          { name: "Pending", value: 8 },
+        ]);
       } finally {
         setIsChartLoading(false);
       }
@@ -217,15 +229,15 @@ const OverviewTab = ({ userId }) => {
             <PieChartComponent data={roomVacancyPieData} title="Room Vacancy" />
           </div>
 
-          <div className="w-full mb-6">
-            <div className="bg-white rounded-[10px] shadow p-4 flex flex-col items-center">
-              <h3 className="text-lg font-semibold mb-4">
-                Maintenance & Cleaning
-              </h3>
-              <div className="w-full max-w-md">
-                <PieChartComponent data={maintenancePieData} title="" />
-              </div>
-            </div>
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            <PieChartComponent
+              data={maintenancePieData}
+              title="Maintenance Requests"
+            />
+            <PieChartComponent
+              data={cleaningPieData}
+              title="Cleaning Schedule"
+            />
           </div>
         </div>
       )}

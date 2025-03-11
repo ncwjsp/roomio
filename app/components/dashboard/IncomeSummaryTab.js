@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import BarChartComponent from "@/app/components/chart/BarChartComponent";
 import { format } from "date-fns";
 
@@ -36,14 +36,12 @@ const LoadingSpinner = () => {
 };
 
 const IncomeSummaryTab = ({ userId }) => {
-  const [isChartLoading, setIsChartLoading] = useState(false);
-  const [view, setView] = useState("Monthly");
+  const [isChartLoading, setIsChartLoading] = useState(true);
   const [selectedYear, setSelectedYear] = useState(
     new Date().getFullYear().toString()
   );
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), "MMM"));
   const [monthlyFinancialData, setMonthlyFinancialData] = useState([]);
-  const [yearlyFinancialData, setYearlyFinancialData] = useState([]);
   const [summaryData, setSummaryData] = useState({
     rentRevenue: 0,
     electricityUsage: 0,
@@ -51,18 +49,20 @@ const IncomeSummaryTab = ({ userId }) => {
     staffSalary: 0,
   });
   const [financialError, setFinancialError] = useState(null);
+  const [availableYears, setAvailableYears] = useState([]);
+  const [availableMonths, setAvailableMonths] = useState([]);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
-  // Format currency values
+  // Format currency values to Thai Baht
   const formatCurrency = (value) => {
-    return new Intl.NumberFormat("en-US", {
+    return new Intl.NumberFormat("th-TH", {
       style: "currency",
-      currency: "USD",
+      currency: "THB",
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(value);
   };
 
-  // Updated summary cards with the new categories
   const incomeSummaryCards = [
     {
       title: "Total Revenue Rent",
@@ -98,20 +98,23 @@ const IncomeSummaryTab = ({ userId }) => {
     },
   ];
 
-  const fetchFinancialData = async (currentView, year, month) => {
-    if (!userId) return; // Don't fetch if we don't have a user ID
+  // Fetch financial data
+  const fetchFinancialData = useCallback(async () => {
+    if (!userId) return;
 
     try {
       setFinancialError(null);
       setIsChartLoading(true);
 
-      // Build the API URL with query parameters
-      let url = `/api/dashboard/financial?view=${currentView}&year=${year}`;
-      if (currentView === "Monthly") {
-        url += `&month=${month}`;
-      }
+      const url = `/api/dashboard/financial?year=${selectedYear}&month=${selectedMonth}`;
+      console.log(`Fetching data from: ${url}`);
 
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-cache",
+        },
+      });
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -119,33 +122,126 @@ const IncomeSummaryTab = ({ userId }) => {
       }
 
       const data = await response.json();
+      console.log("API Response:", data);
 
-      if (currentView === "Monthly") {
-        // Update summary data for the cards
+      if (data.summary) {
+        console.log("Setting summary data:", data.summary);
         setSummaryData(data.summary);
-      } else {
-        // For yearly view, set the monthly data for the chart
-        setMonthlyFinancialData(data.monthlyData);
-
-        // Also update the summary data with yearly totals
-        setSummaryData(data.yearlyTotals);
       }
+
+      if (data.monthlyData) {
+        setMonthlyFinancialData(data.monthlyData);
+      }
+
+      setIsInitialLoad(false);
     } catch (error) {
       console.error("Error fetching financial data:", error);
       setFinancialError(error.message);
+      setIsInitialLoad(false);
     } finally {
       setIsChartLoading(false);
     }
-  };
+  }, [userId, selectedYear, selectedMonth]);
 
+  // Fetch available years and months
   useEffect(() => {
-    fetchFinancialData(view, selectedYear, selectedMonth);
-  }, [view, selectedYear, selectedMonth, userId]);
+    const fetchAvailableData = async () => {
+      if (!userId) return;
+
+      try {
+        const response = await fetch(`/api/dashboard/available-data`);
+        if (!response.ok) {
+          throw new Error("Failed to fetch available data periods");
+        }
+
+        const data = await response.json();
+        if (data.years?.length > 0) {
+          setAvailableYears(data.years);
+          const mostRecentYear = data.years[data.years.length - 1];
+          setSelectedYear(mostRecentYear);
+
+          if (data.monthsByYear?.[mostRecentYear]) {
+            setAvailableMonths(data.monthsByYear[mostRecentYear]);
+            if (data.monthsByYear[mostRecentYear].length > 0) {
+              setSelectedMonth(
+                data.monthsByYear[mostRecentYear][
+                  data.monthsByYear[mostRecentYear].length - 1
+                ]
+              );
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching available data periods:", error);
+        setAvailableYears([new Date().getFullYear().toString()]);
+        setAvailableMonths([
+          "Jan",
+          "Feb",
+          "Mar",
+          "Apr",
+          "May",
+          "Jun",
+          "Jul",
+          "Aug",
+          "Sep",
+          "Oct",
+          "Nov",
+          "Dec",
+        ]);
+      }
+    };
+
+    fetchAvailableData();
+  }, [userId]);
+
+  // Update available months when year changes
+  useEffect(() => {
+    const updateAvailableMonths = async () => {
+      if (!userId) return;
+
+      try {
+        const response = await fetch(
+          `/api/dashboard/available-data?year=${selectedYear}`
+        );
+        if (!response.ok) {
+          throw new Error("Failed to fetch available months");
+        }
+
+        const data = await response.json();
+        if (data.months?.length > 0) {
+          setAvailableMonths(data.months);
+          if (!data.months.includes(selectedMonth)) {
+            setSelectedMonth(data.months[0]);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching available months:", error);
+        setAvailableMonths([
+          "Jan",
+          "Feb",
+          "Mar",
+          "Apr",
+          "May",
+          "Jun",
+          "Jul",
+          "Aug",
+          "Sep",
+          "Oct",
+          "Nov",
+          "Dec",
+        ]);
+      }
+    };
+
+    updateAvailableMonths();
+  }, [selectedYear, userId, selectedMonth]);
+
+  // Fetch financial data when year or month changes
+  useEffect(() => {
+    fetchFinancialData();
+  }, [fetchFinancialData]);
 
   const renderBarChart = () => {
-    let chartData =
-      view === "Monthly" ? monthlyFinancialData : yearlyFinancialData;
-
     if (isChartLoading) {
       return (
         <div className="flex justify-center items-center min-h-[400px]">
@@ -168,14 +264,15 @@ const IncomeSummaryTab = ({ userId }) => {
         <h2 className="text-xl font-semibold mb-4">Financial Breakdown</h2>
         <div className="bg-white p-4 rounded-[10px] shadow">
           <BarChartComponent
-            data={chartData}
-            xKey={view === "Monthly" ? "month" : "year"}
+            data={monthlyFinancialData}
+            xKey="day"
             yKeys={[
-              { dataKey: "rent", color: "#588F46", name: "Rent Revenue" },
-              { dataKey: "electricity", color: "#F6C23E", name: "Electricity" },
-              { dataKey: "water", color: "#4E73DF", name: "Water" },
-              { dataKey: "salary", color: "#8A63D2", name: "Staff Salary" },
+              { dataKey: "rent", color: "#E74C3C", name: "Rent Revenue" },
+              { dataKey: "electricity", color: "#F1C40F", name: "Electricity" },
+              { dataKey: "water", color: "#3498DB", name: "Water" },
+              { dataKey: "salary", color: "#2ECC71", name: "Staff Salary" },
             ]}
+            stackBars={false}
           />
         </div>
       </div>
@@ -184,7 +281,7 @@ const IncomeSummaryTab = ({ userId }) => {
 
   return (
     <>
-      {isChartLoading ? (
+      {isInitialLoad || isChartLoading ? (
         <div className="flex justify-center items-center min-h-[400px]">
           <LoadingSpinner />
         </div>
@@ -203,7 +300,7 @@ const IncomeSummaryTab = ({ userId }) => {
                 <div
                   className={`w-10 h-10 flex items-center justify-center rounded-[10px] ${card.iconBg}`}
                 >
-                  <i className={`${card.icon} ${card.iconColor} text-3xl`}></i>
+                  <i className={`${card.icon} ${card.iconColor}`}></i>
                 </div>
               </div>
             ))}
@@ -211,71 +308,33 @@ const IncomeSummaryTab = ({ userId }) => {
 
           <div className="mb-6">
             <div className="flex items-center justify-between mb-4">
-              <div className="flex">
-                <button
-                  onClick={() => setView("Monthly")}
-                  className={`px-4 py-2 ${
-                    view === "Monthly"
-                      ? "bg-[#898F63] text-white"
-                      : "bg-white text-black"
-                  } rounded-l-[10px]`}
-                >
-                  Monthly
-                </button>
-                <button
-                  onClick={() => setView("Yearly")}
-                  className={`px-4 py-2 ${
-                    view === "Yearly"
-                      ? "bg-[#898F63] text-white"
-                      : "bg-white text-black"
-                  } rounded-r-[10px]`}
-                >
-                  Yearly
-                </button>
-              </div>
-
-              <div className="flex gap-4">
-                {view === "Monthly" && (
-                  <select
-                    className="px-4 py-2 rounded-[10px] bg-white border border-gray-300"
-                    value={selectedMonth}
-                    onChange={(e) => setSelectedMonth(e.target.value)}
-                  >
-                    {[
-                      "Jan",
-                      "Feb",
-                      "Mar",
-                      "Apr",
-                      "May",
-                      "Jun",
-                      "Jul",
-                      "Aug",
-                      "Sep",
-                      "Oct",
-                      "Nov",
-                      "Dec",
-                    ].map((month) => (
-                      <option key={month} value={month}>
-                        {month}
-                      </option>
-                    ))}
-                  </select>
-                )}
-
+              <div className="flex space-x-4">
                 <select
-                  className="px-4 py-2 rounded-[10px] bg-white border border-gray-300"
                   value={selectedYear}
                   onChange={(e) => setSelectedYear(e.target.value)}
+                  className="px-4 py-2 border rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[#898F63]"
                 >
-                  <option value="2022">2022</option>
-                  <option value="2023">2023</option>
-                  <option value="2024">2024</option>
+                  {availableYears.map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="px-4 py-2 border rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[#898F63]"
+                >
+                  {availableMonths.map((month) => (
+                    <option key={month} value={month}>
+                      {month}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
+            {renderBarChart()}
           </div>
-
-          {view === "Yearly" && renderBarChart()}
         </>
       )}
     </>
