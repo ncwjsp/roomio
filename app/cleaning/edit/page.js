@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Container,
@@ -33,7 +33,8 @@ import {
 } from "date-fns";
 import { useSession } from "next-auth/react";
 
-export default function EditSchedulePage() {
+// Create a wrapper component that uses searchParams
+function EditScheduleContent() {
   const session = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -62,25 +63,29 @@ export default function EditSchedulePage() {
       try {
         setIsLoading(true);
         const response = await fetch(`/api/cleaning/schedule?id=${scheduleId}`);
-        
+
         if (!response.ok) {
           throw new Error("Failed to fetch schedule");
         }
-        
+
         const data = await response.json();
         setSchedule(data);
-        
+
         // Make sure to set selectedDays from the existing schedule - use a Set to avoid duplicates
         if (data.selectedDays && Array.isArray(data.selectedDays)) {
           // Remove any duplicate days by using a Set and ensure all values are numbers
-          const uniqueDays = [...new Set(data.selectedDays)].map(day => Number(day));
+          const uniqueDays = [...new Set(data.selectedDays)].map((day) =>
+            Number(day)
+          );
           setSelectedDays(uniqueDays.sort((a, b) => a - b));
           console.log("Selected Days after load:", uniqueDays);
         }
 
         // Fetch building details
         if (data.buildingId) {
-          const buildingResponse = await fetch(`/api/building/${data.buildingId}`);
+          const buildingResponse = await fetch(
+            `/api/building/${data.buildingId}`
+          );
           if (buildingResponse.ok) {
             const buildingData = await buildingResponse.json();
             setBuildingName(buildingData.name || "Unknown Building");
@@ -94,21 +99,21 @@ export default function EditSchedulePage() {
         if (data.month) {
           const [year, month] = data.month.split("-");
           const monthDate = new Date(parseInt(year), parseInt(month) - 1);
-          
+
           const days = eachDayOfInterval({
             start: startOfMonth(monthDate),
             end: endOfMonth(monthDate),
-          }).map(date => ({
+          }).map((date) => ({
             date,
             day: getDate(date),
             isPast: isPast(date),
             isToday: isToday(date),
             inCurrentMonth: isSameMonth(date, monthDate),
           }));
-          
+
           setCalendarDays(days);
         }
-        
+
         setIsLoading(false);
       } catch (error) {
         console.error("Error fetching schedule:", error);
@@ -139,15 +144,19 @@ export default function EditSchedulePage() {
               style={{
                 transform: `rotate(${i * 30}deg)`,
                 animation: `spinner-fade 1s linear infinite`,
-                animationDelay: `${-0.0833 * (12 - i)}s`
+                animationDelay: `${-0.0833 * (12 - i)}s`,
               }}
             />
           ))}
         </div>
         <style jsx>{`
           @keyframes spinner-fade {
-            0% { opacity: 1 }
-            100% { opacity: 0 }
+            0% {
+              opacity: 1;
+            }
+            100% {
+              opacity: 0;
+            }
           }
         `}</style>
       </div>
@@ -155,14 +164,14 @@ export default function EditSchedulePage() {
   };
 
   const handleDaySelect = (day) => {
-    setSelectedDays(prev => {
+    setSelectedDays((prev) => {
       // Make sure day is a number
       const numDay = Number(day);
-      
+
       // Check if the day is already selected
       if (prev.includes(numDay)) {
         // Remove the day
-        return prev.filter(d => d !== numDay);
+        return prev.filter((d) => d !== numDay);
       } else {
         // Add the day and sort the array
         return [...prev, numDay].sort((a, b) => a - b);
@@ -191,7 +200,11 @@ export default function EditSchedulePage() {
         // Check if the error is about days with booked slots
         if (data.days && Array.isArray(data.days)) {
           setDaysWithBookings(data.days);
-          throw new Error(`Cannot remove days ${data.days.join(', ')} as they have booked slots`);
+          throw new Error(
+            `Cannot remove days ${data.days.join(
+              ", "
+            )} as they have booked slots`
+          );
         }
         throw new Error(data.error || "Failed to update schedule");
       }
@@ -201,12 +214,11 @@ export default function EditSchedulePage() {
         message: "Schedule updated successfully",
         severity: "success",
       });
-      
+
       // Navigate back to cleaning page after short delay
       setTimeout(() => {
         router.push("/cleaning");
       }, 1500);
-      
     } catch (error) {
       console.error("Error updating schedule:", error);
       setSnackbar({
@@ -226,7 +238,12 @@ export default function EditSchedulePage() {
   if (isLoading) {
     return (
       <Container maxWidth="md" sx={{ py: 4 }}>
-        <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
+        <Box
+          display="flex"
+          justifyContent="center"
+          alignItems="center"
+          minHeight="50vh"
+        >
           <LoadingSpinner />
         </Box>
       </Container>
@@ -237,8 +254,8 @@ export default function EditSchedulePage() {
     return (
       <Container maxWidth="md" sx={{ py: 4 }}>
         <Alert severity="error">Schedule not found</Alert>
-        <Button 
-          variant="contained" 
+        <Button
+          variant="contained"
           onClick={() => router.push("/cleaning")}
           sx={{ mt: 2, bgcolor: "#898F63", "&:hover": { bgcolor: "#707454" } }}
         >
@@ -253,33 +270,42 @@ export default function EditSchedulePage() {
 
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
-      <Box sx={{ mb: 4, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <Box
+        sx={{
+          mb: 4,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
         <Typography variant="h4" color="#898F63" fontWeight={600}>
           Edit Cleaning Schedule
         </Typography>
         <Button
           variant="outlined"
           onClick={() => router.push("/cleaning")}
-          sx={{ 
-            color: "#898F63", 
+          sx={{
+            color: "#898F63",
             borderColor: "#898F63",
-            "&:hover": { 
+            "&:hover": {
               borderColor: "#707454",
-              backgroundColor: "rgba(137, 143, 99, 0.04)" 
-            } 
+              backgroundColor: "rgba(137, 143, 99, 0.04)",
+            },
           }}
         >
           Back to Cleaning Management
         </Button>
       </Box>
 
-      <Card sx={{ mb: 4, borderRadius: 2, boxShadow: (theme) => theme.shadows[1] }}>
+      <Card
+        sx={{ mb: 4, borderRadius: 2, boxShadow: (theme) => theme.shadows[1] }}
+      >
         <CardContent>
           <Typography variant="h6" gutterBottom fontWeight={500}>
             Schedule Details
           </Typography>
           <Divider sx={{ mb: 2 }} />
-          
+
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6}>
               <Typography color="text.secondary" variant="body2">
@@ -294,7 +320,9 @@ export default function EditSchedulePage() {
                 Month
               </Typography>
               <Typography variant="body1" fontWeight={500}>
-                {schedule.month ? format(parseISO(`${schedule.month}-01`), "MMMM yyyy") : "Unknown"}
+                {schedule.month
+                  ? format(parseISO(`${schedule.month}-01`), "MMMM yyyy")
+                  : "Unknown"}
               </Typography>
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -302,7 +330,8 @@ export default function EditSchedulePage() {
                 Slot Duration
               </Typography>
               <Typography variant="body1" fontWeight={500}>
-                {Math.floor(schedule.slotDuration / 60)}h {schedule.slotDuration % 60}m
+                {Math.floor(schedule.slotDuration / 60)}h{" "}
+                {schedule.slotDuration % 60}m
               </Typography>
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -311,7 +340,7 @@ export default function EditSchedulePage() {
               </Typography>
               <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mt: 0.5 }}>
                 {schedule.timeRanges?.map((range, index) => (
-                  <Chip 
+                  <Chip
                     key={index}
                     label={`${range.start} - ${range.end}`}
                     sx={{ bgcolor: "primary.lighter" }}
@@ -324,13 +353,16 @@ export default function EditSchedulePage() {
         </CardContent>
       </Card>
 
-      <Card sx={{ mb: 4, borderRadius: 2, boxShadow: (theme) => theme.shadows[1] }}>
+      <Card
+        sx={{ mb: 4, borderRadius: 2, boxShadow: (theme) => theme.shadows[1] }}
+      >
         <CardContent>
           <Typography variant="h6" gutterBottom fontWeight={500}>
             Select Cleaning Days
           </Typography>
           <Typography color="text.secondary" variant="body2" sx={{ mb: 2 }}>
-            Check the days when cleaning should be scheduled. Past dates are disabled.
+            Check the days when cleaning should be scheduled. Past dates are
+            disabled.
           </Typography>
 
           <Grid container spacing={1} sx={{ mb: 1 }}>
@@ -359,94 +391,107 @@ export default function EditSchedulePage() {
             {/* Calendar days */}
             {calendarDays.map((calendarDay) => {
               const isSelected = selectedDays.includes(Number(calendarDay.day));
-              
+
               return (
-              <Grid item xs={12 / 7} key={`day-${calendarDay.day}`}>
-                <Paper
-                  elevation={0}
-                  onClick={() => !calendarDay.isPast && handleDaySelect(Number(calendarDay.day))}
-                  sx={{
-                    p: 2,
-                    border: 1,
-                    borderColor: daysWithBookings.includes(calendarDay.day)
-                      ? "error.main"
-                      : isSelected
+                <Grid item xs={12 / 7} key={`day-${calendarDay.day}`}>
+                  <Paper
+                    elevation={0}
+                    onClick={() =>
+                      !calendarDay.isPast &&
+                      handleDaySelect(Number(calendarDay.day))
+                    }
+                    sx={{
+                      p: 2,
+                      border: 1,
+                      borderColor: daysWithBookings.includes(calendarDay.day)
+                        ? "error.main"
+                        : isSelected
                         ? "#898F63"
                         : "divider",
-                    textAlign: "center",
-                    bgcolor: daysWithBookings.includes(calendarDay.day)
-                      ? "error.lighter"
-                      : isSelected
+                      textAlign: "center",
+                      bgcolor: daysWithBookings.includes(calendarDay.day)
+                        ? "error.lighter"
+                        : isSelected
                         ? "rgba(137, 143, 99, 0.15)"
                         : calendarDay.isPast
-                          ? "action.disabledBackground"
-                          : "transparent",
-                    cursor: calendarDay.isPast || daysWithBookings.includes(calendarDay.day) 
-                      ? "default" 
-                      : "pointer",
-                    opacity: calendarDay.isPast ? 0.6 : 1,
-                    position: "relative",
-                    transition: "all 0.2s",
-                    "&:hover": !calendarDay.isPast && !daysWithBookings.includes(calendarDay.day)
-                      ? {
-                          bgcolor: isSelected
-                            ? "rgba(137, 143, 99, 0.25)"
-                            : "action.hover",
-                          transform: "translateY(-2px)",
-                          boxShadow: 1,
-                        }
-                      : {},
-                  }}
-                >
-                  <Typography
-                    sx={{
-                      fontWeight: isSelected || daysWithBookings.includes(calendarDay.day) ? 600 : 400,
-                      color: daysWithBookings.includes(calendarDay.day) 
-                        ? "error.main" 
-                        : isSelected
-                          ? "#898F63" 
-                          : "text.primary"
+                        ? "action.disabledBackground"
+                        : "transparent",
+                      cursor:
+                        calendarDay.isPast ||
+                        daysWithBookings.includes(calendarDay.day)
+                          ? "default"
+                          : "pointer",
+                      opacity: calendarDay.isPast ? 0.6 : 1,
+                      position: "relative",
+                      transition: "all 0.2s",
+                      "&:hover":
+                        !calendarDay.isPast &&
+                        !daysWithBookings.includes(calendarDay.day)
+                          ? {
+                              bgcolor: isSelected
+                                ? "rgba(137, 143, 99, 0.25)"
+                                : "action.hover",
+                              transform: "translateY(-2px)",
+                              boxShadow: 1,
+                            }
+                          : {},
                     }}
                   >
-                    {calendarDay.day}
-                  </Typography>
-                  {isSelected && (
-                    <Box
+                    <Typography
                       sx={{
-                        position: "absolute",
-                        width: "6px",
-                        height: "6px",
-                        borderRadius: "50%",
-                        bgcolor: "#898F63",
-                        bottom: 5,
-                        left: "calc(50% - 3px)",
+                        fontWeight:
+                          isSelected ||
+                          daysWithBookings.includes(calendarDay.day)
+                            ? 600
+                            : 400,
+                        color: daysWithBookings.includes(calendarDay.day)
+                          ? "error.main"
+                          : isSelected
+                          ? "#898F63"
+                          : "text.primary",
                       }}
-                    />
-                  )}
-                  {calendarDay.isToday && (
-                    <Box
-                      sx={{
-                        position: "absolute",
-                        width: "5px",
-                        height: "5px",
-                        borderRadius: "50%",
-                        bgcolor: "primary.main",
-                        bottom: 5,
-                        left: "calc(50% - 2.5px)",
-                      }}
-                    />
-                  )}
-                </Paper>
-              </Grid>
-            );
-          })}
+                    >
+                      {calendarDay.day}
+                    </Typography>
+                    {isSelected && (
+                      <Box
+                        sx={{
+                          position: "absolute",
+                          width: "6px",
+                          height: "6px",
+                          borderRadius: "50%",
+                          bgcolor: "#898F63",
+                          bottom: 5,
+                          left: "calc(50% - 3px)",
+                        }}
+                      />
+                    )}
+                    {calendarDay.isToday && (
+                      <Box
+                        sx={{
+                          position: "absolute",
+                          width: "5px",
+                          height: "5px",
+                          borderRadius: "50%",
+                          bgcolor: "primary.main",
+                          bottom: 5,
+                          left: "calc(50% - 2.5px)",
+                        }}
+                      />
+                    )}
+                  </Paper>
+                </Grid>
+              );
+            })}
           </Grid>
 
           <Box sx={{ mt: 3 }}>
             <Typography variant="subtitle1" fontWeight={500}>
               Selected Days:{" "}
               {selectedDays.length > 0
-                ? selectedDays.map(day => String(day).padStart(2, "0")).join(", ")
+                ? selectedDays
+                    .map((day) => String(day).padStart(2, "0"))
+                    .join(", ")
                 : "None"}
             </Typography>
             {selectedDays.length === 0 && (
@@ -456,11 +501,16 @@ export default function EditSchedulePage() {
             )}
             {daysWithBookings.length > 0 && (
               <Alert severity="error" sx={{ mt: 2 }}>
-                Days {daysWithBookings.map(d => String(d).padStart(2, "0")).join(", ")} have booked slots and cannot be removed.
+                Days{" "}
+                {daysWithBookings
+                  .map((d) => String(d).padStart(2, "0"))
+                  .join(", ")}{" "}
+                have booked slots and cannot be removed.
               </Alert>
             )}
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              Days with a green dot are currently scheduled. Click on a highlighted date to remove it from the schedule.
+              Days with a green dot are currently scheduled. Click on a
+              highlighted date to remove it from the schedule.
             </Typography>
           </Box>
         </CardContent>
@@ -470,13 +520,13 @@ export default function EditSchedulePage() {
         <Button
           variant="outlined"
           onClick={() => router.push("/cleaning")}
-          sx={{ 
-            color: "#898F63", 
+          sx={{
+            color: "#898F63",
             borderColor: "#898F63",
-            "&:hover": { 
+            "&:hover": {
               borderColor: "#707454",
-              backgroundColor: "rgba(137, 143, 99, 0.04)" 
-            } 
+              backgroundColor: "rgba(137, 143, 99, 0.04)",
+            },
           }}
         >
           Cancel
@@ -491,7 +541,11 @@ export default function EditSchedulePage() {
             minWidth: "120px",
           }}
         >
-          {isSaving ? <CircularProgress size={24} color="inherit" /> : "Save Changes"}
+          {isSaving ? (
+            <CircularProgress size={24} color="inherit" />
+          ) : (
+            "Save Changes"
+          )}
         </Button>
       </Box>
 
@@ -506,5 +560,27 @@ export default function EditSchedulePage() {
         </Alert>
       </Snackbar>
     </Container>
+  );
+}
+
+// Main component with Suspense boundary
+export default function EditSchedulePage() {
+  return (
+    <Suspense
+      fallback={
+        <Container maxWidth="md" sx={{ py: 4 }}>
+          <Box
+            display="flex"
+            justifyContent="center"
+            alignItems="center"
+            minHeight="50vh"
+          >
+            <CircularProgress sx={{ color: "#898F63" }} />
+          </Box>
+        </Container>
+      }
+    >
+      <EditScheduleContent />
+    </Suspense>
   );
 }
