@@ -298,7 +298,7 @@ const IncomeSummaryTab = ({ userId }) => {
                   <p className="text-2xl font-bold">{card.value}</p>
                 </div>
                 <div
-                  className={`w-10 h-10 flex items-center justify-center rounded-[10px] ${card.iconBg}`}
+                  className={`w-10 h-10 flex items-center justify-center rounded-[10px]`}
                 >
                   <i className={`${card.icon} ${card.iconColor}`}></i>
                 </div>

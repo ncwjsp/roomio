@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import Bill from "@/app/models/Bill";
 import Tenant from "@/app/models/Tenant";
-import { format } from "date-fns";
 
 export async function GET(request) {
   try {
@@ -38,49 +37,47 @@ export async function GET(request) {
       );
     }
 
-    // Get current month's bill
-    const currentDate = new Date();
-    const currentMonth = format(currentDate, "yyyy-MM");
-
-    const bill = await Bill.findOne({
+    // Get the latest sent bill for this tenant's room
+    const latestBill = await Bill.findOne({
       roomId: tenant.room,
-      month: currentMonth,
-      isSent: true
-    }).populate({
-      path: "roomId",
-      select: "roomNumber floor tenant",
-      populate: [
-        {
-          path: "floor",
-          select: "building",
-          populate: {
-            path: "building",
-            select: "name createdBy",
+      isSent: true,
+    })
+      .sort({ month: -1 }) // Sort by month in descending order
+      .populate({
+        path: "roomId",
+        select: "roomNumber floor tenant",
+        populate: [
+          {
+            path: "floor",
+            select: "building",
             populate: {
-              path: "createdBy",
-              select: "bankCode accountNumber accountName",
+              path: "building",
+              select: "name createdBy",
+              populate: {
+                path: "createdBy",
+                select: "bankCode accountNumber accountName",
+              },
             },
           },
-        },
-        {
-          path: "tenant",
-          select: "leaseStartDate leaseEndDate",
-        },
-      ],
-    });
+          {
+            path: "tenant",
+            select: "leaseStartDate leaseEndDate",
+          },
+        ],
+      });
 
-    if (!bill) {
+    if (!latestBill) {
       return NextResponse.json(
-        { error: "No current bill found for this month" },
+        { error: "No bills found for this tenant" },
         { status: 404 }
       );
     }
 
-    return NextResponse.json(bill);
+    return NextResponse.json(latestBill);
   } catch (error) {
-    console.error("Error fetching current bill:", error);
+    console.error("Error fetching latest bill:", error);
     return NextResponse.json(
-      { error: "Failed to fetch current bill" },
+      { error: "Failed to fetch latest bill" },
       { status: 500 }
     );
   }

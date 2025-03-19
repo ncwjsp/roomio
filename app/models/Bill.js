@@ -181,50 +181,50 @@ billSchema.pre("save", function (next) {
   next();
 });
 
-// Pre-update middleware
-billSchema.pre("findOneAndUpdate", function (next) {
-  const update = this.getUpdate();
-  if (update.$set) {
-    // Check if we're using $set operator
-    const waterUsage = Number(update.$set.waterUsage) || 0;
-    const waterRate = Number(update.$set.waterRate) || 0;
-    const electricityUsage = Number(update.$set.electricityUsage) || 0;
-    const electricityRate = Number(update.$set.electricityRate) || 0;
-    const rentAmount = Number(update.$set.rentAmount) || 0;
+// // Pre-update middleware
+// billSchema.pre("findOneAndUpdate", function (next) {
+//   const update = this.getUpdate();
+//   if (update.$set) {
+//     // Check if we're using $set operator
+//     const waterUsage = Number(update.$set.waterUsage) || 0;
+//     const waterRate = Number(update.$set.waterRate) || 0;
+//     const electricityUsage = Number(update.$set.electricityUsage) || 0;
+//     const electricityRate = Number(update.$set.electricityRate) || 0;
+//     const rentAmount = Number(update.$set.rentAmount) || 0;
 
-    // Calculate water and electricity amounts
-    update.$set.waterAmount = waterUsage * waterRate;
-    update.$set.electricityAmount = electricityUsage * electricityRate;
+//     // Calculate water and electricity amounts
+//     update.$set.waterAmount = waterUsage * waterRate;
+//     update.$set.electricityAmount = electricityUsage * electricityRate;
 
-    // Calculate additional fees total
-    const additionalFeesTotal = Array.isArray(update.$set.additionalFees)
-      ? update.$set.additionalFees.reduce(
-          (sum, fee) => sum + (Number(fee.price) || 0),
-          0
-        )
-      : 0;
+//     // Calculate additional fees total
+//     const additionalFeesTotal = Array.isArray(update.$set.additionalFees)
+//       ? update.$set.additionalFees.reduce(
+//           (sum, fee) => sum + (Number(fee.price) || 0),
+//           0
+//         )
+//       : 0;
 
-    // Calculate total amount
-    update.$set.totalAmount =
-      rentAmount +
-      update.$set.waterAmount +
-      update.$set.electricityAmount +
-      additionalFeesTotal;
+//     // Calculate total amount
+//     update.$set.totalAmount =
+//       rentAmount +
+//       update.$set.waterAmount +
+//       update.$set.electricityAmount +
+//       additionalFeesTotal;
 
-    console.log("Pre-update calculations:", {
-      waterUsage,
-      waterRate,
-      electricityUsage,
-      electricityRate,
-      rentAmount,
-      waterAmount: update.$set.waterAmount,
-      electricityAmount: update.$set.electricityAmount,
-      totalAmount: update.$set.totalAmount,
-      additionalFees: update.$set.additionalFees || [],
-    });
-  }
-  next();
-});
+//     console.log("Pre-update calculations:", {
+//       waterUsage,
+//       waterRate,
+//       electricityUsage,
+//       electricityRate,
+//       rentAmount,
+//       waterAmount: update.$set.waterAmount,
+//       electricityAmount: update.$set.electricityAmount,
+//       totalAmount: update.$set.totalAmount,
+//       additionalFees: update.$set.additionalFees || [],
+//     });
+//   }
+//   next();
+// });
 
 // Instance method for calculations
 billSchema.methods.calculateAmounts = function () {

@@ -18,7 +18,7 @@ export async function POST(request) {
 
     const { billingDate } = await request.json();
     console.log("Creating bills for date:", billingDate);
-    
+
     // Validate billingDate
     const parsedDate = parseISO(billingDate);
     if (!isValid(parsedDate)) {
@@ -39,11 +39,12 @@ export async function POST(request) {
       userBuildings.map(async (building) => {
         // Get dueDate from building configuration (default to 5 if not set)
         const { dueDate = 5 } = building.billingConfig || {};
-        
+
         // Calculate due date as the specified date of the next month
         const nextMonth = addMonths(parsedDate, 1);
         const dueDateObj = setDate(nextMonth, dueDate);
-        
+        dueDateObj.setHours(0, 0, 0, 0); // Just set to start of day
+
         // Validate dueDate
         if (!isValid(dueDateObj)) {
           throw new Error("Invalid due date calculated");
@@ -71,7 +72,7 @@ export async function POST(request) {
             console.log("Creating bill for room:", {
               roomNumber: room.roomNumber,
               price: room.price,
-              rentAmount: room.price // Always use full rent amount for new bills
+              rentAmount: room.price, // Always use full rent amount for new bills
             });
 
             // Create new bill with proper fee structure
@@ -97,18 +98,24 @@ export async function POST(request) {
               initialMeterReadings: {
                 water: room.currentMeterReadings?.water || 0,
                 electricity: room.currentMeterReadings?.electricity || 0,
-                lastUpdated: room.currentMeterReadings?.lastUpdated || new Date()
+                lastUpdated:
+                  room.currentMeterReadings?.lastUpdated || new Date(),
               },
               currentMeterReadings: {
                 water: room.currentMeterReadings?.water || 0,
                 electricity: room.currentMeterReadings?.electricity || 0,
-                lastUpdated: room.currentMeterReadings?.lastUpdated || new Date()
-              }
+                lastUpdated:
+                  room.currentMeterReadings?.lastUpdated || new Date(),
+              },
             });
           })
         );
 
-        console.log(`Created ${buildingBills.filter(Boolean).length} bills for building ${building.name}`);
+        console.log(
+          `Created ${buildingBills.filter(Boolean).length} bills for building ${
+            building.name
+          }`
+        );
 
         return buildingBills.filter(Boolean);
       })

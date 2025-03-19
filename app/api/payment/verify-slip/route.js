@@ -3,6 +3,7 @@ import dbConnect from "@/lib/mongodb";
 import Bill from "@/app/models/Bill";
 import Tenant from "@/app/models/Tenant";
 import User from "@/app/models/User";
+import Room from "@/app/models/Room";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { v4 as uuidv4 } from "uuid";
 
@@ -219,6 +220,20 @@ export async function POST(request) {
               new: true,
               runValidators: true,
             }
+          );
+
+          await Room.findByIdAndUpdate(
+            tenant.room,
+            {
+              $inc: {
+                "currentMeterReadings.water": bill.waterUsage,
+                "currentMeterReadings.electricity": bill.electricityUsage,
+              },
+              $set: {
+                "currentMeterReadings.lastUpdated": new Date(),
+              },
+            },
+            { new: true }
           );
 
           console.log("Updated bill values:", {

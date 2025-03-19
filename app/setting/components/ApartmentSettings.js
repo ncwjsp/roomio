@@ -21,7 +21,7 @@ import {
   Switch,
   FormControlLabel,
   Stack,
-  FormHelperText
+  FormHelperText,
 } from "@mui/material";
 
 // Loading Spinner Component
@@ -36,15 +36,19 @@ const LoadingSpinner = () => {
             style={{
               transform: `rotate(${i * 30}deg)`,
               animation: `spinner-fade 1s linear infinite`,
-              animationDelay: `${-0.0833 * (12 - i)}s`
+              animationDelay: `${-0.0833 * (12 - i)}s`,
             }}
           />
         ))}
       </div>
       <style jsx>{`
         @keyframes spinner-fade {
-          0% { opacity: 1 }
-          100% { opacity: 0 }
+          0% {
+            opacity: 1;
+          }
+          100% {
+            opacity: 0;
+          }
         }
       `}</style>
     </div>
@@ -62,7 +66,7 @@ const ApartmentSettings = () => {
     billingConfig: {
       dueDate: 5,
       latePaymentCharge: 0,
-    }
+    },
   });
   const [billingCycle, setBillingCycle] = useState({
     startDate: 1,
@@ -90,7 +94,7 @@ const ApartmentSettings = () => {
       setIsLoading(false);
     }
   };
-  
+
   const handleEditBuilding = (building) => {
     setSelectedBuilding(building);
     setFormData({
@@ -98,9 +102,12 @@ const ApartmentSettings = () => {
       waterRate: building.waterRate || 0,
       electricityRate: building.electricityRate || 0,
       billingConfig: {
-        dueDate: building.billingConfig?.dueDate || 5,
+        dueDate:
+          parseInt(
+            String(building.billingConfig?.dueDate).split(".")[1]?.split("+")[0]
+          ) || 5,
         latePaymentCharge: building.billingConfig?.latePaymentCharge || 0,
-      }
+      },
     });
     setEditModalOpen(true);
   };
@@ -109,20 +116,25 @@ const ApartmentSettings = () => {
     e.preventDefault();
     if (!selectedBuilding) return;
 
+    // Convert the dueDate number to the required date format before sending
+    const formattedData = {
+      ...formData,
+      billingConfig: {
+        ...formData.billingConfig,
+        dueDate: new Date(
+          `1970-01-01T00:00:00.${String(
+            formData.billingConfig.dueDate
+          ).padStart(3, "0")}+00:00`
+        ),
+      },
+    };
+
     try {
       setIsLoading(true);
       const response = await fetch(`/api/buildings/${selectedBuilding._id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: formData.name,
-          waterRate: formData.waterRate,
-          electricityRate: formData.electricityRate,
-          billingConfig: {
-            dueDate: formData.billingConfig?.dueDate || 5,
-            latePaymentCharge: formData.billingConfig?.latePaymentCharge || 0,
-          }
-        }),
+        body: JSON.stringify(formattedData),
       });
 
       const data = await response.json();
@@ -134,12 +146,15 @@ const ApartmentSettings = () => {
 
       // Update rooms with new building name
       if (formData.name !== selectedBuilding.name) {
-        const roomResponse = await fetch(`/api/buildings/${selectedBuilding._id}/rooms/update-names`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ buildingName: formData.name }),
-        });
-        
+        const roomResponse = await fetch(
+          `/api/buildings/${selectedBuilding._id}/rooms/update-names`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ buildingName: formData.name }),
+          }
+        );
+
         if (!roomResponse.ok) throw new Error("Failed to update room names");
       }
 
@@ -164,12 +179,14 @@ const ApartmentSettings = () => {
 
   if (isLoading) {
     return (
-      <Box sx={{
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        minHeight: "300px",
-      }}>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: "300px",
+        }}
+      >
         <LoadingSpinner />
       </Box>
     );
@@ -194,14 +211,21 @@ const ApartmentSettings = () => {
         {buildings.map((building) => (
           <Grid item xs={12} key={building._id}>
             <Paper sx={{ p: 3, borderRadius: 2 }}>
-              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  mb: 2,
+                }}
+              >
                 <Typography variant="h6">{building.name}</Typography>
-                <Button 
-                  variant="contained" 
+                <Button
+                  variant="contained"
                   onClick={() => handleEditBuilding(building)}
-                  sx={{ 
+                  sx={{
                     bgcolor: "#898F63",
-                    "&:hover": { bgcolor: "#7C8F59" }
+                    "&:hover": { bgcolor: "#7C8F59" },
                   }}
                 >
                   Edit
@@ -213,15 +237,21 @@ const ApartmentSettings = () => {
                   <Typography>฿{building.waterRate}/unit</Typography>
                 </Grid>
                 <Grid item xs={12} sm={4}>
-                  <Typography color="text.secondary">Electricity Rate</Typography>
+                  <Typography color="text.secondary">
+                    Electricity Rate
+                  </Typography>
                   <Typography>฿{building.electricityRate}/unit</Typography>
                 </Grid>
                 <Grid item xs={12} sm={4}>
                   <Typography color="text.secondary">Due Date</Typography>
                   <Typography>
-                    {building.billingConfig?.dueDate}{building.billingConfig?.dueDate === 1 ? "st" : 
-                    building.billingConfig?.dueDate === 2 ? "nd" : 
-                    building.billingConfig?.dueDate === 3 ? "rd" : "th"} of next month
+                    {`${
+                      parseInt(
+                        building.billingConfig?.dueDate
+                          ?.split(".")[1]
+                          ?.split("+")[0]
+                      ) || 5
+                    }th of next month`}
                   </Typography>
                 </Grid>
               </Grid>
@@ -230,16 +260,23 @@ const ApartmentSettings = () => {
         ))}
       </Grid>
 
-     
       {/* Building Edit Dialog */}
-      <Dialog 
-        open={editModalOpen} 
+      <Dialog
+        open={editModalOpen}
         onClose={() => setEditModalOpen(false)}
         maxWidth="sm"
         fullWidth
       >
         <form onSubmit={handleSubmit}>
-          <DialogTitle sx={{ px: 3, pt: 3, pb: 2, borderBottom: 1, borderColor: 'divider' }}>
+          <DialogTitle
+            sx={{
+              px: 3,
+              pt: 3,
+              pb: 2,
+              borderBottom: 1,
+              borderColor: "divider",
+            }}
+          >
             Edit Building
           </DialogTitle>
           <DialogContent sx={{ p: 3 }}>
@@ -303,19 +340,29 @@ const ApartmentSettings = () => {
                 <Select
                   labelId="due-date-label"
                   value={formData.billingConfig?.dueDate || 5}
-                  onChange={(e) => setFormData({
-                    ...formData,
-                    billingConfig: {
-                      ...(formData.billingConfig || {}),
-                      dueDate: Number(e.target.value)
-                    }
-                  })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      billingConfig: {
+                        ...(formData.billingConfig || {}),
+                        dueDate: e.target.value,
+                      },
+                    })
+                  }
                   required
                   label="Due Date"
                 >
                   {[...Array(15)].map((_, i) => (
                     <MenuItem key={i + 1} value={i + 1}>
-                      {i + 1}{i === 0 ? "st" : i === 1 ? "nd" : i === 2 ? "rd" : "th"} of next month
+                      {i + 1}
+                      {i === 0
+                        ? "st"
+                        : i === 1
+                        ? "nd"
+                        : i === 2
+                        ? "rd"
+                        : "th"}{" "}
+                      of next month
                     </MenuItem>
                   ))}
                 </Select>
@@ -328,13 +375,15 @@ const ApartmentSettings = () => {
                 type="number"
                 fullWidth
                 value={formData.billingConfig?.latePaymentCharge || 0}
-                onChange={(e) => setFormData({
-                  ...formData,
-                  billingConfig: {
-                    ...(formData.billingConfig || {}),
-                    latePaymentCharge: Number(e.target.value)
-                  }
-                })}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    billingConfig: {
+                      ...(formData.billingConfig || {}),
+                      latePaymentCharge: Number(e.target.value),
+                    },
+                  })
+                }
                 required
                 helperText="Fixed amount charged for late payments"
                 inputProps={{ min: 0 }}
@@ -347,14 +396,16 @@ const ApartmentSettings = () => {
               />
             </Stack>
           </DialogContent>
-          <DialogActions sx={{ px: 3, py: 2, borderTop: 1, borderColor: 'divider' }}>
+          <DialogActions
+            sx={{ px: 3, py: 2, borderTop: 1, borderColor: "divider" }}
+          >
             <Button onClick={() => setEditModalOpen(false)}>Cancel</Button>
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               variant="contained"
-              sx={{ 
+              sx={{
                 bgcolor: "#898F63",
-                "&:hover": { bgcolor: "#7C8F59" }
+                "&:hover": { bgcolor: "#7C8F59" },
               }}
             >
               Save Changes
