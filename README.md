@@ -138,7 +138,7 @@ After registering an account on Roomio, you'll be prompted to configure LINE OA 
 4. Paste the credentials and LIFF IDs into the Roomio registration page
 5. Set your Roomio webhook URL in the LINE Developer console:
    ```
-   https://your-domain.vercel.app/api/line?id=<your_landlord_id>
+   https://roomio-apt.vercel.app/api/line?id=<your_landlord_id>
    ```
 
 ---
