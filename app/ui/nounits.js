@@ -15,7 +15,7 @@ const NoUnits = () => {
             No Units Found
           </h1>
           <p className="text-gray-600 mb-6">
-            It looks like you haven't added any units yet. Create one to get
+            It looks like you haven&apos;t added any units yet. Create one to get
             started!
           </p>
           <button

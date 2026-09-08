@@ -748,7 +748,7 @@ const Buildings = () => {
               No Buildings Found
             </Typography>
             <Typography color="text.secondary" sx={{ mb: 3, maxWidth: "500px" }}>
-              Start managing your properties by adding your first building. Click the "Add Building" button above to get started.
+              Start managing your properties by adding your first building. Click the &quot;Add Building&quot; button above to get started.
             </Typography>
             <Button
               variant="contained"
